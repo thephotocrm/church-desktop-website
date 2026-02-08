@@ -77,26 +77,26 @@ export default function LiveStream() {
                     <h3 className="text-white text-xl md:text-2xl font-bold mb-2 text-shadow">
                       Live Stream Starting Soon
                     </h3>
-                    <p className="text-white/70 font-body text-sm mb-6">
+                    <p className="text-white/70 font-body text-sm">
                       Our next service will be streamed live
                     </p>
-                    <div className="flex gap-3">
-                      <a href="https://youtube.com" target="_blank" rel="noopener noreferrer">
-                        <Button className="bg-red-600 text-white border-red-600 font-body" data-testid="button-youtube-live">
-                          <SiYoutube className="w-4 h-4 mr-2" />
-                          Watch on YouTube
-                        </Button>
-                      </a>
-                      <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">
-                        <Button variant="outline" className="text-white border-white/30 bg-white/10 backdrop-blur-sm font-body" data-testid="button-facebook-live">
-                          <SiFacebook className="w-4 h-4 mr-2" />
-                          Facebook Live
-                        </Button>
-                      </a>
-                    </div>
                   </div>
                 </div>
               </Card>
+              <div className="flex gap-3 justify-center mt-6">
+                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer">
+                  <Button className="bg-red-600 text-white border-red-600 font-body" data-testid="button-youtube-live">
+                    <SiYoutube className="w-4 h-4 mr-2" />
+                    Watch on YouTube
+                  </Button>
+                </a>
+                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" className="font-body" data-testid="button-facebook-live">
+                    <SiFacebook className="w-4 h-4 mr-2" />
+                    Facebook Live
+                  </Button>
+                </a>
+              </div>
             </motion.div>
           </motion.div>
         </div>
