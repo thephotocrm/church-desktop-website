@@ -44,17 +44,17 @@ export function Navigation() {
       data-testid="navigation-bar"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-4 h-16 md:h-20">
+        <div className="flex items-center justify-between gap-4 h-20 md:h-20">
           <Link href="/" data-testid="link-home-logo">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <div className="w-8 h-8 md:w-10 md:h-10 rounded-md bg-accent flex items-center justify-center">
-                <Cross className="w-5 h-5 md:w-6 md:h-6 text-accent-foreground" />
+            <div className="flex items-center gap-3 md:gap-2 cursor-pointer">
+              <div className="w-11 h-11 md:w-10 md:h-10 rounded-md bg-accent flex items-center justify-center">
+                <Cross className="w-7 h-7 md:w-6 md:h-6 text-accent-foreground" />
               </div>
               <div className="flex flex-col">
-                <span className={`text-sm md:text-base font-bold leading-tight tracking-wide ${textColor}`}>
+                <span className={`text-base md:text-base font-bold leading-tight tracking-wide ${textColor}`}>
                   First Pentecostal
                 </span>
-                <span className={`text-xs leading-tight font-body ${scrolled || !isHome ? "text-muted-foreground" : "text-white/70"}`}>
+                <span className={`text-sm md:text-xs leading-tight font-body ${scrolled || !isHome ? "text-muted-foreground" : "text-white/70"}`}>
                   Church of Dallas
                 </span>
               </div>
@@ -80,7 +80,7 @@ export function Navigation() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 md:gap-2">
             <Button
               size="icon"
               variant="ghost"
@@ -88,7 +88,7 @@ export function Navigation() {
               className={scrolled || !isHome ? "" : "text-white hover:text-white"}
               data-testid="button-theme-toggle"
             >
-              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {theme === "dark" ? <Sun className="w-6 h-6 md:w-5 md:h-5" /> : <Moon className="w-6 h-6 md:w-5 md:h-5" />}
             </Button>
 
             <div className="lg:hidden">
@@ -100,7 +100,7 @@ export function Navigation() {
                     className={scrolled || !isHome ? "" : "text-white hover:text-white"}
                     data-testid="button-mobile-menu"
                   >
-                    <Menu className="w-6 h-6" />
+                    <Menu className="w-7 h-7" />
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="right" className="w-80 bg-background">
