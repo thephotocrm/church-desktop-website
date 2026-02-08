@@ -309,6 +309,76 @@ export default function Home() {
         </section>
       )}
 
+      <section className="py-20 bg-card" data-testid="section-location">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={stagger}
+          >
+            <motion.div variants={fadeUp} className="text-center mb-14">
+              <span className="text-gold font-body text-sm font-semibold uppercase tracking-widest">Come See Us</span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2">Find Our Church</h2>
+              <div className="w-16 h-1 bg-gold mx-auto mt-4 rounded-full" />
+            </motion.div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+              <motion.div variants={fadeUp} className="lg:col-span-2">
+                <Card className="overflow-hidden">
+                  <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3345.5!2d-96.5388!3d33.0151!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x864c19f2a5d1c0a1%3A0x0!2s110+Security+Ct%2C+Wylie%2C+TX+75098!5e0!3m2!1sen!2sus!4v1700000000000"
+                    width="100%"
+                    height="350"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="Church Location - 110 Security Ct, Wylie, TX 75098"
+                    data-testid="map-home"
+                  />
+                </Card>
+              </motion.div>
+
+              <motion.div variants={fadeUp} className="space-y-4">
+                <Card className="p-6">
+                  <div className="flex gap-4">
+                    <div className="w-11 h-11 rounded-md bg-accent flex items-center justify-center shrink-0">
+                      <MapPin className="w-5 h-5 text-accent-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold mb-1">Address</h3>
+                      <p className="text-muted-foreground font-body text-sm">110 Security Ct<br />Wylie, TX 75098</p>
+                    </div>
+                  </div>
+                </Card>
+                <Card className="p-6">
+                  <div className="flex gap-4">
+                    <div className="w-11 h-11 rounded-md bg-accent flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5 text-accent-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold mb-1">Service Times</h3>
+                      <p className="text-muted-foreground font-body text-sm">
+                        Sun Morning: 10:00 AM<br />
+                        Sun Evening: 6:00 PM<br />
+                        Wednesday: 7:00 PM
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+                <Link href="/connect">
+                  <Button className="bg-gold text-white border-gold font-body w-full mt-2" data-testid="button-get-directions">
+                    <MapPin className="w-4 h-4 mr-2" />
+                    Get Directions
+                  </Button>
+                </Link>
+              </motion.div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       <section className="py-20 relative overflow-hidden" data-testid="section-cta">
         <div className="absolute inset-0">
           <img

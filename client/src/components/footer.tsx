@@ -70,7 +70,7 @@ export function Footer() {
                 <Clock className="w-4 h-4 text-gold mt-0.5 shrink-0" />
                 <div>
                   <p className="text-white font-semibold">Sunday Evening</p>
-                  <p className="text-white/60">6:00 PM - Evening Service</p>
+                  <p className="text-white/60">6:00 PM - Study & Fellowship</p>
                 </div>
               </li>
               <li className="flex gap-3">
@@ -88,7 +88,7 @@ export function Footer() {
             <ul className="space-y-4 font-body text-sm">
               <li className="flex gap-3">
                 <MapPin className="w-4 h-4 text-gold mt-0.5 shrink-0" />
-                <span className="text-white/70">1234 Faith Avenue<br />Dallas, TX 75201</span>
+                <span className="text-white/70">110 Security Ct<br />Wylie, TX 75098</span>
               </li>
               <li className="flex gap-3">
                 <Phone className="w-4 h-4 text-gold mt-0.5 shrink-0" />

@@ -223,7 +223,7 @@ export default function Connect() {
                   <div>
                     <h3 className="font-bold mb-1">Our Location</h3>
                     <p className="text-muted-foreground font-body text-sm">
-                      1234 Faith Avenue<br />Dallas, TX 75201
+                      110 Security Ct<br />Wylie, TX 75098
                     </p>
                   </div>
                 </div>
@@ -288,7 +288,40 @@ export default function Connect() {
         </div>
       </section>
 
-      <section className="py-16 bg-card" data-testid="section-what-to-expect">
+      <section className="py-16 bg-card" data-testid="section-connect-map">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={stagger}
+          >
+            <motion.div variants={fadeUp} className="text-center mb-10">
+              <span className="text-gold font-body text-sm font-semibold uppercase tracking-widest">Find Us</span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2">Our Location</h2>
+              <p className="text-muted-foreground font-body mt-3">110 Security Ct, Wylie, TX 75098</p>
+              <div className="w-16 h-1 bg-gold mx-auto mt-4 rounded-full" />
+            </motion.div>
+            <motion.div variants={fadeUp}>
+              <Card className="overflow-hidden">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3345.5!2d-96.5388!3d33.0151!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x864c19f2a5d1c0a1%3A0x0!2s110+Security+Ct%2C+Wylie%2C+TX+75098!5e0!3m2!1sen!2sus!4v1700000000000"
+                  width="100%"
+                  height="400"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Church Location - 110 Security Ct, Wylie, TX 75098"
+                  data-testid="map-connect"
+                />
+              </Card>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-background" data-testid="section-what-to-expect">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
