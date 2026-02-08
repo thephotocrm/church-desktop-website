@@ -116,15 +116,15 @@ export default function Home() {
           >
             <motion.div variants={fadeUp} className="text-center mb-14">
               <span className="text-gold font-body text-sm font-semibold uppercase tracking-widest">Join Us</span>
-              <h2 className="text-3xl md:text-4xl font-bold mt-2">Service Times</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2">When We Gather</h2>
               <div className="w-16 h-1 bg-gold mx-auto mt-4 rounded-full" />
             </motion.div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { day: "Sunday Morning", time: "10:00 AM", desc: "A full worship and preaching service with anointed praise, prayer, and a powerful Word from the pulpit.", icon: Sparkles },
-                { day: "Sunday Evening", time: "6:00 PM", desc: "Connect Night — a time for Bible study, fellowship, and building lasting relationships in the body of Christ.", icon: Flame },
-                { day: "Wednesday", time: "7:00 PM", desc: "Midweek recharge with prayer, worship, and Bible study to carry you through the rest of the week.", icon: BookOpen },
+                { day: "Sunday Morning", subtitle: "Church Service", time: "10:00 AM", desc: "A full worship and preaching service with anointed praise, prayer, and a powerful Word from the pulpit.", icon: Sparkles },
+                { day: "Sunday Evening", subtitle: "Study & Fellowship", time: "6:00 PM", desc: "Connect Night — a time for Bible study, fellowship, and building lasting relationships in the body of Christ.", icon: Flame },
+                { day: "Wednesday", subtitle: "Prayer & Bible Study", time: "7:00 PM", desc: "Midweek recharge with prayer, worship, and Bible study to carry you through the rest of the week.", icon: BookOpen },
               ].map((service, i) => (
                 <motion.div key={i} variants={fadeUp}>
                   <Card className="p-8 text-center hover-elevate">
@@ -132,6 +132,7 @@ export default function Home() {
                       <service.icon className="w-7 h-7 text-accent-foreground" />
                     </div>
                     <h3 className="text-xl font-bold mb-1">{service.day}</h3>
+                    <p className="text-sm font-semibold text-gold font-body uppercase tracking-wide mb-2">{service.subtitle}</p>
                     <p className="text-2xl font-bold text-gold font-body mb-2">{service.time}</p>
                     <p className="text-muted-foreground font-body text-sm">{service.desc}</p>
                   </Card>
