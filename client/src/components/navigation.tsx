@@ -88,7 +88,7 @@ export function Navigation() {
               className={scrolled || !isHome ? "" : "text-white hover:text-white"}
               data-testid="button-theme-toggle"
             >
-              {theme === "dark" ? <Sun className="w-6 h-6 md:w-5 md:h-5" /> : <Moon className="w-6 h-6 md:w-5 md:h-5" />}
+              {theme === "dark" ? <Sun className="!w-7 !h-7 md:!w-5 md:!h-5" /> : <Moon className="!w-7 !h-7 md:!w-5 md:!h-5" />}
             </Button>
 
             <div className="lg:hidden">
@@ -100,7 +100,7 @@ export function Navigation() {
                     className={scrolled || !isHome ? "" : "text-white hover:text-white"}
                     data-testid="button-mobile-menu"
                   >
-                    <Menu className="w-7 h-7" />
+                    <Menu className="!w-8 !h-8" />
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="right" className="w-80 bg-background">
