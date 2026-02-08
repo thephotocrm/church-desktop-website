@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
-import { BookOpen, Flame, Droplets, Heart, Shield, Crown, Cross, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
+import { BookOpen, Flame, Droplets, Heart, Shield, Crown, Cross, Users, ArrowRight, Sparkles, MessageCircle, Wind } from "lucide-react";
 import { useSEO } from "@/hooks/use-seo";
 
 const fadeUp = {
@@ -130,6 +132,68 @@ export default function Beliefs() {
                         </p>
                       </div>
                     </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-card" data-testid="section-pentecostal-distinctives">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={stagger}
+          >
+            <motion.div variants={fadeUp} className="text-center mb-14">
+              <span className="text-gold font-body text-sm font-semibold uppercase tracking-widest">Our Identity</span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2">
+                What Makes Us <span className="text-gold">Pentecostal</span>
+              </h2>
+              <p className="text-muted-foreground font-body mt-4 max-w-2xl mx-auto leading-relaxed">
+                As an Apostolic Pentecostal church, we embrace the full gospel experience
+                as described in the book of Acts.
+              </p>
+              <div className="w-16 h-1 bg-gold mx-auto mt-6 rounded-full" />
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: Wind,
+                  title: "Spirit Baptism",
+                  description:
+                    "We believe every believer can receive the baptism of the Holy Spirit, an empowering experience that equips us for service and deepens our relationship with God.",
+                  verse: "Acts 1:8",
+                },
+                {
+                  icon: MessageCircle,
+                  title: "Speaking in Tongues",
+                  description:
+                    "We believe that speaking in other tongues as the Spirit gives utterance is the initial evidence of the Holy Spirit baptism, just as it was on the Day of Pentecost.",
+                  verse: "Acts 2:4",
+                },
+                {
+                  icon: Sparkles,
+                  title: "Gifts of the Spirit",
+                  description:
+                    "We believe the spiritual gifts described in 1 Corinthians 12 are active and available to believers today, given by the Holy Spirit for the edification of the Church.",
+                  verse: "1 Corinthians 12:7-11",
+                },
+              ].map((item, i) => (
+                <motion.div key={i} variants={fadeUp}>
+                  <Card className="p-6 md:p-8 h-full hover-elevate text-center" data-testid={`card-pentecostal-${i}`}>
+                    <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center mx-auto mb-5">
+                      <item.icon className="w-7 h-7 text-accent-foreground" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                    <p className="text-muted-foreground font-body text-sm leading-relaxed mb-4">
+                      {item.description}
+                    </p>
+                    <p className="text-gold font-body text-sm font-semibold italic">{item.verse}</p>
                   </Card>
                 </motion.div>
               ))}
