@@ -111,7 +111,7 @@ export default function Home() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
           >
             <motion.div variants={fadeUp} className="text-center mb-14">
@@ -157,7 +157,7 @@ export default function Home() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
             className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center"
           >
@@ -209,7 +209,7 @@ export default function Home() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
             className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
           >
@@ -255,7 +255,7 @@ export default function Home() {
             <motion.div
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, margin: "-100px" }}
+              viewport={{ once: true, margin: "50px" }}
               variants={stagger}
             >
               <motion.div variants={fadeUp} className="text-center mb-14">
@@ -314,7 +314,7 @@ export default function Home() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
           >
             <motion.div variants={fadeUp} className="text-center mb-14">
@@ -392,7 +392,7 @@ export default function Home() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
           >
             <motion.h2 variants={fadeUp} className="text-3xl md:text-5xl font-bold text-white mb-6 text-shadow-lg">

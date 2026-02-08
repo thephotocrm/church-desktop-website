@@ -94,7 +94,7 @@ export default function Connect() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
             className="grid grid-cols-1 lg:grid-cols-2 gap-12"
           >
@@ -293,7 +293,7 @@ export default function Connect() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
           >
             <motion.div variants={fadeUp} className="text-center mb-10">
@@ -326,7 +326,7 @@ export default function Connect() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
           >
             <motion.div variants={fadeUp} className="text-center mb-14">

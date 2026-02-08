@@ -67,7 +67,7 @@ export default function Ministries() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
           >
             <motion.div variants={fadeUp} className="text-center mb-14">
@@ -137,7 +137,7 @@ export default function Ministries() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -177,7 +177,7 @@ export default function Ministries() {
           <motion.div
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "50px" }}
             variants={stagger}
           >
             <motion.div variants={fadeUp} className="text-center mb-14">
