@@ -217,7 +217,7 @@ export default function Home() {
               <span className="text-gold font-body text-sm font-semibold uppercase tracking-widest">From Our Pastor</span>
               <h2 className="text-3xl md:text-4xl font-bold mt-2 mb-6">
                 A Word From{" "}
-                <span className="text-gold">Pastor Johnson</span>
+                <span className="text-gold">Pastor Pacholek</span>
               </h2>
               <blockquote className="text-lg font-body text-muted-foreground leading-relaxed italic mb-6 border-l-4 border-gold pl-6">
                 "Our mission is simple: to love God with all our hearts, to love
@@ -225,7 +225,7 @@ export default function Home() {
                 Christ with everyone we meet. At First Pentecostal Church, you'll
                 find a family ready to welcome you home."
               </blockquote>
-              <p className="font-bold text-lg">Pastor David Johnson</p>
+              <p className="font-bold text-lg">Pastor James Pacholek</p>
               <p className="text-muted-foreground font-body text-sm">Senior Pastor</p>
               <Link href="/leadership">
                 <Button variant="outline" className="mt-6 font-body" data-testid="button-meet-team">
@@ -239,8 +239,8 @@ export default function Home() {
               <div className="relative">
                 <img
                   src="/images/pastor-main.png"
-                  alt="Pastor David Johnson"
-                  className="w-72 md:w-80 rounded-md object-cover"
+                  alt="Pastor James Pacholek"
+                  className="w-72 md:w-80 rounded-md object-cover object-top"
                 />
                 <div className="absolute -bottom-4 -right-4 w-32 h-32 rounded-md bg-gold opacity-20 -z-10" />
               </div>

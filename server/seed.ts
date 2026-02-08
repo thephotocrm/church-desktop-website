@@ -11,9 +11,9 @@ export async function seedDatabase() {
   if (existingLeaders.length === 0) {
   await db.insert(leaders).values([
     {
-      name: "Pastor David Johnson",
+      name: "Pastor James Pacholek",
       title: "Senior Pastor",
-      bio: "Pastor David has faithfully led First Pentecostal Church for over 15 years. His passion for preaching the uncompromising Word of God and his heart for the lost have been the driving force behind the church's growth. He holds a Master of Divinity and is a sought-after speaker at conferences across the nation.",
+      bio: "Pastor Pacholek has faithfully led First Pentecostal Church for over 15 years. His passion for preaching the uncompromising Word of God and his heart for the lost have been the driving force behind the church's growth. He holds a Master of Divinity and is a sought-after speaker at conferences across the nation.",
       imageUrl: "/images/pastor-main.png",
       orderIndex: 0,
     },
