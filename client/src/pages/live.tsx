@@ -169,7 +169,9 @@ export default function LiveStream() {
                 <motion.div key={i} variants={fadeUp}>
                   <Card className="p-6 text-center h-full hover-elevate">
                     <span className="text-4xl font-bold text-gold/20 font-body">{item.step}</span>
-                    <item.icon className={`w-10 h-10 mx-auto my-4 ${item.color}`} />
+                    <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center mx-auto my-4">
+                      <item.icon className={`w-8 h-8 ${item.color}`} />
+                    </div>
                     <h3 className="text-lg font-bold mb-2">{item.title}</h3>
                     <p className="text-muted-foreground font-body text-sm leading-relaxed">{item.desc}</p>
                   </Card>
