@@ -1,7 +1,10 @@
 import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Heart, BookOpen, Users, ArrowRight } from "lucide-react";
 import { useSEO } from "@/hooks/use-seo";
 import type { Leader } from "@shared/schema";
 
@@ -143,6 +146,64 @@ export default function Leadership() {
         </div>
       </section>
 
+      <section className="py-20 bg-card" data-testid="section-leadership-philosophy">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={stagger}
+          >
+            <motion.div variants={fadeUp} className="text-center mb-14">
+              <span className="text-gold font-body text-sm font-semibold uppercase tracking-widest">How We Lead</span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2">
+                Our Leadership <span className="text-gold">Philosophy</span>
+              </h2>
+              <p className="text-muted-foreground font-body mt-4 max-w-2xl mx-auto leading-relaxed">
+                Biblical leadership is not about authority — it's about service. Our leaders follow
+                the example of Christ, who came not to be served, but to serve.
+              </p>
+              <div className="w-16 h-1 bg-gold mx-auto mt-6 rounded-full" />
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: Heart,
+                  title: "Shepherding Hearts",
+                  description:
+                    "Our leaders are committed to caring for every member of our congregation, providing spiritual guidance, prayer support, and genuine pastoral care.",
+                },
+                {
+                  icon: BookOpen,
+                  title: "Biblical Accountability",
+                  description:
+                    "We hold ourselves accountable to the Word of God and to one another, maintaining integrity and transparency in all areas of ministry and leadership.",
+                },
+                {
+                  icon: Users,
+                  title: "Equipping the Saints",
+                  description:
+                    "We believe in raising up the next generation of leaders by mentoring, teaching, and empowering every believer to fulfill their God-given purpose.",
+                },
+              ].map((item, i) => (
+                <motion.div key={i} variants={fadeUp}>
+                  <Card className="p-6 md:p-8 h-full hover-elevate text-center" data-testid={`card-philosophy-${i}`}>
+                    <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center mx-auto mb-5">
+                      <item.icon className="w-7 h-7 text-accent-foreground" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                    <p className="text-muted-foreground font-body text-sm leading-relaxed">
+                      {item.description}
+                    </p>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       <section className="py-16 bg-navy" data-testid="section-leadership-verse">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <motion.div
@@ -158,6 +219,33 @@ export default function Leadership() {
             <motion.p variants={fadeUp} className="text-gold font-body text-lg font-semibold">
               Jeremiah 3:15 KJV
             </motion.p>
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-background" data-testid="section-leadership-cta">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={stagger}
+          >
+            <motion.div variants={fadeUp}>
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">
+                Connect With Our <span className="text-gold">Pastors</span>
+              </h2>
+              <p className="text-muted-foreground font-body mb-8 max-w-xl mx-auto">
+                Our pastors are here for you. Whether you need prayer, counseling, or simply
+                want to say hello, we'd love to hear from you.
+              </p>
+              <Link href="/connect">
+                <Button size="lg" className="bg-gold text-white border-gold font-body px-8" data-testid="button-leadership-connect">
+                  Reach Out Today
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </motion.div>
           </motion.div>
         </div>
       </section>

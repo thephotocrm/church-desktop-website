@@ -222,6 +222,33 @@ export default function Beliefs() {
           </motion.div>
         </div>
       </section>
+
+      <section className="py-16 bg-background" data-testid="section-beliefs-cta">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={stagger}
+          >
+            <motion.div variants={fadeUp}>
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">
+                Questions About Our <span className="text-gold">Beliefs?</span>
+              </h2>
+              <p className="text-muted-foreground font-body mb-8 max-w-xl mx-auto">
+                We'd love to talk with you about what we believe and why. Reach out to us
+                and let's have a conversation about faith.
+              </p>
+              <Link href="/connect">
+                <Button size="lg" className="bg-gold text-white border-gold font-body px-8" data-testid="button-beliefs-connect">
+                  Ask a Question
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
     </div>
   );
 }

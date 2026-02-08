@@ -2,7 +2,9 @@ import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, MapPin, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
+import { Calendar, MapPin, Clock, ArrowRight, Sun, Moon, BookOpen, Share2, Globe, RefreshCw } from "lucide-react";
 import { useSEO } from "@/hooks/use-seo";
 import type { Event } from "@shared/schema";
 
@@ -132,6 +134,146 @@ export default function Events() {
                 <p className="text-muted-foreground font-body">Check back soon for upcoming events and gatherings.</p>
               </div>
             )}
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-card" data-testid="section-weekly-services">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={stagger}
+          >
+            <motion.div variants={fadeUp} className="text-center mb-14">
+              <span className="text-gold font-body text-sm font-semibold uppercase tracking-widest">Every Week</span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2">
+                Weekly <span className="text-gold">Services</span>
+              </h2>
+              <p className="text-muted-foreground font-body mt-4 max-w-2xl mx-auto">
+                Join us for worship, prayer, and the Word of God throughout the week.
+              </p>
+              <div className="w-16 h-1 bg-gold mx-auto mt-6 rounded-full" />
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: Sun,
+                  title: "Sunday Morning",
+                  time: "10:00 AM",
+                  description: "Our main worship gathering with praise, prayer, and an anointed message from God's Word.",
+                },
+                {
+                  icon: Moon,
+                  title: "Sunday Evening",
+                  time: "6:00 PM",
+                  description: "An intimate evening service focused on deeper teaching, testimony, and Spirit-led worship.",
+                },
+                {
+                  icon: BookOpen,
+                  title: "Wednesday Bible Study",
+                  time: "7:00 PM",
+                  description: "Midweek Bible study and prayer meeting to recharge your faith and grow in the Word.",
+                },
+              ].map((service, i) => (
+                <motion.div key={i} variants={fadeUp}>
+                  <Card className="p-6 md:p-8 h-full hover-elevate text-center" data-testid={`card-service-${i}`}>
+                    <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center mx-auto mb-5">
+                      <service.icon className="w-7 h-7 text-accent-foreground" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-1">{service.title}</h3>
+                    <p className="text-gold font-body text-sm font-semibold mb-3">{service.time}</p>
+                    <p className="text-muted-foreground font-body text-sm leading-relaxed">
+                      {service.description}
+                    </p>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-background" data-testid="section-stay-updated">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={stagger}
+          >
+            <motion.div variants={fadeUp} className="text-center mb-14">
+              <span className="text-gold font-body text-sm font-semibold uppercase tracking-widest">Stay in the Loop</span>
+              <h2 className="text-3xl md:text-4xl font-bold mt-2">
+                Stay <span className="text-gold">Updated</span>
+              </h2>
+              <p className="text-muted-foreground font-body mt-4 max-w-2xl mx-auto">
+                Never miss an event or announcement. Here's how to stay connected with what's happening.
+              </p>
+              <div className="w-16 h-1 bg-gold mx-auto mt-6 rounded-full" />
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: Share2,
+                  title: "Follow Us on Social Media",
+                  description: "Stay connected through our social media channels for real-time updates, event reminders, and encouraging content.",
+                },
+                {
+                  icon: Globe,
+                  title: "Visit Our Connect Page",
+                  description: "Fill out our connect form and we'll make sure you receive all the latest news and event information directly.",
+                  link: "/connect",
+                },
+                {
+                  icon: RefreshCw,
+                  title: "Check Back Often",
+                  description: "This events page is updated regularly with new gatherings, special services, and community outreach opportunities.",
+                },
+              ].map((item, i) => (
+                <motion.div key={i} variants={fadeUp}>
+                  <Card className="p-6 md:p-8 h-full hover-elevate text-center" data-testid={`card-updated-${i}`}>
+                    <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center mx-auto mb-5">
+                      <item.icon className="w-7 h-7 text-accent-foreground" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
+                    <p className="text-muted-foreground font-body text-sm leading-relaxed">
+                      {item.description}
+                    </p>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="py-16 bg-navy" data-testid="section-events-cta">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={stagger}
+          >
+            <motion.div variants={fadeUp}>
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                Join Us <span className="text-gold">This Week</span>
+              </h2>
+              <p className="text-white/70 font-body mb-8">
+                There's a place for you at First Pentecostal Church. Come experience the presence of God
+                and the warmth of our church family.
+              </p>
+              <Link href="/connect">
+                <Button size="lg" className="bg-gold text-white border-gold font-body px-8" data-testid="button-events-connect">
+                  Plan Your Visit
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </motion.div>
           </motion.div>
         </div>
       </section>
