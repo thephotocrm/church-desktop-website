@@ -266,7 +266,7 @@ export default function Home() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {featuredEvents.map((event) => (
-                  <motion.div key={event.id} variants={fadeUp}>
+                  <motion.div key={event.id} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "50px" }} variants={fadeUp}>
                     <Card className="overflow-hidden hover-elevate" data-testid={`card-event-${event.id}`}>
                       {event.imageUrl && (
                         <div className="h-48 overflow-hidden">

@@ -90,7 +90,7 @@ export default function Ministries() {
             ) : ministries && ministries.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {ministries.map((ministry) => (
-                  <motion.div key={ministry.id} variants={fadeUp}>
+                  <motion.div key={ministry.id} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "50px" }} variants={fadeUp}>
                     <Card className="overflow-hidden h-full hover-elevate" data-testid={`card-ministry-${ministry.id}`}>
                       {ministry.imageUrl ? (
                         <div className="h-52 overflow-hidden">

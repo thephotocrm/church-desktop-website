@@ -93,7 +93,7 @@ export default function Leadership() {
               <>
                 {leaders && leaders.length > 0 && (
                   <div className="mb-16">
-                    <motion.div variants={fadeUp} className="max-w-4xl mx-auto">
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "50px" }} variants={fadeUp} className="max-w-4xl mx-auto">
                       <Card className="overflow-hidden" data-testid={`card-leader-${leaders[0].id}`}>
                         <div className="grid grid-cols-1 md:grid-cols-2">
                           <div className="h-80 md:h-full">
@@ -120,7 +120,7 @@ export default function Leadership() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                   {leaders?.slice(1).map((leader) => (
-                    <motion.div key={leader.id} variants={fadeUp}>
+                    <motion.div key={leader.id} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "50px" }} variants={fadeUp}>
                       <Card className="overflow-hidden hover-elevate" data-testid={`card-leader-${leader.id}`}>
                         <div className="h-72 overflow-hidden">
                           <img

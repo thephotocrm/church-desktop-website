@@ -90,7 +90,7 @@ export default function Events() {
             ) : events && events.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {events.map((event) => (
-                  <motion.div key={event.id} variants={fadeUp}>
+                  <motion.div key={event.id} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "50px" }} variants={fadeUp}>
                     <Card className="overflow-hidden h-full hover-elevate" data-testid={`card-event-${event.id}`}>
                       {event.imageUrl && (
                         <div className="h-48 overflow-hidden">
