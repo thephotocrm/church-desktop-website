@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { leaders, events, ministries } from "@shared/schema";
+import { leaders, events, ministries, streamConfig } from "@shared/schema";
 
 export async function seedDatabase() {
   const existingLeaders = await db.select().from(leaders);
@@ -136,6 +136,15 @@ export async function seedDatabase() {
       leader: "Mother Grace Williams",
     },
   ]);
+  }
+
+  const existingStreamConfig = await db.select().from(streamConfig);
+  if (existingStreamConfig.length === 0) {
+    await db.insert(streamConfig).values({
+      isLive: false,
+      title: "Sunday Worship Service",
+      description: "Join us for Spirit-filled worship and the Word of God.",
+    });
   }
 
   console.log("Database seeded successfully!");

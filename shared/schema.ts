@@ -47,6 +47,17 @@ export const ministries = pgTable("ministries", {
   leader: text("leader"),
 });
 
+export const streamConfig = pgTable("stream_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  isLive: boolean("is_live").notNull().default(false),
+  title: text("title").notNull().default("Sunday Worship Service"),
+  description: text("description"),
+  hlsUrl: text("hls_url"),
+  thumbnailUrl: text("thumbnail_url"),
+  startedAt: timestamp("started_at"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -79,3 +90,11 @@ export type InsertLeader = z.infer<typeof insertLeaderSchema>;
 export type Leader = typeof leaders.$inferSelect;
 export type InsertMinistry = z.infer<typeof insertMinistrySchema>;
 export type Ministry = typeof ministries.$inferSelect;
+
+export const insertStreamConfigSchema = createInsertSchema(streamConfig).omit({
+  id: true,
+  updatedAt: true,
+});
+export const updateStreamConfigSchema = insertStreamConfigSchema.partial();
+export type InsertStreamConfig = z.infer<typeof insertStreamConfigSchema>;
+export type StreamConfig = typeof streamConfig.$inferSelect;

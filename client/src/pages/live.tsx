@@ -2,9 +2,10 @@ import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Play, Clock, Calendar, Radio, Bell, ArrowRight } from "lucide-react";
+import { Calendar, Radio, Bell, ArrowRight } from "lucide-react";
 import { SiFacebook, SiYoutube } from "react-icons/si";
 import { useSEO } from "@/hooks/use-seo";
+import { StreamPlayer, useStreamStatus } from "@/components/stream-player";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -17,6 +18,8 @@ const stagger = {
 
 export default function LiveStream() {
   useSEO({ title: "Live Stream", description: "Watch First Pentecostal Church of Dallas services live online. Join us for worship from anywhere in the world." });
+  const { data: streamStatus } = useStreamStatus();
+  const isLive = streamStatus?.isLive ?? false;
 
   return (
     <div className="min-h-screen">
@@ -32,10 +35,17 @@ export default function LiveStream() {
           className="relative z-10 text-center max-w-3xl mx-auto px-4"
         >
           <motion.div variants={fadeUp} className="mb-4">
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-600/20 backdrop-blur-sm border border-red-500/30 text-white font-body text-sm">
-              <Radio className="w-4 h-4 text-red-400 animate-pulse" />
-              Live Every Sunday
-            </span>
+            {isLive ? (
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-600 backdrop-blur-sm border border-red-500 text-white font-body text-sm font-bold">
+                <Radio className="w-4 h-4 text-white animate-pulse" />
+                Live Now
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-600/20 backdrop-blur-sm border border-red-500/30 text-white font-body text-sm">
+                <Radio className="w-4 h-4 text-red-400 animate-pulse" />
+                Live Every Sunday
+              </span>
+            )}
           </motion.div>
           <motion.h1 variants={fadeUp} className="text-4xl md:text-6xl font-bold text-white mt-3 text-shadow-lg">
             Watch Live
@@ -63,26 +73,7 @@ export default function LiveStream() {
             </motion.div>
 
             <motion.div variants={fadeUp}>
-              <Card className="overflow-hidden">
-                <div className="relative aspect-video bg-navy flex items-center justify-center">
-                  <img
-                    src="/images/hero-sanctuary.png"
-                    alt="Live stream placeholder"
-                    className="w-full h-full object-cover opacity-30"
-                  />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="w-20 h-20 rounded-full bg-gold/20 flex items-center justify-center mb-6 backdrop-blur-sm border border-gold/30">
-                      <Play className="w-10 h-10 text-gold ml-1" />
-                    </div>
-                    <h3 className="text-white text-xl md:text-2xl font-bold mb-2 text-shadow">
-                      Live Stream Starting Soon
-                    </h3>
-                    <p className="text-white/70 font-body text-sm">
-                      Our next service will be streamed live
-                    </p>
-                  </div>
-                </div>
-              </Card>
+              <StreamPlayer />
               <div className="flex gap-3 justify-center mt-6">
                 <a href="https://youtube.com" target="_blank" rel="noopener noreferrer">
                   <Button className="bg-red-600 text-white border-red-600 font-body" data-testid="button-youtube-live">

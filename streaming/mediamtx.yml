@@ -1,0 +1,31 @@
+# MediaMTX configuration for FPC Dallas live streaming
+# OBS pushes RTMP to port 1935, website/app reads HLS from port 8888
+
+# RTMP server
+rtmp: yes
+rtmpAddress: :1935
+
+# HLS server
+hls: yes
+hlsAddress: :8888
+hlsSegmentCount: 3
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsAllowOrigin: "*"
+
+# RTSP server
+rtsp: yes
+rtspAddress: :8554
+
+# Stream paths
+paths:
+  live:
+    # Publisher authentication - OBS must use this stream key
+    # OBS URL: rtmp://<vps-ip>/live
+    # OBS Stream Key: value of MTX_STREAM_KEY env var
+    publishUser: publisher
+    publishPass: $MTX_STREAM_KEY
+
+    # No reader authentication - public viewing
+    readUser:
+    readPass:

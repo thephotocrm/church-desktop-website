@@ -4,7 +4,8 @@ import {
   type Event, type InsertEvent,
   type Leader, type InsertLeader,
   type Ministry, type InsertMinistry,
-  users, contactSubmissions, events, leaders, ministries,
+  type StreamConfig, type InsertStreamConfig,
+  users, contactSubmissions, events, leaders, ministries, streamConfig,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc } from "drizzle-orm";
@@ -20,6 +21,8 @@ export interface IStorage {
   createLeader(leader: InsertLeader): Promise<Leader>;
   getMinistries(): Promise<Ministry[]>;
   createMinistry(ministry: InsertMinistry): Promise<Ministry>;
+  getStreamConfig(): Promise<StreamConfig | undefined>;
+  updateStreamConfig(config: Partial<InsertStreamConfig>): Promise<StreamConfig>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -68,6 +71,28 @@ export class DatabaseStorage implements IStorage {
   async createMinistry(ministry: InsertMinistry): Promise<Ministry> {
     const [result] = await db.insert(ministries).values(ministry).returning();
     return result;
+  }
+
+  async getStreamConfig(): Promise<StreamConfig | undefined> {
+    const [config] = await db.select().from(streamConfig).limit(1);
+    return config;
+  }
+
+  async updateStreamConfig(config: Partial<InsertStreamConfig>): Promise<StreamConfig> {
+    const existing = await this.getStreamConfig();
+    if (existing) {
+      const [updated] = await db
+        .update(streamConfig)
+        .set({ ...config, updatedAt: new Date() })
+        .where(eq(streamConfig.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(streamConfig)
+      .values({ ...config, updatedAt: new Date() })
+      .returning();
+    return created;
   }
 }
 
