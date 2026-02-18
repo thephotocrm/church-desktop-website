@@ -18,14 +18,14 @@ async function checkStreamLive(): Promise<boolean> {
     return streamCache.isLive;
   }
 
-  const hlsUrl = process.env.STREAM_HLS_URL || "http://129.212.184.68:8888/live/index.m3u8";
+  const hlsUrl = process.env.STREAM_HLS_URL || "http://129.212.184.68:8888/live/live/index.m3u8";
   let isLive = false;
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
     const response = await fetch(hlsUrl, {
-      method: "HEAD",
+      method: "GET",
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -83,7 +83,7 @@ export async function registerRoutes(
     const config = await storage.getStreamConfig();
 
     const hlsUrl = isLive
-      ? (process.env.STREAM_HLS_URL || "http://129.212.184.68:8888/live/index.m3u8")
+      ? (process.env.STREAM_HLS_URL || "http://129.212.184.68:8888/live/live/index.m3u8")
       : null;
 
     res.json({
