@@ -4,6 +4,13 @@ import { storage } from "./storage";
 import { requireAuth } from "./auth";
 import { insertContactSchema, updateStreamConfigSchema } from "@shared/schema";
 
+// MediaMTX base URL (protocol + host + port)
+const MEDIA_SERVER_BASE = process.env.STREAM_HLS_URL
+  ? process.env.STREAM_HLS_URL.substring(0, process.env.STREAM_HLS_URL.indexOf("/", 8)) // strip path
+  : "http://129.212.184.68:8888";
+
+const HLS_CHECK_URL = process.env.STREAM_HLS_URL || "http://129.212.184.68:8888/live/live/index.m3u8";
+
 // Stream auto-detection cache
 let streamCache: { isLive: boolean; checkedAt: number } = {
   isLive: false,
@@ -18,13 +25,12 @@ async function checkStreamLive(): Promise<boolean> {
     return streamCache.isLive;
   }
 
-  const hlsUrl = process.env.STREAM_HLS_URL || "http://129.212.184.68:8888/live/live/index.m3u8";
   let isLive = false;
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
-    const response = await fetch(hlsUrl, {
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch(HLS_CHECK_URL, {
       method: "GET",
       signal: controller.signal,
     });
@@ -82,8 +88,9 @@ export async function registerRoutes(
     const isLive = await checkStreamLive();
     const config = await storage.getStreamConfig();
 
+    // Return proxied URL so the browser stays on HTTPS (no mixed content)
     const hlsUrl = isLive
-      ? (process.env.STREAM_HLS_URL || "http://129.212.184.68:8888/live/live/index.m3u8")
+      ? "/api/stream/hls/live/live/index.m3u8"
       : null;
 
     res.json({
@@ -114,8 +121,43 @@ export async function registerRoutes(
     res.json(config);
   });
 
+  // HLS proxy — serves MediaMTX content through the same origin to avoid mixed content
+  app.get("/api/stream/hls/{*path}", async (req, res) => {
+    const rawPath = (req.params as Record<string, string | string[]>).path;
+    const subPath = Array.isArray(rawPath) ? rawPath.join("/") : rawPath;
+    const targetUrl = `${MEDIA_SERVER_BASE}/${subPath}`;
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(targetUrl, { signal: controller.signal });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        return res.status(response.status).end();
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (contentType) res.setHeader("Content-Type", contentType);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "no-cache");
+
+      const body = await response.arrayBuffer();
+      res.send(Buffer.from(body));
+    } catch {
+      res.status(502).end();
+    }
+  });
+
   // CORS preflight for stream endpoints
   app.options("/api/stream/status", (_req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.sendStatus(204);
+  });
+
+  app.options("/api/stream/hls/{*path}", (_req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
