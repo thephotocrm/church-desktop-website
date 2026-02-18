@@ -7,8 +7,6 @@ export async function seedDatabase() {
   const existingEvents = await db.select().from(events);
   const existingMinistries = await db.select().from(ministries);
 
-  if (existingLeaders.length > 0 && existingEvents.length > 0 && existingMinistries.length > 0) return;
-
   if (existingLeaders.length === 0) {
   await db.insert(leaders).values([
     {
