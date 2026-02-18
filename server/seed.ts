@@ -1,5 +1,6 @@
 import { db } from "./db";
-import { leaders, events, ministries, streamConfig } from "@shared/schema";
+import { leaders, events, ministries, streamConfig, users } from "@shared/schema";
+import bcrypt from "bcryptjs";
 
 export async function seedDatabase() {
   const existingLeaders = await db.select().from(leaders);
@@ -145,6 +146,17 @@ export async function seedDatabase() {
       title: "Sunday Worship Service",
       description: "Join us for Spirit-filled worship and the Word of God.",
     });
+  }
+
+  // Seed default admin user
+  const existingUsers = await db.select().from(users);
+  if (existingUsers.length === 0) {
+    const hashedPassword = await bcrypt.hash("admin123", 10);
+    await db.insert(users).values({
+      username: "admin",
+      password: hashedPassword,
+    });
+    console.log("Default admin user created (admin / admin123)");
   }
 
   console.log("Database seeded successfully!");

@@ -16,6 +16,8 @@ import LiveStream from "@/pages/live";
 import Give from "@/pages/give";
 import Events from "@/pages/events";
 import MinistriesPage from "@/pages/ministries";
+import Login from "@/pages/login";
+import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 
 function ScrollToTop() {
@@ -38,8 +40,26 @@ function Router() {
       <Route path="/give" component={Give} />
       <Route path="/events" component={Events} />
       <Route path="/ministries" component={MinistriesPage} />
+      <Route path="/login" component={Login} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
+  );
+}
+
+function AppLayout() {
+  const [location] = useLocation();
+  const isAdminRoute = location === "/login" || location === "/admin";
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <ScrollToTop />
+      {!isAdminRoute && <Navigation />}
+      <main className="flex-1">
+        <Router />
+      </main>
+      {!isAdminRoute && <Footer />}
+    </div>
   );
 }
 
@@ -48,14 +68,7 @@ function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <div className="min-h-screen flex flex-col">
-            <ScrollToTop />
-            <Navigation />
-            <main className="flex-1">
-              <Router />
-            </main>
-            <Footer />
-          </div>
+          <AppLayout />
           <Toaster />
         </TooltipProvider>
       </QueryClientProvider>
