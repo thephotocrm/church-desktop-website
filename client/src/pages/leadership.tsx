@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, BookOpen, Users, ArrowRight } from "lucide-react";
+import { Heart, BookOpen, Users, ArrowRight, User } from "lucide-react";
 import { useSEO } from "@/hooks/use-seo";
 import type { Leader } from "@shared/schema";
 
@@ -123,11 +123,17 @@ export default function Leadership() {
                     <motion.div key={leader.id} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "50px" }} variants={fadeUp}>
                       <Card className="overflow-hidden hover-elevate" data-testid={`card-leader-${leader.id}`}>
                         <div className="h-72 overflow-hidden">
-                          <img
-                            src={leader.imageUrl || "/images/pastor-main.png"}
-                            alt={leader.name}
-                            className="w-full h-full object-cover object-top"
-                          />
+                          {leader.imageUrl ? (
+                            <img
+                              src={leader.imageUrl}
+                              alt={leader.name}
+                              className="w-full h-full object-cover object-top"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-navy/10 dark:bg-navy-light flex items-center justify-center">
+                              <User className="w-20 h-20 text-muted-foreground/30" />
+                            </div>
+                          )}
                         </div>
                         <div className="p-6">
                           <h3 className="text-lg font-bold mb-1">{leader.name}</h3>
