@@ -5,27 +5,101 @@ import {
   type Leader, type InsertLeader,
   type Ministry, type InsertMinistry,
   type StreamConfig, type InsertStreamConfig,
+  type Member, type InsertMember,
+  type Group, type InsertGroup, type GroupMember,
+  type PrayerRequest, type InsertPrayerRequest,
+  type FundCategory, type InsertFundCategory,
+  type Donation, type InsertDonation,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
+  members, groups, groupMembers, prayerRequests, fundCategories, donations,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and, gte, desc, sql } from "drizzle-orm";
+
+export interface PrayerRequestFilter {
+  since?: string;
+  groupId?: string;
+  status?: string;
+  isPublic?: boolean;
+  memberId?: string;
+  limit?: number;
+  offset?: number;
+}
 
 export interface IStorage {
+  // Users (admin)
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+
+  // Contacts
   createContact(contact: InsertContact): Promise<Contact>;
+
+  // Events
   getEvents(): Promise<Event[]>;
   createEvent(event: InsertEvent): Promise<Event>;
+
+  // Leaders
   getLeaders(): Promise<Leader[]>;
   createLeader(leader: InsertLeader): Promise<Leader>;
+
+  // Ministries
   getMinistries(): Promise<Ministry[]>;
   createMinistry(ministry: InsertMinistry): Promise<Ministry>;
+
+  // Stream Config
   getStreamConfig(): Promise<StreamConfig | undefined>;
   updateStreamConfig(config: Partial<InsertStreamConfig>): Promise<StreamConfig>;
+
+  // Members
+  getMember(id: string): Promise<Member | undefined>;
+  getMemberByEmail(email: string): Promise<Member | undefined>;
+  createMember(member: InsertMember & { role?: string; status?: string }): Promise<Member>;
+  updateMember(id: string, data: Partial<Member>): Promise<Member>;
+  getMembers(): Promise<Member[]>;
+  getPendingMembers(): Promise<Member[]>;
+  approveMember(id: string): Promise<Member>;
+  rejectMember(id: string): Promise<Member>;
+
+  // Groups
+  getGroups(): Promise<Group[]>;
+  getGroup(id: string): Promise<Group | undefined>;
+  createGroup(group: InsertGroup): Promise<Group>;
+  updateGroup(id: string, data: Partial<InsertGroup>): Promise<Group>;
+  deleteGroup(id: string): Promise<void>;
+  getGroupMembers(groupId: string): Promise<(GroupMember & { member?: Member })[]>;
+  addGroupMember(groupId: string, memberId: string): Promise<GroupMember>;
+  removeGroupMember(groupId: string, memberId: string): Promise<void>;
+  getMemberGroups(memberId: string): Promise<Group[]>;
+  isGroupMember(groupId: string, memberId: string): Promise<boolean>;
+
+  // Prayer Requests
+  getPrayerRequests(filter: PrayerRequestFilter): Promise<PrayerRequest[]>;
+  getPrayerRequest(id: string): Promise<PrayerRequest | undefined>;
+  createPrayerRequest(request: InsertPrayerRequest): Promise<PrayerRequest>;
+  updatePrayerRequest(id: string, data: Partial<InsertPrayerRequest>): Promise<PrayerRequest>;
+  deletePrayerRequest(id: string): Promise<void>;
+  incrementPrayerCount(id: string): Promise<PrayerRequest>;
+
+  // Fund Categories
+  getFundCategories(activeOnly?: boolean): Promise<FundCategory[]>;
+  getFundCategory(id: string): Promise<FundCategory | undefined>;
+  createFundCategory(category: InsertFundCategory): Promise<FundCategory>;
+  updateFundCategory(id: string, data: Partial<InsertFundCategory>): Promise<FundCategory>;
+
+  // Donations
+  getDonations(): Promise<Donation[]>;
+  getDonation(id: string): Promise<Donation | undefined>;
+  createDonation(donation: InsertDonation): Promise<Donation>;
+  updateDonation(id: string, data: Partial<Donation>): Promise<Donation>;
+  getDonationByStripePaymentIntent(paymentIntentId: string): Promise<Donation | undefined>;
+  getDonationByStripeSubscription(subscriptionId: string): Promise<Donation | undefined>;
+  getDonationByStripeCheckoutSession(sessionId: string): Promise<Donation | undefined>;
+  getMemberDonationHistory(memberId: string): Promise<Donation[]>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // ========== Users ==========
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
@@ -41,11 +115,13 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  // ========== Contacts ==========
   async createContact(contact: InsertContact): Promise<Contact> {
     const [result] = await db.insert(contactSubmissions).values(contact).returning();
     return result;
   }
 
+  // ========== Events ==========
   async getEvents(): Promise<Event[]> {
     return db.select().from(events);
   }
@@ -55,6 +131,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  // ========== Leaders ==========
   async getLeaders(): Promise<Leader[]> {
     return db.select().from(leaders).orderBy(asc(leaders.orderIndex));
   }
@@ -64,6 +141,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  // ========== Ministries ==========
   async getMinistries(): Promise<Ministry[]> {
     return db.select().from(ministries);
   }
@@ -73,6 +151,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  // ========== Stream Config ==========
   async getStreamConfig(): Promise<StreamConfig | undefined> {
     const [config] = await db.select().from(streamConfig).limit(1);
     return config;
@@ -93,6 +172,267 @@ export class DatabaseStorage implements IStorage {
       .values({ ...config, updatedAt: new Date() })
       .returning();
     return created;
+  }
+
+  // ========== Members ==========
+  async getMember(id: string): Promise<Member | undefined> {
+    const [member] = await db.select().from(members).where(eq(members.id, id));
+    return member;
+  }
+
+  async getMemberByEmail(email: string): Promise<Member | undefined> {
+    const [member] = await db.select().from(members).where(eq(members.email, email));
+    return member;
+  }
+
+  async createMember(member: InsertMember & { role?: string; status?: string }): Promise<Member> {
+    const [result] = await db.insert(members).values(member).returning();
+    return result;
+  }
+
+  async updateMember(id: string, data: Partial<Member>): Promise<Member> {
+    const [result] = await db.update(members).set({ ...data, updatedAt: new Date() }).where(eq(members.id, id)).returning();
+    return result;
+  }
+
+  async getMembers(): Promise<Member[]> {
+    return db.select().from(members).where(eq(members.status, "approved")).orderBy(asc(members.firstName));
+  }
+
+  async getPendingMembers(): Promise<Member[]> {
+    return db.select().from(members).where(eq(members.status, "pending")).orderBy(desc(members.createdAt));
+  }
+
+  async approveMember(id: string): Promise<Member> {
+    const [result] = await db.update(members)
+      .set({ status: "approved", role: "member", updatedAt: new Date() })
+      .where(eq(members.id, id))
+      .returning();
+    return result;
+  }
+
+  async rejectMember(id: string): Promise<Member> {
+    const [result] = await db.update(members)
+      .set({ status: "rejected", updatedAt: new Date() })
+      .where(eq(members.id, id))
+      .returning();
+    return result;
+  }
+
+  // ========== Groups ==========
+  async getGroups(): Promise<Group[]> {
+    return db.select().from(groups).orderBy(asc(groups.name));
+  }
+
+  async getGroup(id: string): Promise<Group | undefined> {
+    const [group] = await db.select().from(groups).where(eq(groups.id, id));
+    return group;
+  }
+
+  async createGroup(group: InsertGroup): Promise<Group> {
+    const [result] = await db.insert(groups).values(group).returning();
+    return result;
+  }
+
+  async updateGroup(id: string, data: Partial<InsertGroup>): Promise<Group> {
+    const [result] = await db.update(groups).set(data).where(eq(groups.id, id)).returning();
+    return result;
+  }
+
+  async deleteGroup(id: string): Promise<void> {
+    await db.delete(groups).where(eq(groups.id, id));
+  }
+
+  async getGroupMembers(groupId: string): Promise<(GroupMember & { member?: Member })[]> {
+    const rows = await db.select().from(groupMembers)
+      .where(eq(groupMembers.groupId, groupId))
+      .orderBy(asc(groupMembers.joinedAt));
+
+    const result = [];
+    for (const row of rows) {
+      const [member] = await db.select().from(members).where(eq(members.id, row.memberId));
+      result.push({ ...row, member });
+    }
+    return result;
+  }
+
+  async addGroupMember(groupId: string, memberId: string): Promise<GroupMember> {
+    const [result] = await db.insert(groupMembers).values({ groupId, memberId }).returning();
+    return result;
+  }
+
+  async removeGroupMember(groupId: string, memberId: string): Promise<void> {
+    await db.delete(groupMembers).where(
+      and(eq(groupMembers.groupId, groupId), eq(groupMembers.memberId, memberId))
+    );
+  }
+
+  async getMemberGroups(memberId: string): Promise<Group[]> {
+    const gms = await db.select().from(groupMembers).where(eq(groupMembers.memberId, memberId));
+    if (gms.length === 0) return [];
+    const result: Group[] = [];
+    for (const gm of gms) {
+      const [group] = await db.select().from(groups).where(eq(groups.id, gm.groupId));
+      if (group) result.push(group);
+    }
+    return result;
+  }
+
+  async isGroupMember(groupId: string, memberId: string): Promise<boolean> {
+    const [row] = await db.select().from(groupMembers).where(
+      and(eq(groupMembers.groupId, groupId), eq(groupMembers.memberId, memberId))
+    );
+    return !!row;
+  }
+
+  // ========== Prayer Requests ==========
+  async getPrayerRequests(filter: PrayerRequestFilter): Promise<PrayerRequest[]> {
+    const conditions = [];
+
+    if (filter.since) {
+      let sinceDate: Date;
+      const match = filter.since.match(/^(\d+)d$/);
+      if (match) {
+        sinceDate = new Date(Date.now() - parseInt(match[1]) * 24 * 60 * 60 * 1000);
+      } else {
+        sinceDate = new Date(filter.since);
+      }
+      if (!isNaN(sinceDate.getTime())) {
+        conditions.push(gte(prayerRequests.createdAt, sinceDate));
+      }
+    }
+
+    if (filter.groupId) {
+      conditions.push(eq(prayerRequests.groupId, filter.groupId));
+    }
+
+    if (filter.status) {
+      conditions.push(eq(prayerRequests.status, filter.status));
+    }
+
+    if (filter.isPublic !== undefined) {
+      conditions.push(eq(prayerRequests.isPublic, filter.isPublic));
+    }
+
+    if (filter.memberId) {
+      conditions.push(eq(prayerRequests.memberId, filter.memberId));
+    }
+
+    let query = db.select().from(prayerRequests)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(prayerRequests.createdAt));
+
+    if (filter.limit) {
+      query = query.limit(filter.limit) as typeof query;
+    }
+
+    if (filter.offset) {
+      query = query.offset(filter.offset) as typeof query;
+    }
+
+    return query;
+  }
+
+  async getPrayerRequest(id: string): Promise<PrayerRequest | undefined> {
+    const [result] = await db.select().from(prayerRequests).where(eq(prayerRequests.id, id));
+    return result;
+  }
+
+  async createPrayerRequest(request: InsertPrayerRequest): Promise<PrayerRequest> {
+    const [result] = await db.insert(prayerRequests).values(request).returning();
+    return result;
+  }
+
+  async updatePrayerRequest(id: string, data: Partial<InsertPrayerRequest>): Promise<PrayerRequest> {
+    const [result] = await db.update(prayerRequests)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(prayerRequests.id, id))
+      .returning();
+    return result;
+  }
+
+  async deletePrayerRequest(id: string): Promise<void> {
+    await db.delete(prayerRequests).where(eq(prayerRequests.id, id));
+  }
+
+  async incrementPrayerCount(id: string): Promise<PrayerRequest> {
+    const [result] = await db.update(prayerRequests)
+      .set({ prayerCount: sql`${prayerRequests.prayerCount} + 1` })
+      .where(eq(prayerRequests.id, id))
+      .returning();
+    return result;
+  }
+
+  // ========== Fund Categories ==========
+  async getFundCategories(activeOnly = true): Promise<FundCategory[]> {
+    if (activeOnly) {
+      return db.select().from(fundCategories)
+        .where(eq(fundCategories.isActive, true))
+        .orderBy(asc(fundCategories.orderIndex));
+    }
+    return db.select().from(fundCategories).orderBy(asc(fundCategories.orderIndex));
+  }
+
+  async getFundCategory(id: string): Promise<FundCategory | undefined> {
+    const [result] = await db.select().from(fundCategories).where(eq(fundCategories.id, id));
+    return result;
+  }
+
+  async createFundCategory(category: InsertFundCategory): Promise<FundCategory> {
+    const [result] = await db.insert(fundCategories).values(category).returning();
+    return result;
+  }
+
+  async updateFundCategory(id: string, data: Partial<InsertFundCategory>): Promise<FundCategory> {
+    const [result] = await db.update(fundCategories).set(data).where(eq(fundCategories.id, id)).returning();
+    return result;
+  }
+
+  // ========== Donations ==========
+  async getDonations(): Promise<Donation[]> {
+    return db.select().from(donations).orderBy(desc(donations.createdAt));
+  }
+
+  async getDonation(id: string): Promise<Donation | undefined> {
+    const [result] = await db.select().from(donations).where(eq(donations.id, id));
+    return result;
+  }
+
+  async createDonation(donation: InsertDonation): Promise<Donation> {
+    const [result] = await db.insert(donations).values(donation).returning();
+    return result;
+  }
+
+  async updateDonation(id: string, data: Partial<Donation>): Promise<Donation> {
+    const [result] = await db.update(donations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(donations.id, id))
+      .returning();
+    return result;
+  }
+
+  async getDonationByStripePaymentIntent(paymentIntentId: string): Promise<Donation | undefined> {
+    const [result] = await db.select().from(donations)
+      .where(eq(donations.stripePaymentIntentId, paymentIntentId));
+    return result;
+  }
+
+  async getDonationByStripeSubscription(subscriptionId: string): Promise<Donation | undefined> {
+    const [result] = await db.select().from(donations)
+      .where(eq(donations.stripeSubscriptionId, subscriptionId));
+    return result;
+  }
+
+  async getDonationByStripeCheckoutSession(sessionId: string): Promise<Donation | undefined> {
+    const [result] = await db.select().from(donations)
+      .where(eq(donations.stripeCheckoutSessionId, sessionId));
+    return result;
+  }
+
+  async getMemberDonationHistory(memberId: string): Promise<Donation[]> {
+    return db.select().from(donations)
+      .where(eq(donations.memberId, memberId))
+      .orderBy(desc(donations.createdAt));
   }
 }
 

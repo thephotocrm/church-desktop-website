@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { leaders, events, ministries, streamConfig, users } from "@shared/schema";
+import { leaders, events, ministries, streamConfig, users, fundCategories } from "@shared/schema";
 import bcrypt from "bcryptjs";
 
 export async function seedDatabase() {
@@ -155,6 +155,18 @@ export async function seedDatabase() {
       password: hashedPassword,
     });
     console.log("Default admin user created (admin / admin123)");
+  }
+
+  // Seed fund categories
+  const existingFunds = await db.select().from(fundCategories);
+  if (existingFunds.length === 0) {
+    await db.insert(fundCategories).values([
+      { name: "Tithes", description: "Honor the Lord with your tithes", orderIndex: 0, isActive: true },
+      { name: "Offerings", description: "General offerings to support church operations", orderIndex: 1, isActive: true },
+      { name: "Building Fund", description: "Help us expand and maintain our facilities", orderIndex: 2, isActive: true },
+      { name: "Missions", description: "Support missionaries and gospel outreach worldwide", orderIndex: 3, isActive: true },
+    ]);
+    console.log("Fund categories seeded");
   }
 
   console.log("Database seeded successfully!");

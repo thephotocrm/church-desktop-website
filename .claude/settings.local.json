@@ -5,7 +5,11 @@
       "Bash(npm install:*)",
       "Bash(ss:*)",
       "Bash(curl:*)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(gh repo view:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(apt list:*)"
     ]
   }
 }

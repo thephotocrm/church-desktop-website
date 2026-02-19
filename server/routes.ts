@@ -3,6 +3,10 @@ import { type Server } from "http";
 import { storage } from "./storage";
 import { requireAuth } from "./auth";
 import { insertContactSchema, updateStreamConfigSchema } from "@shared/schema";
+import memberRoutes from "./routes/memberRoutes";
+import groupRoutes from "./routes/groupRoutes";
+import prayerRoutes from "./routes/prayerRoutes";
+import givingRoutes from "./routes/givingRoutes";
 
 // MediaMTX base URL (protocol + host + port)
 const MEDIA_SERVER_BASE = process.env.STREAM_HLS_URL
@@ -162,6 +166,19 @@ export async function registerRoutes(
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
     res.sendStatus(204);
+  });
+
+  // New feature routes
+  app.use("/api/members", memberRoutes);
+  app.use("/api/groups", groupRoutes);
+  app.use("/api/prayer-requests", prayerRoutes);
+  app.use("/api/giving", givingRoutes);
+
+  // Config endpoint (public - returns Stripe publishable key)
+  app.get("/api/config", (_req, res) => {
+    res.json({
+      stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || null,
+    });
   });
 
   return httpServer;

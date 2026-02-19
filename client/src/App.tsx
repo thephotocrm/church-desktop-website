@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
+import { MemberAuthProvider } from "@/components/member-auth-provider";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import Home from "@/pages/home";
@@ -14,10 +15,17 @@ import Leadership from "@/pages/leadership";
 import Connect from "@/pages/connect";
 import LiveStream from "@/pages/live";
 import Give from "@/pages/give";
+import GivingHistory from "@/pages/giving-history";
 import Events from "@/pages/events";
 import MinistriesPage from "@/pages/ministries";
 import Login from "@/pages/login";
 import Admin from "@/pages/admin";
+import Prayer from "@/pages/prayer";
+import Register from "@/pages/register";
+import MemberLogin from "@/pages/member-login";
+import Profile from "@/pages/profile";
+import Directory from "@/pages/directory";
+import Groups from "@/pages/groups";
 import NotFound from "@/pages/not-found";
 
 function ScrollToTop() {
@@ -38,8 +46,15 @@ function Router() {
       <Route path="/connect" component={Connect} />
       <Route path="/live" component={LiveStream} />
       <Route path="/give" component={Give} />
+      <Route path="/giving-history" component={GivingHistory} />
       <Route path="/events" component={Events} />
       <Route path="/ministries" component={MinistriesPage} />
+      <Route path="/prayer" component={Prayer} />
+      <Route path="/register" component={Register} />
+      <Route path="/member-login" component={MemberLogin} />
+      <Route path="/profile" component={Profile} />
+      <Route path="/directory" component={Directory} />
+      <Route path="/groups" component={Groups} />
       <Route path="/login" component={Login} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
@@ -50,15 +65,16 @@ function Router() {
 function AppLayout() {
   const [location] = useLocation();
   const isAdminRoute = location === "/login" || location === "/admin";
+  const isMemberAuthRoute = location === "/member-login" || location === "/register";
 
   return (
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
-      {!isAdminRoute && <Navigation />}
+      {!isAdminRoute && !isMemberAuthRoute && <Navigation />}
       <main className="flex-1">
         <Router />
       </main>
-      {!isAdminRoute && <Footer />}
+      {!isAdminRoute && !isMemberAuthRoute && <Footer />}
     </div>
   );
 }
@@ -67,10 +83,12 @@ function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <AppLayout />
-          <Toaster />
-        </TooltipProvider>
+        <MemberAuthProvider>
+          <TooltipProvider>
+            <AppLayout />
+            <Toaster />
+          </TooltipProvider>
+        </MemberAuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

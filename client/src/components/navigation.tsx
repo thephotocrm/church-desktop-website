@@ -3,7 +3,15 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme } from "@/components/theme-provider";
-import { Menu, X, Sun, Moon, Cross } from "lucide-react";
+import { useMemberAuth } from "@/hooks/use-member-auth";
+import { Menu, X, Sun, Moon, Cross, User, LogIn } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -13,6 +21,7 @@ const navLinks = [
   { href: "/ministries", label: "Ministries" },
   { href: "/events", label: "Events" },
   { href: "/live", label: "Live Stream" },
+  { href: "/prayer", label: "Prayer" },
   { href: "/connect", label: "Connect" },
   { href: "/give", label: "Give" },
 ];
@@ -22,6 +31,7 @@ export function Navigation() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { member, logout } = useMemberAuth();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -81,6 +91,55 @@ export function Navigation() {
           </div>
 
           <div className="flex items-center gap-3 md:gap-2">
+            {/* Member auth UI */}
+            {member ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={scrolled || !isHome ? "" : "text-white hover:text-white"}
+                  >
+                    <User className="!w-5 !h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <div className="px-2 py-1.5">
+                    <p className="text-sm font-medium">{member.firstName} {member.lastName}</p>
+                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <Link href="/profile">
+                    <DropdownMenuItem className="cursor-pointer">My Profile</DropdownMenuItem>
+                  </Link>
+                  <Link href="/directory">
+                    <DropdownMenuItem className="cursor-pointer">Directory</DropdownMenuItem>
+                  </Link>
+                  <Link href="/groups">
+                    <DropdownMenuItem className="cursor-pointer">Groups</DropdownMenuItem>
+                  </Link>
+                  <Link href="/giving-history">
+                    <DropdownMenuItem className="cursor-pointer">Giving History</DropdownMenuItem>
+                  </Link>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer" onClick={logout}>
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link href="/member-login">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className={scrolled || !isHome ? "" : "text-white hover:text-white"}
+                  data-testid="button-member-login"
+                >
+                  <LogIn className="!w-5 !h-5" />
+                </Button>
+              </Link>
+            )}
+
             <Button
               size="icon"
               variant="ghost"
@@ -129,6 +188,38 @@ export function Navigation() {
                         </span>
                       </Link>
                     ))}
+                    <div className="border-t my-2" />
+                    {member ? (
+                      <>
+                        <Link href="/profile">
+                          <span onClick={() => setOpen(false)} className="block px-4 py-3 rounded-md font-body text-base cursor-pointer text-foreground/80">
+                            My Profile
+                          </span>
+                        </Link>
+                        <Link href="/directory">
+                          <span onClick={() => setOpen(false)} className="block px-4 py-3 rounded-md font-body text-base cursor-pointer text-foreground/80">
+                            Directory
+                          </span>
+                        </Link>
+                        <Link href="/groups">
+                          <span onClick={() => setOpen(false)} className="block px-4 py-3 rounded-md font-body text-base cursor-pointer text-foreground/80">
+                            Groups
+                          </span>
+                        </Link>
+                        <span
+                          onClick={() => { logout(); setOpen(false); }}
+                          className="block px-4 py-3 rounded-md font-body text-base cursor-pointer text-red-500"
+                        >
+                          Sign Out
+                        </span>
+                      </>
+                    ) : (
+                      <Link href="/member-login">
+                        <span onClick={() => setOpen(false)} className="block px-4 py-3 rounded-md font-body text-base cursor-pointer text-gold font-semibold">
+                          Member Sign In
+                        </span>
+                      </Link>
+                    )}
                   </div>
                 </SheetContent>
               </Sheet>
