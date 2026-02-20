@@ -9,9 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
-  HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2
+  HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast
 } from "lucide-react";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -175,8 +176,9 @@ export default function Admin() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="stream">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="stream"><Video className="w-4 h-4 mr-1" />Stream</TabsTrigger>
+            <TabsTrigger value="restream"><Cast className="w-4 h-4 mr-1" />Restream</TabsTrigger>
             <TabsTrigger value="members"><Users className="w-4 h-4 mr-1" />Members</TabsTrigger>
             <TabsTrigger value="prayer"><HandHeart className="w-4 h-4 mr-1" />Prayer</TabsTrigger>
             <TabsTrigger value="giving"><DollarSign className="w-4 h-4 mr-1" />Giving</TabsTrigger>
@@ -226,6 +228,11 @@ export default function Admin() {
                 </form>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Restream Tab */}
+          <TabsContent value="restream">
+            <RestreamAdmin />
           </TabsContent>
 
           {/* Members Tab */}
@@ -595,6 +602,217 @@ function GivingAdmin() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ========== Restream Admin ==========
+interface PlatformConfigData {
+  platform: string;
+  enabled: boolean;
+  streamKey: string | null;
+  rtmpUrl: string | null;
+  channelId: string | null;
+  apiKey: string | null;
+  channelUrl: string | null;
+}
+
+interface RestreamStatusData {
+  platform: string;
+  status: string;
+  errorMessage: string | null;
+  startedAt: string | null;
+  stoppedAt: string | null;
+}
+
+function RestreamAdmin() {
+  const { toast } = useToast();
+
+  const { data: configs, isLoading: configsLoading } = useQuery<PlatformConfigData[]>({
+    queryKey: ["/api/admin/platform-configs"],
+  });
+
+  const { data: statuses } = useQuery<RestreamStatusData[]>({
+    queryKey: ["/api/admin/restream-status"],
+    refetchInterval: 5000,
+  });
+
+  const statusMap = new Map((statuses || []).map((s) => [s.platform, s]));
+
+  return (
+    <div className="space-y-6">
+      <div className="mb-4 p-3 rounded-md bg-muted text-sm text-muted-foreground">
+        Configure YouTube and Facebook restreaming. When OBS starts streaming, the server automatically forwards to enabled platforms.
+      </div>
+      {configsLoading ? (
+        <div className="space-y-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-40 bg-muted animate-pulse rounded-md" />
+          ))}
+        </div>
+      ) : (
+        <>
+          <PlatformCard
+            platform="youtube"
+            label="YouTube"
+            config={configs?.find((c) => c.platform === "youtube") || null}
+            status={statusMap.get("youtube") || null}
+            showExtras
+          />
+          <PlatformCard
+            platform="facebook"
+            label="Facebook"
+            config={configs?.find((c) => c.platform === "facebook") || null}
+            status={statusMap.get("facebook") || null}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function PlatformCard({
+  platform,
+  label,
+  config,
+  status,
+  showExtras,
+}: {
+  platform: string;
+  label: string;
+  config: PlatformConfigData | null;
+  status: RestreamStatusData | null;
+  showExtras?: boolean;
+}) {
+  const { toast } = useToast();
+  const [enabled, setEnabled] = useState(config?.enabled ?? false);
+  const [streamKey, setStreamKey] = useState(config?.streamKey || "");
+  const [channelUrl, setChannelUrl] = useState(config?.channelUrl || "");
+  const [channelId, setChannelId] = useState(config?.channelId || "");
+  const [apiKey, setApiKey] = useState(config?.apiKey || "");
+
+  useEffect(() => {
+    if (config) {
+      setEnabled(config.enabled);
+      setStreamKey(config.streamKey || "");
+      setChannelUrl(config.channelUrl || "");
+      setChannelId(config.channelId || "");
+      setApiKey(config.apiKey || "");
+    }
+  }, [config]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const body: Record<string, unknown> = {
+        enabled,
+        channelUrl,
+      };
+      // Only send stream key if user changed it (not the masked value)
+      if (streamKey && !streamKey.startsWith("****")) {
+        body.streamKey = streamKey;
+      }
+      if (showExtras) {
+        body.channelId = channelId;
+        if (apiKey && !apiKey.startsWith("****")) {
+          body.apiKey = apiKey;
+        }
+      }
+      const res = await apiRequest("PATCH", `/api/admin/platform-configs/${platform}`, body);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/platform-configs"] });
+      toast({ title: `${label} settings saved` });
+    },
+    onError: () => {
+      toast({ title: "Error", description: `Failed to save ${label} settings.`, variant: "destructive" });
+    },
+  });
+
+  const statusColor = {
+    idle: "bg-gray-500",
+    active: "bg-green-500",
+    error: "bg-red-500",
+  }[status?.status || "idle"] || "bg-gray-500";
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Cast className="w-5 h-5 text-gold" />
+            <CardTitle>{label}</CardTitle>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge className={`${statusColor} text-white border-0 capitalize`}>
+              {status?.status || "idle"}
+            </Badge>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Enabled</span>
+              <Switch checked={enabled} onCheckedChange={setEnabled} />
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {status?.errorMessage && (
+          <div className="mb-4 p-3 rounded-md bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 text-sm">
+            Error: {status.errorMessage}
+          </div>
+        )}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={`${platform}-stream-key`}>Stream Key</Label>
+            <Input
+              id={`${platform}-stream-key`}
+              type="password"
+              value={streamKey}
+              onChange={(e) => setStreamKey(e.target.value)}
+              placeholder="Enter RTMP stream key"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`${platform}-channel-url`}>Channel URL</Label>
+            <Input
+              id={`${platform}-channel-url`}
+              value={channelUrl}
+              onChange={(e) => setChannelUrl(e.target.value)}
+              placeholder={`https://${platform}.com/...`}
+            />
+          </div>
+          {showExtras && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor={`${platform}-channel-id`}>Channel ID</Label>
+                <Input
+                  id={`${platform}-channel-id`}
+                  value={channelId}
+                  onChange={(e) => setChannelId(e.target.value)}
+                  placeholder="UC..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${platform}-api-key`}>YouTube Data API Key</Label>
+                <Input
+                  id={`${platform}-api-key`}
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="AIza..."
+                />
+              </div>
+            </>
+          )}
+          <Button
+            className="bg-gold text-white border-gold"
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {saveMutation.isPending ? "Saving..." : "Save Settings"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

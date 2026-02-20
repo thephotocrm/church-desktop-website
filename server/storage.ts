@@ -10,8 +10,12 @@ import {
   type PrayerRequest, type InsertPrayerRequest,
   type FundCategory, type InsertFundCategory,
   type Donation, type InsertDonation,
+  type PlatformConfig, type InsertPlatformConfig,
+  type YoutubeStreamCache, type InsertYoutubeStreamCache,
+  type RestreamStatus, type InsertRestreamStatus,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
   members, groups, groupMembers, prayerRequests, fundCategories, donations,
+  platformConfig, youtubeStreamCache, restreamStatus,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, and, gte, desc, sql } from "drizzle-orm";
@@ -96,6 +100,22 @@ export interface IStorage {
   getDonationByStripeSubscription(subscriptionId: string): Promise<Donation | undefined>;
   getDonationByStripeCheckoutSession(sessionId: string): Promise<Donation | undefined>;
   getMemberDonationHistory(memberId: string): Promise<Donation[]>;
+
+  // Platform Config
+  getPlatformConfigs(): Promise<PlatformConfig[]>;
+  getPlatformConfig(platform: string): Promise<PlatformConfig | undefined>;
+  upsertPlatformConfig(platform: string, data: Partial<InsertPlatformConfig>): Promise<PlatformConfig>;
+
+  // YouTube Stream Cache
+  getCachedStreams(limit?: number): Promise<YoutubeStreamCache[]>;
+  getCachedStream(videoId: string): Promise<YoutubeStreamCache | undefined>;
+  upsertStreamCache(data: InsertYoutubeStreamCache): Promise<YoutubeStreamCache>;
+  getStreamCacheAge(): Promise<number | null>; // ms since last cache
+
+  // Restream Status
+  getRestreamStatuses(): Promise<RestreamStatus[]>;
+  getRestreamStatus(platform: string): Promise<RestreamStatus | undefined>;
+  upsertRestreamStatus(platform: string, data: Partial<InsertRestreamStatus>): Promise<RestreamStatus>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -433,6 +453,94 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(donations)
       .where(eq(donations.memberId, memberId))
       .orderBy(desc(donations.createdAt));
+  }
+
+  // ========== Platform Config ==========
+  async getPlatformConfigs(): Promise<PlatformConfig[]> {
+    return db.select().from(platformConfig);
+  }
+
+  async getPlatformConfig(platform: string): Promise<PlatformConfig | undefined> {
+    const [config] = await db.select().from(platformConfig).where(eq(platformConfig.platform, platform));
+    return config;
+  }
+
+  async upsertPlatformConfig(platform: string, data: Partial<InsertPlatformConfig>): Promise<PlatformConfig> {
+    const existing = await this.getPlatformConfig(platform);
+    if (existing) {
+      const [updated] = await db.update(platformConfig)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(platformConfig.platform, platform))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(platformConfig)
+      .values({ ...data, platform, updatedAt: new Date() })
+      .returning();
+    return created;
+  }
+
+  // ========== YouTube Stream Cache ==========
+  async getCachedStreams(limit = 50): Promise<YoutubeStreamCache[]> {
+    return db.select().from(youtubeStreamCache)
+      .orderBy(desc(youtubeStreamCache.publishedAt))
+      .limit(limit);
+  }
+
+  async getCachedStream(videoId: string): Promise<YoutubeStreamCache | undefined> {
+    const [stream] = await db.select().from(youtubeStreamCache)
+      .where(eq(youtubeStreamCache.videoId, videoId));
+    return stream;
+  }
+
+  async upsertStreamCache(data: InsertYoutubeStreamCache): Promise<YoutubeStreamCache> {
+    const existing = await this.getCachedStream(data.videoId);
+    if (existing) {
+      const [updated] = await db.update(youtubeStreamCache)
+        .set({ ...data, cachedAt: new Date() })
+        .where(eq(youtubeStreamCache.videoId, data.videoId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(youtubeStreamCache)
+      .values({ ...data, cachedAt: new Date() })
+      .returning();
+    return created;
+  }
+
+  async getStreamCacheAge(): Promise<number | null> {
+    const [row] = await db.select({ cachedAt: youtubeStreamCache.cachedAt })
+      .from(youtubeStreamCache)
+      .orderBy(desc(youtubeStreamCache.cachedAt))
+      .limit(1);
+    if (!row?.cachedAt) return null;
+    return Date.now() - row.cachedAt.getTime();
+  }
+
+  // ========== Restream Status ==========
+  async getRestreamStatuses(): Promise<RestreamStatus[]> {
+    return db.select().from(restreamStatus);
+  }
+
+  async getRestreamStatus(platform: string): Promise<RestreamStatus | undefined> {
+    const [status] = await db.select().from(restreamStatus)
+      .where(eq(restreamStatus.platform, platform));
+    return status;
+  }
+
+  async upsertRestreamStatus(platform: string, data: Partial<InsertRestreamStatus>): Promise<RestreamStatus> {
+    const existing = await this.getRestreamStatus(platform);
+    if (existing) {
+      const [updated] = await db.update(restreamStatus)
+        .set(data)
+        .where(eq(restreamStatus.platform, platform))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(restreamStatus)
+      .values({ ...data, platform })
+      .returning();
+    return created;
   }
 }
 

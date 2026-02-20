@@ -7,6 +7,9 @@ import memberRoutes from "./routes/memberRoutes";
 import groupRoutes from "./routes/groupRoutes";
 import prayerRoutes from "./routes/prayerRoutes";
 import givingRoutes from "./routes/givingRoutes";
+import platformRoutes from "./routes/platformRoutes";
+import youtubeRoutes from "./routes/youtubeRoutes";
+import { startRestreaming, stopRestreaming } from "./restreamManager";
 
 // MediaMTX base URL (protocol + host + port)
 const MEDIA_SERVER_BASE = process.env.STREAM_HLS_URL
@@ -173,6 +176,52 @@ export async function registerRoutes(
   app.use("/api/groups", groupRoutes);
   app.use("/api/prayer-requests", prayerRoutes);
   app.use("/api/giving", givingRoutes);
+  app.use("/api/admin", platformRoutes);
+  app.use("/api/youtube", youtubeRoutes);
+
+  // POST /api/stream/webhook - MediaMTX webhook for stream start/stop
+  app.post("/api/stream/webhook", async (req, res) => {
+    const secret = req.headers["x-webhook-secret"];
+    const expectedSecret = process.env.WEBHOOK_SECRET;
+
+    if (expectedSecret && secret !== expectedSecret) {
+      return res.status(403).json({ error: "Invalid webhook secret" });
+    }
+
+    const { event } = req.body;
+    console.log(`[Webhook] Received stream event: ${event}`);
+
+    try {
+      if (event === "ready") {
+        await startRestreaming();
+      } else if (event === "not_ready") {
+        await stopRestreaming();
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[Webhook] Error handling stream event:", err);
+      res.status(500).json({ error: "Failed to handle webhook" });
+    }
+  });
+
+  // GET /api/social-links - public endpoint returning configured channel URLs
+  app.get("/api/social-links", async (_req, res) => {
+    try {
+      const configs = await storage.getPlatformConfigs();
+      const links: Record<string, string | null> = {
+        youtube: null,
+        facebook: null,
+      };
+      for (const config of configs) {
+        if (config.channelUrl) {
+          links[config.platform] = config.channelUrl;
+        }
+      }
+      res.json(links);
+    } catch {
+      res.json({ youtube: null, facebook: null });
+    }
+  });
 
   // Config endpoint (public - returns Stripe publishable key)
   app.get("/api/config", (_req, res) => {

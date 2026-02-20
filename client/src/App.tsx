@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { MemberAuthProvider } from "@/components/member-auth-provider";
 import { Navigation } from "@/components/navigation";
+import { LiveBanner } from "@/components/live-banner";
 import { Footer } from "@/components/footer";
 import Home from "@/pages/home";
 import About from "@/pages/about";
@@ -26,6 +27,7 @@ import MemberLogin from "@/pages/member-login";
 import Profile from "@/pages/profile";
 import Directory from "@/pages/directory";
 import Groups from "@/pages/groups";
+import PastStreams from "@/pages/past-streams";
 import NotFound from "@/pages/not-found";
 
 function ScrollToTop() {
@@ -55,6 +57,7 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/directory" component={Directory} />
       <Route path="/groups" component={Groups} />
+      <Route path="/past-streams" component={PastStreams} />
       <Route path="/login" component={Login} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
@@ -71,6 +74,7 @@ function AppLayout() {
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
       {!isAdminRoute && !isMemberAuthRoute && <Navigation />}
+      {!isAdminRoute && !isMemberAuthRoute && <LiveBanner />}
       <main className="flex-1">
         <Router />
       </main>

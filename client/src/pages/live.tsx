@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Calendar, Radio, Bell, ArrowRight } from "lucide-react";
+import { Calendar, Radio, Bell, ArrowRight, Film } from "lucide-react";
 import { SiFacebook, SiYoutube } from "react-icons/si";
 import { useSEO } from "@/hooks/use-seo";
 import { StreamPlayer, useStreamStatus } from "@/components/stream-player";
@@ -20,6 +21,10 @@ export default function LiveStream() {
   useSEO({ title: "Live Stream", description: "Watch First Pentecostal Church of Dallas services live online. Join us for worship from anywhere in the world." });
   const { data: streamStatus } = useStreamStatus();
   const isLive = streamStatus?.isLive ?? false;
+
+  const { data: socialLinks } = useQuery<{ youtube: string | null; facebook: string | null }>({
+    queryKey: ["/api/social-links"],
+  });
 
   return (
     <div className="min-h-screen">
@@ -75,13 +80,13 @@ export default function LiveStream() {
             <motion.div variants={fadeUp}>
               <StreamPlayer />
               <div className="flex gap-3 justify-center mt-6">
-                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer">
+                <a href={socialLinks?.youtube || "https://youtube.com"} target="_blank" rel="noopener noreferrer">
                   <Button className="bg-red-600 text-white border-red-600 font-body" data-testid="button-youtube-live">
                     <SiYoutube className="w-4 h-4 mr-2" />
                     Watch on YouTube
                   </Button>
                 </a>
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">
+                <a href={socialLinks?.facebook || "https://facebook.com"} target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" className="font-body" data-testid="button-facebook-live">
                     <SiFacebook className="w-4 h-4 mr-2" />
                     Facebook Live
@@ -89,6 +94,36 @@ export default function LiveStream() {
                 </a>
               </div>
             </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      <section className="py-12 bg-muted/50" data-testid="section-past-services-cta">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            variants={fadeUp}
+            className="flex flex-col md:flex-row items-center justify-between gap-6 p-8 rounded-xl bg-card border"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
+                <Film className="w-6 h-6 text-gold" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Watch Past Services</h3>
+                <p className="text-muted-foreground font-body text-sm">
+                  Missed a service? Browse our archive of past worship services and sermons.
+                </p>
+              </div>
+            </div>
+            <Link href="/past-streams">
+              <Button className="bg-gold text-white border-gold font-body whitespace-nowrap">
+                View Archive
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
           </motion.div>
         </div>
       </section>

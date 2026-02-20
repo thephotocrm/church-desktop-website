@@ -235,3 +235,63 @@ export const insertDonationSchema = createInsertSchema(donations).omit({
 
 export type InsertDonation = z.infer<typeof insertDonationSchema>;
 export type Donation = typeof donations.$inferSelect;
+
+// ===================== Platform Config (Restreaming) =====================
+
+export const platformConfig = pgTable("platform_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platform: text("platform").notNull().unique(), // "youtube" | "facebook"
+  enabled: boolean("enabled").notNull().default(false),
+  streamKey: text("stream_key"), // encrypted
+  rtmpUrl: text("rtmp_url"), // base RTMP endpoint
+  channelId: text("channel_id"), // YouTube channel ID
+  apiKey: text("api_key"), // YouTube Data API key, encrypted
+  channelUrl: text("channel_url"), // public channel URL
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPlatformConfigSchema = createInsertSchema(platformConfig).omit({
+  id: true,
+  updatedAt: true,
+});
+export const updatePlatformConfigSchema = insertPlatformConfigSchema.partial();
+export type InsertPlatformConfig = z.infer<typeof insertPlatformConfigSchema>;
+export type PlatformConfig = typeof platformConfig.$inferSelect;
+
+// ===================== YouTube Stream Cache =====================
+
+export const youtubeStreamCache = pgTable("youtube_stream_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  videoId: text("video_id").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description"),
+  thumbnailUrl: text("thumbnail_url"),
+  publishedAt: timestamp("published_at"),
+  duration: text("duration"), // ISO 8601 duration
+  viewCount: integer("view_count").default(0),
+  likeCount: integer("like_count").default(0),
+  cachedAt: timestamp("cached_at").defaultNow().notNull(),
+});
+
+export const insertYoutubeStreamCacheSchema = createInsertSchema(youtubeStreamCache).omit({
+  id: true,
+});
+export type InsertYoutubeStreamCache = z.infer<typeof insertYoutubeStreamCacheSchema>;
+export type YoutubeStreamCache = typeof youtubeStreamCache.$inferSelect;
+
+// ===================== Restream Status =====================
+
+export const restreamStatus = pgTable("restream_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  platform: text("platform").notNull().unique(), // "youtube" | "facebook"
+  status: text("status").notNull().default("idle"), // "idle" | "active" | "error"
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at"),
+  stoppedAt: timestamp("stopped_at"),
+});
+
+export const insertRestreamStatusSchema = createInsertSchema(restreamStatus).omit({
+  id: true,
+});
+export type InsertRestreamStatus = z.infer<typeof insertRestreamStatusSchema>;
+export type RestreamStatus = typeof restreamStatus.$inferSelect;

@@ -29,3 +29,15 @@ paths:
     # No reader authentication - public viewing
     readUser:
     readPass:
+
+    # Webhook hooks - notify Express server when stream starts/stops
+    runOnReady: >
+      wget -q -O /dev/null --header="X-Webhook-Secret: $WEBHOOK_SECRET"
+      --post-data='{"event":"ready"}'
+      --header="Content-Type: application/json"
+      http://host.docker.internal:5000/api/stream/webhook
+    runOnNotReady: >
+      wget -q -O /dev/null --header="X-Webhook-Secret: $WEBHOOK_SECRET"
+      --post-data='{"event":"not_ready"}'
+      --header="Content-Type: application/json"
+      http://host.docker.internal:5000/api/stream/webhook

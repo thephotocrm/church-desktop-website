@@ -9,7 +9,10 @@
       "Bash(gh repo view:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:github.com)",
-      "Bash(apt list:*)"
+      "Bash(apt list:*)",
+      "Bash(printf:*)",
+      "Bash(npx drizzle-kit push:*)",
+      "Bash(yes:*)"
     ]
   }
 }
