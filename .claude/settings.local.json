@@ -12,7 +12,8 @@
       "Bash(apt list:*)",
       "Bash(printf:*)",
       "Bash(npx drizzle-kit push:*)",
-      "Bash(yes:*)"
+      "Bash(yes:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

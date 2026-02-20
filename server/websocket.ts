@@ -17,11 +17,11 @@ export function broadcastToGroup(groupId: string, data: unknown) {
   const sockets = groupSubscriptions.get(groupId);
   if (!sockets) return;
   const payload = JSON.stringify(data);
-  for (const ws of sockets) {
+  sockets.forEach((ws) => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(payload);
     }
-  }
+  });
 }
 
 export function setupWebSocket(httpServer: Server) {
@@ -29,15 +29,15 @@ export function setupWebSocket(httpServer: Server) {
 
   // Heartbeat to clean up dead connections
   const interval = setInterval(() => {
-    for (const ws of wss.clients as Set<AuthenticatedSocket>) {
+    (wss.clients as Set<AuthenticatedSocket>).forEach((ws) => {
       if (!ws.isAlive) {
         cleanupSocket(ws);
         ws.terminate();
-        continue;
+        return;
       }
       ws.isAlive = false;
       ws.ping();
-    }
+    });
   }, 30000);
 
   wss.on("close", () => clearInterval(interval));
@@ -83,7 +83,7 @@ export function setupWebSocket(httpServer: Server) {
 }
 
 function cleanupSocket(ws: AuthenticatedSocket) {
-  for (const groupId of ws.subscribedGroups) {
+  Array.from(ws.subscribedGroups).forEach((groupId) => {
     const sockets = groupSubscriptions.get(groupId);
     if (sockets) {
       sockets.delete(ws);
@@ -91,7 +91,7 @@ function cleanupSocket(ws: AuthenticatedSocket) {
         groupSubscriptions.delete(groupId);
       }
     }
-  }
+  });
   ws.subscribedGroups.clear();
 }
 
