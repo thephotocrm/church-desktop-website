@@ -8,7 +8,7 @@ export function getStripe(): Stripe {
     if (!key) {
       throw new Error("Stripe is not configured. Set STRIPE_SECRET_KEY environment variable.");
     }
-    stripeClient = new Stripe(key, { apiVersion: "2025-04-30.basil" });
+    stripeClient = new Stripe(key, { apiVersion: "2026-01-28.clover" });
   }
   return stripeClient;
 }

@@ -14,33 +14,33 @@ router.get("/", requireApprovedMember, async (_req, res) => {
 
 // POST /api/groups/:id/join
 router.post("/:id/join", requireApprovedMember, async (req, res) => {
-  const group = await storage.getGroup(req.params.id);
+  const group = await storage.getGroup((req.params.id as string));
   if (!group) {
     return res.status(404).json({ message: "Group not found" });
   }
 
-  const already = await storage.isGroupMember(req.params.id, req.member!.memberId);
+  const already = await storage.isGroupMember((req.params.id as string), req.member!.memberId);
   if (already) {
     return res.status(409).json({ message: "Already a member of this group" });
   }
 
-  const gm = await storage.addGroupMember(req.params.id, req.member!.memberId);
+  const gm = await storage.addGroupMember((req.params.id as string), req.member!.memberId);
   res.status(201).json(gm);
 });
 
 // DELETE /api/groups/:id/leave
 router.delete("/:id/leave", requireApprovedMember, async (req, res) => {
-  await storage.removeGroupMember(req.params.id, req.member!.memberId);
+  await storage.removeGroupMember((req.params.id as string), req.member!.memberId);
   res.json({ message: "Left group" });
 });
 
 // GET /api/groups/:id/members
 router.get("/:id/members", requireApprovedMember, async (req, res) => {
-  const group = await storage.getGroup(req.params.id);
+  const group = await storage.getGroup((req.params.id as string));
   if (!group) {
     return res.status(404).json({ message: "Group not found" });
   }
-  const members = await storage.getGroupMembers(req.params.id);
+  const members = await storage.getGroupMembers((req.params.id as string));
   res.json(members.map((gm) => ({
     ...gm,
     member: gm.member ? {
@@ -66,7 +66,7 @@ router.post("/admin", requireAuth, async (req, res) => {
 
 // PATCH /api/admin/groups/:id
 router.patch("/admin/:id", requireAuth, async (req, res) => {
-  const group = await storage.getGroup(req.params.id);
+  const group = await storage.getGroup((req.params.id as string));
   if (!group) {
     return res.status(404).json({ message: "Group not found" });
   }
@@ -74,17 +74,17 @@ router.patch("/admin/:id", requireAuth, async (req, res) => {
   const updates: Record<string, unknown> = {};
   if (name !== undefined) updates.name = name;
   if (description !== undefined) updates.description = description;
-  const updated = await storage.updateGroup(req.params.id, updates);
+  const updated = await storage.updateGroup((req.params.id as string), updates);
   res.json(updated);
 });
 
 // DELETE /api/admin/groups/:id
 router.delete("/admin/:id", requireAuth, async (req, res) => {
-  const group = await storage.getGroup(req.params.id);
+  const group = await storage.getGroup((req.params.id as string));
   if (!group) {
     return res.status(404).json({ message: "Group not found" });
   }
-  await storage.deleteGroup(req.params.id);
+  await storage.deleteGroup((req.params.id as string));
   res.json({ message: "Group deleted" });
 });
 

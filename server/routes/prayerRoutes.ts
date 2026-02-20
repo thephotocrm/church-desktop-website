@@ -28,7 +28,7 @@ router.get("/", optionalMember, async (req, res) => {
 
 // GET /api/prayer-requests/:id
 router.get("/:id", optionalMember, async (req, res) => {
-  const request = await storage.getPrayerRequest(req.params.id);
+  const request = await storage.getPrayerRequest((req.params.id as string));
   if (!request) {
     return res.status(404).json({ message: "Prayer request not found" });
   }
@@ -72,7 +72,7 @@ router.post("/", optionalMember, async (req, res) => {
 
 // PATCH /api/prayer-requests/:id
 router.patch("/:id", requireMember, async (req, res) => {
-  const request = await storage.getPrayerRequest(req.params.id);
+  const request = await storage.getPrayerRequest((req.params.id as string));
   if (!request) {
     return res.status(404).json({ message: "Prayer request not found" });
   }
@@ -87,13 +87,13 @@ router.patch("/:id", requireMember, async (req, res) => {
   if (isAnonymous !== undefined) updates.isAnonymous = isAnonymous;
   if (isPublic !== undefined) updates.isPublic = isPublic;
 
-  const updated = await storage.updatePrayerRequest(req.params.id, updates);
+  const updated = await storage.updatePrayerRequest((req.params.id as string), updates);
   res.json(updated);
 });
 
 // DELETE /api/prayer-requests/:id
 router.delete("/:id", requireMember, async (req, res) => {
-  const request = await storage.getPrayerRequest(req.params.id);
+  const request = await storage.getPrayerRequest((req.params.id as string));
   if (!request) {
     return res.status(404).json({ message: "Prayer request not found" });
   }
@@ -101,29 +101,29 @@ router.delete("/:id", requireMember, async (req, res) => {
     return res.status(403).json({ message: "Not authorized to delete this prayer request" });
   }
 
-  await storage.deletePrayerRequest(req.params.id);
+  await storage.deletePrayerRequest((req.params.id as string));
   res.json({ message: "Prayer request deleted" });
 });
 
 // POST /api/prayer-requests/:id/pray
 router.post("/:id/pray", async (req, res) => {
-  const request = await storage.getPrayerRequest(req.params.id);
+  const request = await storage.getPrayerRequest((req.params.id as string));
   if (!request) {
     return res.status(404).json({ message: "Prayer request not found" });
   }
-  const updated = await storage.incrementPrayerCount(req.params.id);
+  const updated = await storage.incrementPrayerCount((req.params.id as string));
   res.json({ prayerCount: updated.prayerCount });
 });
 
 // GET /api/groups/:id/prayer-requests (group prayer requests)
 router.get("/group/:groupId", requireApprovedMember, async (req, res) => {
-  const isMember = await storage.isGroupMember(req.params.groupId, req.member!.memberId);
+  const isMember = await storage.isGroupMember((req.params.groupId as string), req.member!.memberId);
   if (!isMember) {
     return res.status(403).json({ message: "Not a member of this group" });
   }
 
   const requests = await storage.getPrayerRequests({
-    groupId: req.params.groupId,
+    groupId: (req.params.groupId as string),
     status: "active",
   });
   res.json(requests);
@@ -147,7 +147,7 @@ router.patch("/admin/:id", requireAuth, async (req, res) => {
   if (!status || !["active", "answered", "archived"].includes(status)) {
     return res.status(400).json({ message: "Invalid status" });
   }
-  const updated = await storage.updatePrayerRequest(req.params.id, { status });
+  const updated = await storage.updatePrayerRequest((req.params.id as string), { status });
   res.json(updated);
 });
 

@@ -144,13 +144,13 @@ router.get("/admin/pending", requireAuth, async (_req, res) => {
 
 // PATCH /api/admin/members/:id/approve
 router.patch("/admin/:id/approve", requireAuth, async (req, res) => {
-  const member = await storage.approveMember(req.params.id);
+  const member = await storage.approveMember(req.params.id as string);
   res.json({ ...member, password: undefined });
 });
 
 // PATCH /api/admin/members/:id/reject
 router.patch("/admin/:id/reject", requireAuth, async (req, res) => {
-  const member = await storage.rejectMember(req.params.id);
+  const member = await storage.rejectMember(req.params.id as string);
   res.json({ ...member, password: undefined });
 });
 

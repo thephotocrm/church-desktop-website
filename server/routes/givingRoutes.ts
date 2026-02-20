@@ -223,7 +223,7 @@ router.get("/payment-methods", requireStripe, requireMember, async (req, res) =>
 // DELETE /api/giving/payment-methods/:id
 router.delete("/payment-methods/:id", requireStripe, requireMember, async (req, res) => {
   const stripe = getStripe();
-  await stripe.paymentMethods.detach(req.params.id);
+  await stripe.paymentMethods.detach((req.params.id as string));
   res.json({ message: "Payment method removed" });
 });
 
@@ -353,7 +353,7 @@ router.post("/admin/funds", requireAuth, async (req, res) => {
 
 // PATCH /api/admin/funds/:id
 router.patch("/admin/funds/:id", requireAuth, async (req, res) => {
-  const fund = await storage.getFundCategory(req.params.id);
+  const fund = await storage.getFundCategory((req.params.id as string));
   if (!fund) {
     return res.status(404).json({ message: "Fund category not found" });
   }
@@ -364,7 +364,7 @@ router.patch("/admin/funds/:id", requireAuth, async (req, res) => {
   if (isActive !== undefined) updates.isActive = isActive;
   if (orderIndex !== undefined) updates.orderIndex = orderIndex;
 
-  const updated = await storage.updateFundCategory(req.params.id, updates);
+  const updated = await storage.updateFundCategory((req.params.id as string), updates);
   res.json(updated);
 });
 
