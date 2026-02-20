@@ -22,7 +22,8 @@ export function setupAuth(app: Express) {
     session({
       store: new PgStore({
         conString: process.env.DATABASE_URL,
-        createTableIfMissing: true,
+        // Note: createTableIfMissing won't work in bundled builds (can't find table.sql).
+        // The session table is created in server/seed.ts instead.
       }),
       secret: process.env.SESSION_SECRET || "fpc-dallas-secret-key-change-in-production",
       resave: false,

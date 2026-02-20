@@ -4,8 +4,6 @@ import { insertGroupSchema } from "@shared/schema";
 import { requireApprovedMember } from "../memberAuth";
 import { requireAuth } from "../auth";
 import { broadcastToGroup } from "../websocket";
-import { db } from "../db";
-import { sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -118,20 +116,8 @@ router.post("/:id/messages", requireApprovedMember, async (req, res) => {
 
 // GET /api/groups/admin — list all groups for admin
 router.get("/admin", requireAuth, async (_req, res) => {
-  try {
-    const allGroups = await storage.getGroups();
-    res.json(allGroups);
-  } catch (err: any) {
-    console.error("[GET /api/groups/admin] Error:", err);
-    // Fallback to raw SQL if ORM query fails (e.g. column mapping issues)
-    try {
-      const result = await db.execute(sql`SELECT id, name, description, type, is_default AS "isDefault", created_at AS "createdAt" FROM groups ORDER BY name ASC`);
-      res.json(result.rows);
-    } catch (err2) {
-      console.error("[GET /api/groups/admin] Fallback also failed:", err2);
-      res.status(500).json({ message: err.message || "Failed to fetch groups" });
-    }
-  }
+  const allGroups = await storage.getGroups();
+  res.json(allGroups);
 });
 
 // POST /api/admin/groups

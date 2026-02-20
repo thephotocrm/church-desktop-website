@@ -1,9 +1,20 @@
 import { db } from "./db";
 import { leaders, events, ministries, streamConfig, users, fundCategories, groups, groupMembers, members } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export async function seedDatabase() {
+  // Ensure connect-pg-simple session table exists (createTableIfMissing breaks in bundled builds)
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS "session" (
+      "sid" varchar NOT NULL COLLATE "default",
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL,
+      CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+    )
+  `);
+  await db.execute(sql`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`);
+
   const existingLeaders = await db.select().from(leaders);
   const existingEvents = await db.select().from(events);
   const existingMinistries = await db.select().from(ministries);
