@@ -145,6 +145,20 @@ router.get("/admin/pending", requireAuth, async (_req, res) => {
 // PATCH /api/admin/members/:id/approve
 router.patch("/admin/:id/approve", requireAuth, async (req, res) => {
   const member = await storage.approveMember(req.params.id as string);
+
+  // Auto-add to default group
+  try {
+    const defaultGroup = await storage.getDefaultGroup();
+    if (defaultGroup) {
+      const alreadyMember = await storage.isGroupMember(defaultGroup.id, member.id);
+      if (!alreadyMember) {
+        await storage.addGroupMember(defaultGroup.id, member.id);
+      }
+    }
+  } catch (err) {
+    console.error("Failed to add member to default group:", err);
+  }
+
   res.json({ ...member, password: undefined });
 });
 

@@ -28,6 +28,8 @@ import Profile from "@/pages/profile";
 import Directory from "@/pages/directory";
 import Groups from "@/pages/groups";
 import PastStreams from "@/pages/past-streams";
+import PrivacyPolicy from "@/pages/privacy-policy";
+import TermsOfService from "@/pages/terms-of-service";
 import NotFound from "@/pages/not-found";
 
 function ScrollToTop() {
@@ -58,6 +60,8 @@ function Router() {
       <Route path="/directory" component={Directory} />
       <Route path="/groups" component={Groups} />
       <Route path="/past-streams" component={PastStreams} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/terms-of-service" component={TermsOfService} />
       <Route path="/login" component={Login} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />

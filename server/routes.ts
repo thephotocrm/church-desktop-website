@@ -10,6 +10,7 @@ import givingRoutes from "./routes/givingRoutes";
 import platformRoutes from "./routes/platformRoutes";
 import youtubeRoutes from "./routes/youtubeRoutes";
 import { startRestreaming, stopRestreaming } from "./restreamManager";
+import { setupWebSocket } from "./websocket";
 
 // MediaMTX base URL (protocol + host + port)
 const MEDIA_SERVER_BASE = process.env.STREAM_HLS_URL
@@ -65,6 +66,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  setupWebSocket(httpServer);
+
   app.get("/api/events", async (_req, res) => {
     const events = await storage.getEvents();
     res.json(events);

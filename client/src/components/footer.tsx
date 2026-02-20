@@ -114,8 +114,8 @@ export function Footer() {
             &copy; {new Date().getFullYear()} First Pentecostal Church of Dallas. All rights reserved.
           </p>
           <div className="flex gap-6 font-body text-xs text-white/50">
-            <Link href="/connect"><span className="hover:text-gold cursor-pointer transition-colors">Privacy Policy</span></Link>
-            <Link href="/connect"><span className="hover:text-gold cursor-pointer transition-colors">Terms of Service</span></Link>
+            <Link href="/privacy-policy"><span className="hover:text-gold cursor-pointer transition-colors">Privacy Policy</span></Link>
+            <Link href="/terms-of-service"><span className="hover:text-gold cursor-pointer transition-colors">Terms of Service</span></Link>
           </div>
         </div>
       </div>

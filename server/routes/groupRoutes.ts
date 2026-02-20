@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { insertGroupSchema } from "@shared/schema";
 import { requireApprovedMember } from "../memberAuth";
 import { requireAuth } from "../auth";
+import { broadcastToGroup } from "../websocket";
 
 const router = Router();
 
@@ -30,6 +31,10 @@ router.post("/:id/join", requireApprovedMember, async (req, res) => {
 
 // DELETE /api/groups/:id/leave
 router.delete("/:id/leave", requireApprovedMember, async (req, res) => {
+  const group = await storage.getGroup(req.params.id as string);
+  if (group?.isDefault) {
+    return res.status(403).json({ message: "Cannot leave the default group" });
+  }
   await storage.removeGroupMember((req.params.id as string), req.member!.memberId);
   res.json({ message: "Left group" });
 });
@@ -50,6 +55,61 @@ router.get("/:id/members", requireApprovedMember, async (req, res) => {
       photoUrl: gm.member.photoUrl,
     } : null,
   })));
+});
+
+// GET /api/groups/:id/messages — paginated message history
+router.get("/:id/messages", requireApprovedMember, async (req, res) => {
+  const groupId = req.params.id as string;
+  const group = await storage.getGroup(groupId);
+  if (!group) {
+    return res.status(404).json({ message: "Group not found" });
+  }
+
+  const isMember = await storage.isGroupMember(groupId, req.member!.memberId);
+  if (!isMember) {
+    return res.status(403).json({ message: "Not a member of this group" });
+  }
+
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+  const before = req.query.before as string | undefined;
+  const messages = await storage.getMessages(groupId, limit, before);
+  res.json(messages);
+});
+
+// POST /api/groups/:id/messages — send a message
+router.post("/:id/messages", requireApprovedMember, async (req, res) => {
+  const groupId = req.params.id as string;
+  const group = await storage.getGroup(groupId);
+  if (!group) {
+    return res.status(404).json({ message: "Group not found" });
+  }
+
+  const isMember = await storage.isGroupMember(groupId, req.member!.memberId);
+  if (!isMember) {
+    return res.status(403).json({ message: "Not a member of this group" });
+  }
+
+  if (group.type === "announcement" && req.member!.role !== "admin") {
+    return res.status(403).json({ message: "Only admins can post in announcement groups" });
+  }
+
+  const { content } = req.body;
+  if (!content?.trim()) {
+    return res.status(400).json({ message: "Message content is required" });
+  }
+
+  const message = await storage.createMessage({
+    groupId,
+    memberId: req.member!.memberId,
+    content: content.trim(),
+  });
+
+  broadcastToGroup(groupId, {
+    type: "new_message",
+    message,
+  });
+
+  res.status(201).json(message);
 });
 
 // ========== Admin group management ==========
@@ -83,6 +143,9 @@ router.delete("/admin/:id", requireAuth, async (req, res) => {
   const group = await storage.getGroup((req.params.id as string));
   if (!group) {
     return res.status(404).json({ message: "Group not found" });
+  }
+  if (group.isDefault) {
+    return res.status(403).json({ message: "Cannot delete the default group" });
   }
   await storage.deleteGroup((req.params.id as string));
   res.json({ message: "Group deleted" });

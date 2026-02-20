@@ -1,5 +1,6 @@
 import { db } from "./db";
-import { leaders, events, ministries, streamConfig, users, fundCategories } from "@shared/schema";
+import { leaders, events, ministries, streamConfig, users, fundCategories, groups, groupMembers, members } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export async function seedDatabase() {
@@ -167,6 +168,27 @@ export async function seedDatabase() {
       { name: "Missions", description: "Support missionaries and gospel outreach worldwide", orderIndex: 3, isActive: true },
     ]);
     console.log("Fund categories seeded");
+  }
+
+  // Seed default "All Saints" announcement group
+  const [existingDefault] = await db.select().from(groups).where(eq(groups.isDefault, true));
+  if (!existingDefault) {
+    const [allSaintsGroup] = await db.insert(groups).values({
+      name: "All Saints",
+      description: "Church-wide announcements for all members",
+      type: "announcement",
+      isDefault: true,
+    }).returning();
+
+    // Auto-add all currently approved members
+    const approvedMembers = await db.select().from(members).where(eq(members.status, "approved"));
+    for (const member of approvedMembers) {
+      await db.insert(groupMembers).values({
+        groupId: allSaintsGroup.id,
+        memberId: member.id,
+      }).onConflictDoNothing();
+    }
+    console.log(`Default "All Saints" group created with ${approvedMembers.length} members`);
   }
 
   console.log("Database seeded successfully!");

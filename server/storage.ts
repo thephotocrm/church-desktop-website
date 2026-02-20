@@ -7,6 +7,7 @@ import {
   type StreamConfig, type InsertStreamConfig,
   type Member, type InsertMember,
   type Group, type InsertGroup, type GroupMember,
+  type Message, type InsertMessage,
   type PrayerRequest, type InsertPrayerRequest,
   type FundCategory, type InsertFundCategory,
   type Donation, type InsertDonation,
@@ -14,11 +15,11 @@ import {
   type YoutubeStreamCache, type InsertYoutubeStreamCache,
   type RestreamStatus, type InsertRestreamStatus,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
-  members, groups, groupMembers, prayerRequests, fundCategories, donations,
+  members, groups, groupMembers, messages, prayerRequests, fundCategories, donations,
   platformConfig, youtubeStreamCache, restreamStatus,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc, and, gte, desc, sql } from "drizzle-orm";
+import { eq, asc, and, gte, lt, desc, sql } from "drizzle-orm";
 
 export interface PrayerRequestFilter {
   since?: string;
@@ -76,6 +77,11 @@ export interface IStorage {
   removeGroupMember(groupId: string, memberId: string): Promise<void>;
   getMemberGroups(memberId: string): Promise<Group[]>;
   isGroupMember(groupId: string, memberId: string): Promise<boolean>;
+  getDefaultGroup(): Promise<Group | undefined>;
+
+  // Messages
+  getMessages(groupId: string, limit?: number, before?: string): Promise<(Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null } })[]>;
+  createMessage(message: InsertMessage): Promise<Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null } }>;
 
   // Prayer Requests
   getPrayerRequests(filter: PrayerRequestFilter): Promise<PrayerRequest[]>;
@@ -303,6 +309,50 @@ export class DatabaseStorage implements IStorage {
       and(eq(groupMembers.groupId, groupId), eq(groupMembers.memberId, memberId))
     );
     return !!row;
+  }
+
+  async getDefaultGroup(): Promise<Group | undefined> {
+    const [group] = await db.select().from(groups).where(eq(groups.isDefault, true));
+    return group;
+  }
+
+  // ========== Messages ==========
+  async getMessages(groupId: string, limit = 50, before?: string): Promise<(Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null } })[]> {
+    const conditions = [eq(messages.groupId, groupId)];
+    if (before) {
+      const [ref] = await db.select({ createdAt: messages.createdAt }).from(messages).where(eq(messages.id, before));
+      if (ref?.createdAt) {
+        conditions.push(lt(messages.createdAt, ref.createdAt));
+      }
+    }
+
+    const rows = await db.select().from(messages)
+      .where(and(...conditions))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit);
+
+    const result = [];
+    for (const row of rows) {
+      const [member] = await db.select({
+        id: members.id,
+        firstName: members.firstName,
+        lastName: members.lastName,
+        photoUrl: members.photoUrl,
+      }).from(members).where(eq(members.id, row.memberId));
+      result.push({ ...row, sender: member || undefined });
+    }
+    return result.reverse();
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null } }> {
+    const [row] = await db.insert(messages).values(message).returning();
+    const [member] = await db.select({
+      id: members.id,
+      firstName: members.firstName,
+      lastName: members.lastName,
+      photoUrl: members.photoUrl,
+    }).from(members).where(eq(members.id, row.memberId));
+    return { ...row, sender: member || undefined };
   }
 
   // ========== Prayer Requests ==========

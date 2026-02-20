@@ -74,6 +74,8 @@ interface Group {
   id: string;
   name: string;
   description: string | null;
+  type: string;
+  isDefault: boolean | null;
 }
 
 export default function Admin() {
@@ -821,15 +823,13 @@ function GroupsAdmin() {
   const { toast } = useToast();
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newType, setNewType] = useState<"chat" | "announcement">("chat");
 
   const { data: groups, isLoading } = useQuery<Group[]>({
     queryKey: ["/api/admin-groups"],
     queryFn: async () => {
       const res = await fetch("/api/groups/admin", { credentials: "include" });
-      // If 401, groups endpoint requires member auth, use admin endpoint pattern
-      // Fallback: fetch all groups using the admin's cookie session
       if (!res.ok) {
-        // Try direct DB query through admin route pattern
         return [];
       }
       return res.json();
@@ -841,12 +841,14 @@ function GroupsAdmin() {
       await apiRequest("POST", "/api/groups/admin", {
         name: newName,
         description: newDesc,
+        type: newType,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin-groups"] });
       setNewName("");
       setNewDesc("");
+      setNewType("chat");
       toast({ title: "Group created" });
     },
     onError: () => {
@@ -861,6 +863,9 @@ function GroupsAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin-groups"] });
       toast({ title: "Group deleted" });
+    },
+    onError: (err: Error) => {
+      toast({ title: err.message || "Failed to delete group", variant: "destructive" });
     },
   });
 
@@ -883,18 +888,28 @@ function GroupsAdmin() {
           <div className="space-y-2 mb-4">
             {groups.map((g) => (
               <div key={g.id} className="flex items-center justify-between p-3 border rounded-md">
-                <div>
-                  <p className="font-medium">{g.name}</p>
-                  {g.description && <p className="text-xs text-muted-foreground">{g.description}</p>}
+                <div className="flex items-center gap-2">
+                  <div>
+                    <p className="font-medium">{g.name}</p>
+                    {g.description && <p className="text-xs text-muted-foreground">{g.description}</p>}
+                  </div>
+                  {g.type === "announcement" && (
+                    <Badge variant="outline" className="text-xs">Announcement</Badge>
+                  )}
+                  {g.isDefault && (
+                    <Badge className="bg-gold text-white border-gold text-xs">Default</Badge>
+                  )}
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => deleteGroup.mutate(g.id)}
-                  disabled={deleteGroup.isPending}
-                >
-                  <Trash2 className="w-4 h-4 text-red-500" />
-                </Button>
+                {!g.isDefault && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => deleteGroup.mutate(g.id)}
+                    disabled={deleteGroup.isPending}
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -904,17 +919,27 @@ function GroupsAdmin() {
 
         <Separator className="my-4" />
         <p className="text-sm font-semibold mb-3">Create New Group</p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Input
             placeholder="Group name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
+            className="flex-1 min-w-[150px]"
           />
           <Input
             placeholder="Description (optional)"
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
+            className="flex-1 min-w-[150px]"
           />
+          <select
+            value={newType}
+            onChange={(e) => setNewType(e.target.value as "chat" | "announcement")}
+            className="border rounded-md px-3 py-2 text-sm bg-background"
+          >
+            <option value="chat">Chat</option>
+            <option value="announcement">Announcement</option>
+          </select>
           <Button
             className="bg-gold text-white border-gold"
             onClick={() => createGroup.mutate()}

@@ -141,6 +141,8 @@ export const groups = pgTable("groups", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
+  type: text("type").notNull().default("chat"), // "chat" | "announcement"
+  isDefault: boolean("is_default").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -156,11 +158,30 @@ export const groupMembers = pgTable("group_members", {
 export const insertGroupSchema = createInsertSchema(groups).omit({
   id: true,
   createdAt: true,
+  isDefault: true,
 });
 
 export type InsertGroup = z.infer<typeof insertGroupSchema>;
 export type Group = typeof groups.$inferSelect;
 export type GroupMember = typeof groupMembers.$inferSelect;
+
+// ===================== Messages =====================
+
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
+  memberId: varchar("member_id").notNull().references(() => members.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;
 
 // ===================== Prayer Requests =====================
 
