@@ -114,6 +114,12 @@ router.post("/:id/messages", requireApprovedMember, async (req, res) => {
 
 // ========== Admin group management ==========
 
+// GET /api/groups/admin — list all groups for admin
+router.get("/admin", requireAuth, async (_req, res) => {
+  const allGroups = await storage.getGroups();
+  res.json(allGroups);
+});
+
 // POST /api/admin/groups
 router.post("/admin", requireAuth, async (req, res) => {
   const parsed = insertGroupSchema.safeParse(req.body);
