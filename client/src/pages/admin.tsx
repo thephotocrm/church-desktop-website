@@ -826,14 +826,8 @@ function GroupsAdmin() {
   const [newType, setNewType] = useState<"chat" | "announcement">("chat");
 
   const { data: groups, isLoading } = useQuery<Group[]>({
-    queryKey: ["/api/admin-groups"],
-    queryFn: async () => {
-      const res = await fetch("/api/groups/admin", { credentials: "include" });
-      if (!res.ok) {
-        return [];
-      }
-      return res.json();
-    },
+    queryKey: ["/api/groups/admin"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
   const createGroup = useMutation({
@@ -845,7 +839,7 @@ function GroupsAdmin() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups/admin"] });
       setNewName("");
       setNewDesc("");
       setNewType("chat");
@@ -861,7 +855,7 @@ function GroupsAdmin() {
       await apiRequest("DELETE", `/api/groups/admin/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups/admin"] });
       toast({ title: "Group deleted" });
     },
     onError: (err: Error) => {
