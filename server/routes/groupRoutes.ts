@@ -116,8 +116,13 @@ router.post("/:id/messages", requireApprovedMember, async (req, res) => {
 
 // GET /api/groups/admin — list all groups for admin
 router.get("/admin", requireAuth, async (_req, res) => {
-  const allGroups = await storage.getGroups();
-  res.json(allGroups);
+  try {
+    const allGroups = await storage.getGroups();
+    res.json(allGroups);
+  } catch (err) {
+    console.error("[GET /api/groups/admin] Error:", err);
+    res.status(500).json({ message: "Failed to fetch groups" });
+  }
 });
 
 // POST /api/admin/groups
