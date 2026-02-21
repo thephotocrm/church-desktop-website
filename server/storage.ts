@@ -14,12 +14,14 @@ import {
   type PlatformConfig, type InsertPlatformConfig,
   type YoutubeStreamCache, type InsertYoutubeStreamCache,
   type RestreamStatus, type InsertRestreamStatus,
+  type EventGroup, type EventRsvp,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
   members, groups, groupMembers, messages, prayerRequests, fundCategories, donations,
   platformConfig, youtubeStreamCache, restreamStatus,
+  eventGroups, eventRsvps,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc, and, gte, lt, desc, sql } from "drizzle-orm";
+import { eq, asc, and, gte, lte, lt, desc, sql, inArray } from "drizzle-orm";
 
 export interface PrayerRequestFilter {
   since?: string;
@@ -27,6 +29,17 @@ export interface PrayerRequestFilter {
   status?: string;
   isPublic?: boolean;
   memberId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface EventFilter {
+  startDate?: string;
+  endDate?: string;
+  category?: string;
+  status?: string;
+  groupId?: string;
+  featured?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -41,8 +54,24 @@ export interface IStorage {
   createContact(contact: InsertContact): Promise<Contact>;
 
   // Events
-  getEvents(): Promise<Event[]>;
+  getEvents(filter?: EventFilter): Promise<Event[]>;
+  getEvent(id: string): Promise<Event | undefined>;
   createEvent(event: InsertEvent): Promise<Event>;
+  updateEvent(id: string, data: Partial<InsertEvent>): Promise<Event>;
+  deleteEvent(id: string): Promise<void>;
+
+  // Event-Group associations
+  getEventGroups(eventId: string): Promise<Group[]>;
+  getGroupEvents(groupId: string, filter?: EventFilter): Promise<Event[]>;
+  setEventGroups(eventId: string, groupIds: string[]): Promise<void>;
+  getMemberEvents(memberId: string, filter?: EventFilter): Promise<Event[]>;
+
+  // Event RSVPs
+  getEventRsvps(eventId: string): Promise<(EventRsvp & { member?: { id: string; firstName: string; lastName: string; photoUrl: string | null } })[]>;
+  getEventRsvpCount(eventId: string): Promise<{ attending: number; maybe: number; declined: number }>;
+  upsertEventRsvp(eventId: string, memberId: string, status: string): Promise<EventRsvp>;
+  getMemberRsvp(eventId: string, memberId: string): Promise<EventRsvp | undefined>;
+  deleteEventRsvp(eventId: string, memberId: string): Promise<void>;
 
   // Leaders
   getLeaders(): Promise<Leader[]>;
@@ -151,13 +180,185 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ========== Events ==========
-  async getEvents(): Promise<Event[]> {
-    return db.select().from(events);
+  async getEvents(filter?: EventFilter): Promise<Event[]> {
+    const conditions = [];
+
+    if (filter?.startDate) {
+      conditions.push(gte(events.startDate, new Date(filter.startDate)));
+    }
+    if (filter?.endDate) {
+      conditions.push(lte(events.startDate, new Date(filter.endDate)));
+    }
+    if (filter?.category) {
+      conditions.push(eq(events.category, filter.category));
+    }
+    if (filter?.status) {
+      conditions.push(eq(events.status, filter.status));
+    }
+    if (filter?.featured !== undefined) {
+      conditions.push(eq(events.featured, filter.featured));
+    }
+
+    if (filter?.groupId) {
+      const eventIds = await db.select({ eventId: eventGroups.eventId })
+        .from(eventGroups)
+        .where(eq(eventGroups.groupId, filter.groupId));
+      const ids = eventIds.map(r => r.eventId);
+      if (ids.length === 0) return [];
+      conditions.push(inArray(events.id, ids));
+    }
+
+    let query = db.select().from(events)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(asc(events.startDate));
+
+    if (filter?.limit) {
+      query = query.limit(filter.limit) as typeof query;
+    }
+    if (filter?.offset) {
+      query = query.offset(filter.offset) as typeof query;
+    }
+
+    return query;
+  }
+
+  async getEvent(id: string): Promise<Event | undefined> {
+    const [result] = await db.select().from(events).where(eq(events.id, id));
+    return result;
   }
 
   async createEvent(event: InsertEvent): Promise<Event> {
     const [result] = await db.insert(events).values(event).returning();
     return result;
+  }
+
+  async updateEvent(id: string, data: Partial<InsertEvent>): Promise<Event> {
+    const [result] = await db.update(events)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(events.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteEvent(id: string): Promise<void> {
+    await db.delete(events).where(eq(events.id, id));
+  }
+
+  // ========== Event-Group Associations ==========
+  async getEventGroups(eventId: string): Promise<Group[]> {
+    const rows = await db.select({ groupId: eventGroups.groupId })
+      .from(eventGroups)
+      .where(eq(eventGroups.eventId, eventId));
+    if (rows.length === 0) return [];
+    const result: Group[] = [];
+    for (const row of rows) {
+      const [group] = await db.select().from(groups).where(eq(groups.id, row.groupId));
+      if (group) result.push(group);
+    }
+    return result;
+  }
+
+  async getGroupEvents(groupId: string, filter?: EventFilter): Promise<Event[]> {
+    return this.getEvents({ ...filter, groupId });
+  }
+
+  async setEventGroups(eventId: string, groupIds: string[]): Promise<void> {
+    await db.delete(eventGroups).where(eq(eventGroups.eventId, eventId));
+    if (groupIds.length > 0) {
+      await db.insert(eventGroups).values(
+        groupIds.map(groupId => ({ eventId, groupId }))
+      );
+    }
+  }
+
+  async getMemberEvents(memberId: string, filter?: EventFilter): Promise<Event[]> {
+    const memberGroupRows = await db.select({ groupId: groupMembers.groupId })
+      .from(groupMembers)
+      .where(eq(groupMembers.memberId, memberId));
+    if (memberGroupRows.length === 0) return [];
+
+    const memberGroupIds = memberGroupRows.map(r => r.groupId);
+    const eventIdRows = await db.select({ eventId: eventGroups.eventId })
+      .from(eventGroups)
+      .where(inArray(eventGroups.groupId, memberGroupIds));
+    if (eventIdRows.length === 0) return [];
+
+    const uniqueEventIds = Array.from(new Set(eventIdRows.map(r => r.eventId)));
+    const conditions = [inArray(events.id, uniqueEventIds)];
+
+    if (filter?.startDate) {
+      conditions.push(gte(events.startDate, new Date(filter.startDate)));
+    }
+    if (filter?.endDate) {
+      conditions.push(lte(events.startDate, new Date(filter.endDate)));
+    }
+    if (filter?.category) {
+      conditions.push(eq(events.category, filter.category));
+    }
+    if (filter?.status) {
+      conditions.push(eq(events.status, filter.status));
+    } else {
+      conditions.push(eq(events.status, "published"));
+    }
+
+    return db.select().from(events)
+      .where(and(...conditions))
+      .orderBy(asc(events.startDate));
+  }
+
+  // ========== Event RSVPs ==========
+  async getEventRsvps(eventId: string): Promise<(EventRsvp & { member?: { id: string; firstName: string; lastName: string; photoUrl: string | null } })[]> {
+    const rows = await db.select().from(eventRsvps)
+      .where(eq(eventRsvps.eventId, eventId))
+      .orderBy(asc(eventRsvps.createdAt));
+
+    const result = [];
+    for (const row of rows) {
+      const [member] = await db.select({
+        id: members.id,
+        firstName: members.firstName,
+        lastName: members.lastName,
+        photoUrl: members.photoUrl,
+      }).from(members).where(eq(members.id, row.memberId));
+      result.push({ ...row, member: member || undefined });
+    }
+    return result;
+  }
+
+  async getEventRsvpCount(eventId: string): Promise<{ attending: number; maybe: number; declined: number }> {
+    const rows = await db.select().from(eventRsvps)
+      .where(eq(eventRsvps.eventId, eventId));
+    return {
+      attending: rows.filter(r => r.status === "attending").length,
+      maybe: rows.filter(r => r.status === "maybe").length,
+      declined: rows.filter(r => r.status === "declined").length,
+    };
+  }
+
+  async upsertEventRsvp(eventId: string, memberId: string, status: string): Promise<EventRsvp> {
+    const existing = await this.getMemberRsvp(eventId, memberId);
+    if (existing) {
+      const [updated] = await db.update(eventRsvps)
+        .set({ status })
+        .where(eq(eventRsvps.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(eventRsvps)
+      .values({ eventId, memberId, status })
+      .returning();
+    return created;
+  }
+
+  async getMemberRsvp(eventId: string, memberId: string): Promise<EventRsvp | undefined> {
+    const [row] = await db.select().from(eventRsvps)
+      .where(and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.memberId, memberId)));
+    return row;
+  }
+
+  async deleteEventRsvp(eventId: string, memberId: string): Promise<void> {
+    await db.delete(eventRsvps)
+      .where(and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.memberId, memberId)));
   }
 
   // ========== Leaders ==========

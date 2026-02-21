@@ -9,8 +9,10 @@ import prayerRoutes from "./routes/prayerRoutes";
 import givingRoutes from "./routes/givingRoutes";
 import platformRoutes from "./routes/platformRoutes";
 import youtubeRoutes from "./routes/youtubeRoutes";
+import eventRoutes from "./routes/eventRoutes";
 import { startRestreaming, stopRestreaming } from "./restreamManager";
 import { setupWebSocket } from "./websocket";
+import { startEventReminders } from "./eventReminders";
 
 // MediaMTX base URL (protocol + host + port)
 const MEDIA_SERVER_BASE = process.env.STREAM_HLS_URL
@@ -67,11 +69,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   setupWebSocket(httpServer);
-
-  app.get("/api/events", async (_req, res) => {
-    const events = await storage.getEvents();
-    res.json(events);
-  });
+  startEventReminders();
 
   app.get("/api/leaders", async (_req, res) => {
     const leaders = await storage.getLeaders();
@@ -175,6 +173,7 @@ export async function registerRoutes(
   });
 
   // New feature routes
+  app.use("/api/events", eventRoutes);
   app.use("/api/members", memberRoutes);
   app.use("/api/groups", groupRoutes);
   app.use("/api/prayer-requests", prayerRoutes);

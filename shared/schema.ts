@@ -23,12 +23,39 @@ export const events = pgTable("events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  date: text("date").notNull(),
-  time: text("time").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  allDay: boolean("all_day").default(false),
   location: text("location"),
   imageUrl: text("image_url"),
   featured: boolean("featured").default(false),
+  category: text("category").default("general"),
+  status: text("status").notNull().default("published"),
+  recurrenceRule: text("recurrence_rule"),
+  recurrenceEndDate: timestamp("recurrence_end_date"),
+  parentEventId: varchar("parent_event_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export const eventGroups = pgTable("event_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  groupId: varchar("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("event_group_unique").on(table.eventId, table.groupId),
+]);
+
+export const eventRsvps = pgTable("event_rsvps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: varchar("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  memberId: varchar("member_id").notNull().references(() => members.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("attending"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("event_rsvp_unique").on(table.eventId, table.memberId),
+]);
 
 export const leaders = pgTable("leaders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -70,6 +97,18 @@ export const insertContactSchema = createInsertSchema(contactSubmissions).omit({
 
 export const insertEventSchema = createInsertSchema(events).omit({
   id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertEventGroupSchema = createInsertSchema(eventGroups).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertEventRsvpSchema = createInsertSchema(eventRsvps).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertLeaderSchema = createInsertSchema(leaders).omit({
@@ -86,6 +125,10 @@ export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contactSubmissions.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
+export type InsertEventGroup = z.infer<typeof insertEventGroupSchema>;
+export type EventGroup = typeof eventGroups.$inferSelect;
+export type InsertEventRsvp = z.infer<typeof insertEventRsvpSchema>;
+export type EventRsvp = typeof eventRsvps.$inferSelect;
 export type InsertLeader = z.infer<typeof insertLeaderSchema>;
 export type Leader = typeof leaders.$inferSelect;
 export type InsertMinistry = z.infer<typeof insertMinistrySchema>;

@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/select";
 import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
-  HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield
+  HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield,
+  Edit2, MapPin, Clock
 } from "lucide-react";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -196,10 +197,11 @@ export default function Admin() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="stream">
-          <TabsList className="grid w-full grid-cols-6 mb-8">
+          <TabsList className="grid w-full grid-cols-7 mb-8">
             <TabsTrigger value="stream"><Video className="w-4 h-4 mr-1" />Stream</TabsTrigger>
             <TabsTrigger value="restream"><Cast className="w-4 h-4 mr-1" />Restream</TabsTrigger>
             <TabsTrigger value="members"><Users className="w-4 h-4 mr-1" />Members</TabsTrigger>
+            <TabsTrigger value="events"><Calendar className="w-4 h-4 mr-1" />Events</TabsTrigger>
             <TabsTrigger value="prayer"><HandHeart className="w-4 h-4 mr-1" />Prayer</TabsTrigger>
             <TabsTrigger value="giving"><DollarSign className="w-4 h-4 mr-1" />Giving</TabsTrigger>
             <TabsTrigger value="groups"><Church className="w-4 h-4 mr-1" />Groups</TabsTrigger>
@@ -258,6 +260,11 @@ export default function Admin() {
           {/* Members Tab */}
           <TabsContent value="members">
             <MembersAdmin />
+          </TabsContent>
+
+          {/* Events Tab */}
+          <TabsContent value="events">
+            <EventsAdmin />
           </TabsContent>
 
           {/* Prayer Tab */}
@@ -1036,6 +1043,548 @@ function PlatformCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ========== Events Admin ==========
+interface AdminEvent {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string;
+  endDate: string | null;
+  allDay: boolean | null;
+  location: string | null;
+  imageUrl: string | null;
+  featured: boolean | null;
+  category: string | null;
+  status: string;
+  recurrenceRule: string | null;
+  recurrenceEndDate: string | null;
+  parentEventId: string | null;
+  groups: Group[];
+  rsvpCount: { attending: number; maybe: number; declined: number };
+}
+
+const EVENT_CATEGORIES = [
+  { value: "general", label: "General" },
+  { value: "worship", label: "Worship" },
+  { value: "fellowship", label: "Fellowship" },
+  { value: "outreach", label: "Outreach" },
+  { value: "youth", label: "Youth" },
+  { value: "prayer", label: "Prayer" },
+];
+
+const RECURRENCE_OPTIONS = [
+  { value: "", label: "None" },
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Biweekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+function EventsAdmin() {
+  const { toast } = useToast();
+
+  const { data: events, isLoading } = useQuery<AdminEvent[]>({
+    queryKey: ["/api/events/admin/all"],
+  });
+
+  const { data: groups } = useQuery<Group[]>({
+    queryKey: ["/api/groups/admin"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Create form state
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
+  const [newAllDay, setNewAllDay] = useState(false);
+  const [newLocation, setNewLocation] = useState("");
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [newCategory, setNewCategory] = useState("general");
+  const [newFeatured, setNewFeatured] = useState(false);
+  const [newStatus, setNewStatus] = useState("published");
+  const [newGroupIds, setNewGroupIds] = useState<string[]>([]);
+  const [newRecurrence, setNewRecurrence] = useState("");
+
+  const createEvent = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/events/admin", {
+        title: newTitle,
+        description: newDescription,
+        startDate: newStartDate,
+        endDate: newEndDate || null,
+        allDay: newAllDay,
+        location: newLocation || null,
+        imageUrl: newImageUrl || null,
+        category: newCategory,
+        featured: newFeatured,
+        status: newStatus,
+        recurrenceRule: newRecurrence || null,
+        groupIds: newGroupIds,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events/admin/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      setNewTitle("");
+      setNewDescription("");
+      setNewStartDate("");
+      setNewEndDate("");
+      setNewAllDay(false);
+      setNewLocation("");
+      setNewImageUrl("");
+      setNewCategory("general");
+      setNewFeatured(false);
+      setNewStatus("published");
+      setNewGroupIds([]);
+      setNewRecurrence("");
+      toast({ title: "Event created" });
+    },
+    onError: () => {
+      toast({ title: "Failed to create event", variant: "destructive" });
+    },
+  });
+
+  const deleteEvent = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/events/admin/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events/admin/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Event deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete event", variant: "destructive" });
+    },
+  });
+
+  const toggleGroupId = (id: string) => {
+    setNewGroupIds((prev) =>
+      prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]
+    );
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit",
+    });
+  };
+
+  const categoryColor: Record<string, string> = {
+    worship: "bg-purple-500",
+    fellowship: "bg-blue-500",
+    outreach: "bg-green-500",
+    youth: "bg-orange-500",
+    prayer: "bg-indigo-500",
+    general: "bg-gray-500",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Event List */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-gold" />
+            <CardTitle>Event Management</CardTitle>
+            {events && (
+              <Badge variant="outline">{events.length} events</Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 bg-muted animate-pulse rounded-md" />
+              ))}
+            </div>
+          ) : events && events.length > 0 ? (
+            <div className="space-y-3">
+              {events.map((event) => (
+                editingId === event.id ? (
+                  <EventEditRow
+                    key={event.id}
+                    event={event}
+                    groups={groups || []}
+                    onCancel={() => setEditingId(null)}
+                    onSaved={() => setEditingId(null)}
+                  />
+                ) : (
+                  <div key={event.id} className="p-4 border rounded-md">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold">{event.title}</h4>
+                          {event.featured && (
+                            <Badge className="bg-gold text-white border-gold text-xs">Featured</Badge>
+                          )}
+                          <Badge className={`${categoryColor[event.category || "general"]} text-white border-0 text-xs capitalize`}>
+                            {event.category || "general"}
+                          </Badge>
+                          <Badge variant={event.status === "published" ? "default" : "secondary"} className="text-xs capitalize">
+                            {event.status}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground mb-1">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {formatDate(event.startDate)}
+                          </span>
+                          {event.location && (
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin className="w-3.5 h-3.5" />
+                              {event.location}
+                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="w-3.5 h-3.5" />
+                            {event.rsvpCount.attending} attending
+                            {event.rsvpCount.maybe > 0 && `, ${event.rsvpCount.maybe} maybe`}
+                          </span>
+                        </div>
+                        {event.groups.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {event.groups.map((g) => (
+                              <Badge key={g.id} variant="outline" className="text-xs">{g.name}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-1 ml-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingId(event.id)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteEvent.mutate(event.id)}
+                          disabled={deleteEvent.isPending}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-6">No events created yet</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Event Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plus className="w-5 h-5 text-gold" />
+            Create New Event
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="event-title">Title</Label>
+                <Input id="event-title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Event title" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event-location">Location</Label>
+                <Input id="event-location" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} placeholder="Location" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="event-description">Description</Label>
+              <Textarea id="event-description" value={newDescription} onChange={(e) => setNewDescription(e.target.value)} rows={3} placeholder="Event description" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="event-start">Start Date/Time</Label>
+                <Input id="event-start" type="datetime-local" value={newStartDate} onChange={(e) => setNewStartDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event-end">End Date/Time</Label>
+                <Input id="event-end" type="datetime-local" value={newEndDate} onChange={(e) => setNewEndDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={newCategory} onValueChange={setNewCategory}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {EVENT_CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={newStatus} onValueChange={setNewStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Recurrence</Label>
+                <Select value={newRecurrence} onValueChange={setNewRecurrence}>
+                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>
+                    {RECURRENCE_OPTIONS.map((r) => (
+                      <SelectItem key={r.value || "none"} value={r.value || "none"}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="event-image">Image URL</Label>
+                <Input id="event-image" value={newImageUrl} onChange={(e) => setNewImageUrl(e.target.value)} placeholder="/images/..." />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Switch checked={newFeatured} onCheckedChange={setNewFeatured} />
+                <Label>Featured</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={newAllDay} onCheckedChange={setNewAllDay} />
+                <Label>All Day</Label>
+              </div>
+            </div>
+
+            {groups && groups.length > 0 && (
+              <div className="space-y-2">
+                <Label>Group Associations</Label>
+                <div className="flex flex-wrap gap-2">
+                  {groups.map((g) => (
+                    <Badge
+                      key={g.id}
+                      variant={newGroupIds.includes(g.id) ? "default" : "outline"}
+                      className={`cursor-pointer ${newGroupIds.includes(g.id) ? "bg-gold text-white border-gold" : ""}`}
+                      onClick={() => toggleGroupId(g.id)}
+                    >
+                      {g.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Button
+              className="bg-gold text-white border-gold"
+              onClick={() => createEvent.mutate()}
+              disabled={!newTitle || !newStartDate || !newDescription || createEvent.isPending}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              {createEvent.isPending ? "Creating..." : "Create Event"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function EventEditRow({
+  event,
+  groups,
+  onCancel,
+  onSaved,
+}: {
+  event: AdminEvent;
+  groups: Group[];
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+
+  const toLocalDatetime = (iso: string) => {
+    const d = new Date(iso);
+    const offset = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - offset * 60000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  const [title, setTitle] = useState(event.title);
+  const [description, setDescription] = useState(event.description);
+  const [startDate, setStartDate] = useState(toLocalDatetime(event.startDate));
+  const [endDate, setEndDate] = useState(event.endDate ? toLocalDatetime(event.endDate) : "");
+  const [allDay, setAllDay] = useState(event.allDay || false);
+  const [location, setLocation] = useState(event.location || "");
+  const [imageUrl, setImageUrl] = useState(event.imageUrl || "");
+  const [category, setCategory] = useState(event.category || "general");
+  const [featured, setFeatured] = useState(event.featured || false);
+  const [status, setStatus] = useState(event.status);
+  const [groupIds, setGroupIds] = useState<string[]>(event.groups.map(g => g.id));
+  const [recurrence, setRecurrence] = useState(event.recurrenceRule || "");
+
+  const updateEvent = useMutation({
+    mutationFn: async () => {
+      await apiRequest("PATCH", `/api/events/admin/${event.id}`, {
+        title,
+        description,
+        startDate,
+        endDate: endDate || null,
+        allDay,
+        location: location || null,
+        imageUrl: imageUrl || null,
+        category,
+        featured,
+        status,
+        recurrenceRule: recurrence || null,
+        groupIds,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events/admin/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Event updated" });
+      onSaved();
+    },
+    onError: () => {
+      toast({ title: "Failed to update event", variant: "destructive" });
+    },
+  });
+
+  const toggleGroupId = (id: string) => {
+    setGroupIds((prev) =>
+      prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]
+    );
+  };
+
+  return (
+    <div className="p-4 border-2 border-gold rounded-md space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Title</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>Location</Label>
+          <Input value={location} onChange={(e) => setLocation(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Description</Label>
+        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Start Date/Time</Label>
+          <Input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <Label>End Date/Time</Label>
+          <Input type="datetime-local" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="space-y-2">
+          <Label>Category</Label>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {EVENT_CATEGORIES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="published">Published</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Recurrence</Label>
+          <Select value={recurrence || "none"} onValueChange={(v) => setRecurrence(v === "none" ? "" : v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {RECURRENCE_OPTIONS.map((r) => (
+                <SelectItem key={r.value || "none"} value={r.value || "none"}>{r.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Image URL</Label>
+          <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2">
+          <Switch checked={featured} onCheckedChange={setFeatured} />
+          <Label>Featured</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch checked={allDay} onCheckedChange={setAllDay} />
+          <Label>All Day</Label>
+        </div>
+      </div>
+
+      {groups.length > 0 && (
+        <div className="space-y-2">
+          <Label>Group Associations</Label>
+          <div className="flex flex-wrap gap-2">
+            {groups.map((g) => (
+              <Badge
+                key={g.id}
+                variant={groupIds.includes(g.id) ? "default" : "outline"}
+                className={`cursor-pointer ${groupIds.includes(g.id) ? "bg-gold text-white border-gold" : ""}`}
+                onClick={() => toggleGroupId(g.id)}
+              >
+                {g.name}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Button
+          className="bg-gold text-white border-gold"
+          onClick={() => updateEvent.mutate()}
+          disabled={updateEvent.isPending}
+        >
+          <Save className="w-4 h-4 mr-1" />
+          {updateEvent.isPending ? "Saving..." : "Save"}
+        </Button>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 

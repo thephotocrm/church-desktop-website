@@ -280,7 +280,7 @@ export default function Home() {
                       <div className="p-6">
                         <div className="flex items-center gap-2 mb-3">
                           <Calendar className="w-4 h-4 text-gold" />
-                          <span className="text-sm font-body text-muted-foreground">{event.date} at {event.time}</span>
+                          <span className="text-sm font-body text-muted-foreground">{new Date(event.startDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} at {new Date(event.startDate).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
                         </div>
                         <h3 className="text-lg font-bold mb-2">{event.title}</h3>
                         <p className="text-muted-foreground font-body text-sm line-clamp-2">{event.description}</p>
