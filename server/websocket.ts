@@ -139,8 +139,12 @@ async function handleMessage(ws: AuthenticatedSocket, msg: { type: string; group
       if (!group) return;
 
       if (group.type === "announcement" && ws.memberRole !== "admin") {
-        ws.send(JSON.stringify({ type: "error", message: "Only admins can post in announcement groups" }));
-        return;
+        // Check if member is a group admin for this specific group
+        const gm = await storage.getGroupMember(msg.groupId, ws.memberId!);
+        if (!gm || gm.role !== "admin") {
+          ws.send(JSON.stringify({ type: "error", message: "Only admins can post in announcement groups" }));
+          return;
+        }
       }
 
       const message = await storage.createMessage({

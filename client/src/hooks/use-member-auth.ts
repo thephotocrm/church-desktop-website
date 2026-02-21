@@ -7,6 +7,7 @@ export interface MemberProfile {
   lastName: string;
   phone: string | null;
   photoUrl: string | null;
+  title: string | null;
   role: string;
   status: string;
   hidePhone: boolean | null;

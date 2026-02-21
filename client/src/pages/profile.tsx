@@ -87,6 +87,9 @@ export default function Profile() {
             <div className="flex items-center justify-between">
               <CardTitle>Account Info</CardTitle>
               <div className="flex items-center gap-2">
+                {member.title && (
+                  <Badge className="bg-amber-500 text-white border-amber-500">{member.title}</Badge>
+                )}
                 <Badge variant="outline" className="capitalize">{member.role}</Badge>
                 <Badge className={`${statusColor} text-white border-0 capitalize`}>{member.status}</Badge>
               </div>

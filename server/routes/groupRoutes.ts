@@ -90,7 +90,11 @@ router.post("/:id/messages", requireApprovedMember, async (req, res) => {
   }
 
   if (group.type === "announcement" && req.member!.role !== "admin") {
-    return res.status(403).json({ message: "Only admins can post in announcement groups" });
+    // Check if member is a group admin for this specific group
+    const gm = await storage.getGroupMember(groupId, req.member!.memberId);
+    if (!gm || gm.role !== "admin") {
+      return res.status(403).json({ message: "Only admins can post in announcement groups" });
+    }
   }
 
   const { content } = req.body;

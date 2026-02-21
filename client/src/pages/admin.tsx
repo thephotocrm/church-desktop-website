@@ -11,8 +11,15 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
-  HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast
+  HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield
 } from "lucide-react";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +83,17 @@ interface Group {
   description: string | null;
   type: string;
   isDefault: boolean | null;
+}
+
+interface AdminMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  photoUrl: string | null;
+  role: string;
+  title: string | null;
+  groupAdminIds: string[];
 }
 
 export default function Admin() {
@@ -263,6 +281,12 @@ export default function Admin() {
 }
 
 // ========== Members Admin ==========
+
+const TITLE_PRESETS = [
+  "Pastor", "Bishop", "Youth Pastor", "Deacon", "Deaconess",
+  "Elder", "Minister", "Evangelist", "Mother",
+];
+
 function MembersAdmin() {
   const { toast } = useToast();
   const { data: pending, isLoading } = useQuery<PendingMember[]>({
@@ -275,6 +299,7 @@ function MembersAdmin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members/admin/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members/admin/all"] });
       toast({ title: "Member approved" });
     },
   });
@@ -290,63 +315,259 @@ function MembersAdmin() {
   });
 
   return (
+    <div className="space-y-6">
+      {/* Section A: Pending Approvals */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Users className="w-5 h-5 text-gold" />
+            <CardTitle>Pending Approvals</CardTitle>
+            {pending && pending.length > 0 && (
+              <Badge className="bg-gold text-white border-gold">{pending.length}</Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-16 bg-muted animate-pulse rounded-md" />
+              ))}
+            </div>
+          ) : pending && pending.length > 0 ? (
+            <div className="space-y-3">
+              {pending.map((m) => (
+                <div key={m.id} className="flex items-center justify-between p-4 border rounded-md">
+                  <div>
+                    <p className="font-semibold">{m.firstName} {m.lastName}</p>
+                    <p className="text-sm text-muted-foreground">{m.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Registered {new Date(m.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-green-600 text-white hover:bg-green-700"
+                      onClick={() => approveMutation.mutate(m.id)}
+                      disabled={approveMutation.isPending}
+                    >
+                      <UserCheck className="w-4 h-4 mr-1" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-500 border-red-500 hover:bg-red-50"
+                      onClick={() => rejectMutation.mutate(m.id)}
+                      disabled={rejectMutation.isPending}
+                    >
+                      <UserX className="w-4 h-4 mr-1" />
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-6">No pending member registrations</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Section B: Manage Members */}
+      <ManageMembersSection />
+    </div>
+  );
+}
+
+function ManageMembersSection() {
+  const { toast } = useToast();
+
+  const { data: allMembers, isLoading } = useQuery<AdminMember[]>({
+    queryKey: ["/api/members/admin/all"],
+  });
+
+  const { data: groups } = useQuery<Group[]>({
+    queryKey: ["/api/groups/admin"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+
+  return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-3">
-          <Users className="w-5 h-5 text-gold" />
-          <CardTitle>Pending Approvals</CardTitle>
-          {pending && pending.length > 0 && (
-            <Badge className="bg-gold text-white border-gold">{pending.length}</Badge>
+          <Shield className="w-5 h-5 text-gold" />
+          <CardTitle>Manage Members</CardTitle>
+          {allMembers && (
+            <Badge variant="outline">{allMembers.length} members</Badge>
           )}
         </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="space-y-3">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-16 bg-muted animate-pulse rounded-md" />
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 bg-muted animate-pulse rounded-md" />
             ))}
           </div>
-        ) : pending && pending.length > 0 ? (
+        ) : allMembers && allMembers.length > 0 ? (
           <div className="space-y-3">
-            {pending.map((m) => (
-              <div key={m.id} className="flex items-center justify-between p-4 border rounded-md">
-                <div>
-                  <p className="font-semibold">{m.firstName} {m.lastName}</p>
-                  <p className="text-sm text-muted-foreground">{m.email}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Registered {new Date(m.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="bg-green-600 text-white hover:bg-green-700"
-                    onClick={() => approveMutation.mutate(m.id)}
-                    disabled={approveMutation.isPending}
-                  >
-                    <UserCheck className="w-4 h-4 mr-1" />
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-red-500 border-red-500 hover:bg-red-50"
-                    onClick={() => rejectMutation.mutate(m.id)}
-                    disabled={rejectMutation.isPending}
-                  >
-                    <UserX className="w-4 h-4 mr-1" />
-                    Reject
-                  </Button>
-                </div>
-              </div>
+            {allMembers.map((m) => (
+              <MemberRow key={m.id} member={m} groups={groups || []} />
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-center py-6">No pending member registrations</p>
+          <p className="text-muted-foreground text-center py-6">No approved members</p>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function MemberRow({ member, groups }: { member: AdminMember; groups: Group[] }) {
+  const { toast } = useToast();
+  const [role, setRole] = useState(member.role);
+  const [title, setTitle] = useState(member.title || "");
+  const [customTitle, setCustomTitle] = useState("");
+  const [isCustom, setIsCustom] = useState(
+    member.title ? !TITLE_PRESETS.includes(member.title) : false
+  );
+  const [groupAdminIds, setGroupAdminIds] = useState<string[]>(member.groupAdminIds);
+
+  const isDirty =
+    role !== member.role ||
+    (isCustom ? customTitle : title) !== (member.title || "") ||
+    JSON.stringify(groupAdminIds.sort()) !== JSON.stringify(member.groupAdminIds.sort());
+
+  useEffect(() => {
+    if (member.title && !TITLE_PRESETS.includes(member.title)) {
+      setIsCustom(true);
+      setCustomTitle(member.title);
+      setTitle("__custom__");
+    }
+  }, [member.title]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const resolvedTitle = isCustom ? customTitle : title;
+      await apiRequest("PATCH", `/api/members/admin/${member.id}/role`, {
+        role,
+        title: resolvedTitle || null,
+        groupAdminIds: role === "group_admin" ? groupAdminIds : [],
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/members/admin/all"] });
+      toast({ title: `Updated ${member.firstName} ${member.lastName}` });
+    },
+    onError: () => {
+      toast({ title: "Failed to update member", variant: "destructive" });
+    },
+  });
+
+  const handleTitleChange = (val: string) => {
+    if (val === "__custom__") {
+      setIsCustom(true);
+      setTitle("__custom__");
+    } else if (val === "__none__") {
+      setIsCustom(false);
+      setTitle("");
+      setCustomTitle("");
+    } else {
+      setIsCustom(false);
+      setTitle(val);
+      setCustomTitle("");
+    }
+  };
+
+  const toggleGroupAdmin = (groupId: string) => {
+    setGroupAdminIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId]
+    );
+  };
+
+  return (
+    <div className="p-4 border rounded-md space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-semibold">{member.firstName} {member.lastName}</p>
+          <p className="text-sm text-muted-foreground">{member.email}</p>
+        </div>
+        {isDirty && (
+          <Button
+            size="sm"
+            className="bg-gold text-white border-gold"
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+          >
+            <Save className="w-4 h-4 mr-1" />
+            {saveMutation.isPending ? "Saving..." : "Save"}
+          </Button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="space-y-1 min-w-[160px]">
+          <Label className="text-xs">Title</Label>
+          <Select value={isCustom ? "__custom__" : title || "__none__"} onValueChange={handleTitleChange}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="No title" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">No title</SelectItem>
+              {TITLE_PRESETS.map((t) => (
+                <SelectItem key={t} value={t}>{t}</SelectItem>
+              ))}
+              <SelectItem value="__custom__">Custom...</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {isCustom && (
+          <div className="space-y-1 min-w-[140px]">
+            <Label className="text-xs">Custom Title</Label>
+            <Input
+              value={customTitle}
+              onChange={(e) => setCustomTitle(e.target.value)}
+              placeholder="Enter title"
+              className="h-9"
+            />
+          </div>
+        )}
+        <div className="space-y-1 min-w-[150px]">
+          <Label className="text-xs">Role</Label>
+          <Select value={role} onValueChange={setRole}>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="group_admin">Group Admin</SelectItem>
+              <SelectItem value="member">Member</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      {role === "group_admin" && (
+        <div className="space-y-2">
+          <Label className="text-xs">Admin of Groups</Label>
+          <div className="flex flex-wrap gap-2">
+            {groups.map((g) => (
+              <Badge
+                key={g.id}
+                variant={groupAdminIds.includes(g.id) ? "default" : "outline"}
+                className={`cursor-pointer ${groupAdminIds.includes(g.id) ? "bg-gold text-white border-gold" : ""}`}
+                onClick={() => toggleGroupAdmin(g.id)}
+              >
+                {g.name}
+              </Badge>
+            ))}
+          </div>
+          {groups.length === 0 && (
+            <p className="text-xs text-muted-foreground">No groups available</p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

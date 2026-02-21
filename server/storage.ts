@@ -78,10 +78,13 @@ export interface IStorage {
   getMemberGroups(memberId: string): Promise<Group[]>;
   isGroupMember(groupId: string, memberId: string): Promise<boolean>;
   getDefaultGroup(): Promise<Group | undefined>;
+  getGroupMember(groupId: string, memberId: string): Promise<GroupMember | undefined>;
+  setGroupMemberRole(groupId: string, memberId: string, role: string): Promise<void>;
+  getMemberGroupAdminIds(memberId: string): Promise<string[]>;
 
   // Messages
-  getMessages(groupId: string, limit?: number, before?: string): Promise<(Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null } })[]>;
-  createMessage(message: InsertMessage): Promise<Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null } }>;
+  getMessages(groupId: string, limit?: number, before?: string): Promise<(Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null; title: string | null } })[]>;
+  createMessage(message: InsertMessage): Promise<Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null; title: string | null } }>;
 
   // Prayer Requests
   getPrayerRequests(filter: PrayerRequestFilter): Promise<PrayerRequest[]>;
@@ -316,8 +319,28 @@ export class DatabaseStorage implements IStorage {
     return group;
   }
 
+  async getGroupMember(groupId: string, memberId: string): Promise<GroupMember | undefined> {
+    const [row] = await db.select().from(groupMembers).where(
+      and(eq(groupMembers.groupId, groupId), eq(groupMembers.memberId, memberId))
+    );
+    return row;
+  }
+
+  async setGroupMemberRole(groupId: string, memberId: string, role: string): Promise<void> {
+    await db.update(groupMembers)
+      .set({ role })
+      .where(and(eq(groupMembers.groupId, groupId), eq(groupMembers.memberId, memberId)));
+  }
+
+  async getMemberGroupAdminIds(memberId: string): Promise<string[]> {
+    const rows = await db.select({ groupId: groupMembers.groupId })
+      .from(groupMembers)
+      .where(and(eq(groupMembers.memberId, memberId), eq(groupMembers.role, "admin")));
+    return rows.map(r => r.groupId);
+  }
+
   // ========== Messages ==========
-  async getMessages(groupId: string, limit = 50, before?: string): Promise<(Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null } })[]> {
+  async getMessages(groupId: string, limit = 50, before?: string): Promise<(Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null; title: string | null } })[]> {
     const conditions = [eq(messages.groupId, groupId)];
     if (before) {
       const [ref] = await db.select({ createdAt: messages.createdAt }).from(messages).where(eq(messages.id, before));
@@ -338,19 +361,21 @@ export class DatabaseStorage implements IStorage {
         firstName: members.firstName,
         lastName: members.lastName,
         photoUrl: members.photoUrl,
+        title: members.title,
       }).from(members).where(eq(members.id, row.memberId));
       result.push({ ...row, sender: member || undefined });
     }
     return result.reverse();
   }
 
-  async createMessage(message: InsertMessage): Promise<Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null } }> {
+  async createMessage(message: InsertMessage): Promise<Message & { sender?: { id: string; firstName: string; lastName: string; photoUrl: string | null; title: string | null } }> {
     const [row] = await db.insert(messages).values(message).returning();
     const [member] = await db.select({
       id: members.id,
       firstName: members.firstName,
       lastName: members.lastName,
       photoUrl: members.photoUrl,
+      title: members.title,
     }).from(members).where(eq(members.id, row.memberId));
     return { ...row, sender: member || undefined };
   }

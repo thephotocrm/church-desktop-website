@@ -17,6 +17,7 @@ interface DirectoryMember {
   email: string | null;
   photoUrl: string | null;
   role: string;
+  title: string | null;
 }
 
 const fadeUp = {
@@ -124,7 +125,7 @@ export default function Directory() {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">{m.firstName} {m.lastName}</p>
+                      <p className="font-semibold truncate">{m.title ? `${m.title} ` : ""}{m.firstName} {m.lastName}</p>
                       {m.email && (
                         <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
                           <Mail className="w-3 h-3" />{m.email}

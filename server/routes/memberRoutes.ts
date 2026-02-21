@@ -124,6 +124,7 @@ router.get("/directory", requireApprovedMember, async (_req, res) => {
     email: m.hideEmail ? null : m.email,
     photoUrl: m.photoUrl,
     role: m.role,
+    title: m.title,
   }));
   res.json(filtered);
 });
@@ -166,6 +167,79 @@ router.patch("/admin/:id/approve", requireAuth, async (req, res) => {
 router.patch("/admin/:id/reject", requireAuth, async (req, res) => {
   const member = await storage.rejectMember(req.params.id as string);
   res.json({ ...member, password: undefined });
+});
+
+// GET /api/members/admin/all — all approved members with role, title, group admin assignments
+router.get("/admin/all", requireAuth, async (_req, res) => {
+  const allMembers = await storage.getMembers();
+  const result = [];
+  for (const m of allMembers) {
+    const groupAdminIds = await storage.getMemberGroupAdminIds(m.id);
+    result.push({
+      id: m.id,
+      firstName: m.firstName,
+      lastName: m.lastName,
+      email: m.email,
+      photoUrl: m.photoUrl,
+      role: m.role,
+      title: m.title,
+      groupAdminIds,
+    });
+  }
+  res.json(result);
+});
+
+// PATCH /api/members/admin/:id/role — update role, title, group admin assignments
+router.patch("/admin/:id/role", requireAuth, async (req, res) => {
+  const { role, title, groupAdminIds } = req.body;
+  const memberId = req.params.id as string;
+
+  const member = await storage.getMember(memberId);
+  if (!member) {
+    return res.status(404).json({ message: "Member not found" });
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (role !== undefined) {
+    if (!["admin", "group_admin", "member"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+    updates.role = role;
+  }
+  if (title !== undefined) {
+    updates.title = title || null;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await storage.updateMember(memberId, updates);
+  }
+
+  // Handle group admin assignments
+  if (Array.isArray(groupAdminIds)) {
+    // Get all groups the member belongs to
+    const memberGroups = await storage.getMemberGroups(memberId);
+    const memberGroupIds = new Set(memberGroups.map(g => g.id));
+
+    // For each group admin assignment, ensure membership and set role
+    for (const groupId of groupAdminIds) {
+      if (!memberGroupIds.has(groupId)) {
+        await storage.addGroupMember(groupId, memberId);
+      }
+      await storage.setGroupMemberRole(groupId, memberId, "admin");
+    }
+
+    // Reset role to "member" for groups not in groupAdminIds
+    const memberGroupIdArray = Array.from(memberGroupIds);
+    for (const groupId of memberGroupIdArray) {
+      if (!groupAdminIds.includes(groupId)) {
+        await storage.setGroupMemberRole(groupId, memberId, "member");
+      }
+    }
+  }
+
+  const updated = await storage.getMember(memberId);
+  const updatedGroupAdminIds = await storage.getMemberGroupAdminIds(memberId);
+  res.json({ ...updated, password: undefined, groupAdminIds: updatedGroupAdminIds });
 });
 
 export default router;

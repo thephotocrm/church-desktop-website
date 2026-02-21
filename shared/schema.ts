@@ -109,7 +109,8 @@ export const members = pgTable("members", {
   lastName: text("last_name").notNull(),
   phone: text("phone"),
   photoUrl: text("photo_url"),
-  role: text("role").notNull().default("guest"), // admin | member | guest
+  title: text("title"), // "Pastor", "Bishop", etc. — nullable
+  role: text("role").notNull().default("guest"), // admin | group_admin | member | guest
   status: text("status").notNull().default("pending"), // pending | approved | rejected
   hidePhone: boolean("hide_phone").default(false),
   hideEmail: boolean("hide_email").default(false),
@@ -125,6 +126,7 @@ export const insertMemberSchema = createInsertSchema(members).omit({
   stripeCustomerId: true,
   role: true,
   status: true,
+  title: true,
 });
 
 export const loginMemberSchema = z.object({
@@ -150,6 +152,7 @@ export const groupMembers = pgTable("group_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   groupId: varchar("group_id").notNull().references(() => groups.id, { onDelete: "cascade" }),
   memberId: varchar("member_id").notNull().references(() => members.id, { onDelete: "cascade" }),
+  role: text("role").notNull().default("member"), // "admin" | "member"
   joinedAt: timestamp("joined_at").defaultNow(),
 }, (table) => [
   uniqueIndex("group_member_unique").on(table.groupId, table.memberId),
