@@ -29,6 +29,7 @@ export interface MemberAuthContextType {
   }) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
+  exchangeCode: (code: string) => Promise<void>;
 }
 
 export const MemberAuthContext = createContext<MemberAuthContextType>({
@@ -39,6 +40,7 @@ export const MemberAuthContext = createContext<MemberAuthContextType>({
   register: async () => {},
   logout: () => {},
   refreshProfile: async () => {},
+  exchangeCode: async () => {},
 });
 
 export function useMemberAuth() {

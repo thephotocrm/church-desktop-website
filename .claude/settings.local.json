@@ -14,7 +14,9 @@
       "Bash(npx drizzle-kit push:*)",
       "Bash(yes:*)",
       "Bash(npx tsc:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(psql:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

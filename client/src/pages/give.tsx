@@ -23,16 +23,27 @@ const stagger = {
 export default function Give() {
   useSEO({ title: "Give Online", description: "Support the mission of First Pentecostal Church of Dallas. Give online securely and make an eternal impact." });
   const [location] = useLocation();
-  const { member } = useMemberAuth();
+  const { member, exchangeCode } = useMemberAuth();
   const { toast } = useToast();
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    // Exchange one-time auth code from mobile app
+    const code = params.get("code");
+    if (code && !member) {
+      exchangeCode(code).catch(() => {
+        // Code invalid/expired — user can still give as guest
+      }).finally(() => {
+        window.history.replaceState({}, "", "/give");
+      });
+      return;
+    }
+
     if (params.get("success") === "true") {
       setShowSuccess(true);
       toast({ title: "Thank you for your generous donation!" });
-      // Clean URL
       window.history.replaceState({}, "", "/give");
     }
     if (params.get("canceled") === "true") {

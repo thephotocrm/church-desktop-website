@@ -362,3 +362,16 @@ export const insertRestreamStatusSchema = createInsertSchema(restreamStatus).omi
 });
 export type InsertRestreamStatus = z.infer<typeof insertRestreamStatusSchema>;
 export type RestreamStatus = typeof restreamStatus.$inferSelect;
+
+// ===================== Auth Codes (one-time mobile → browser login) =====================
+
+export const authCodes = pgTable("auth_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 64 }).notNull().unique(),
+  memberId: varchar("member_id").notNull().references(() => members.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type AuthCode = typeof authCodes.$inferSelect;

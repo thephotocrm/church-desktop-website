@@ -115,9 +115,26 @@ export function MemberAuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const exchangeCode = async (code: string) => {
+    const res = await fetch("/api/members/exchange-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || "Code exchange failed");
+    }
+    const data = await res.json();
+    localStorage.setItem(TOKEN_KEY, data.accessToken);
+    localStorage.setItem(REFRESH_KEY, data.refreshToken);
+    setAccessToken(data.accessToken);
+    setMember(data.member);
+  };
+
   return (
     <MemberAuthContext.Provider
-      value={{ member, accessToken, isLoading, login, register, logout, refreshProfile }}
+      value={{ member, accessToken, isLoading, login, register, logout, refreshProfile, exchangeCode }}
     >
       {children}
     </MemberAuthContext.Provider>

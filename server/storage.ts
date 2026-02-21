@@ -15,10 +15,11 @@ import {
   type YoutubeStreamCache, type InsertYoutubeStreamCache,
   type RestreamStatus, type InsertRestreamStatus,
   type EventGroup, type EventRsvp,
+  type AuthCode,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
   members, groups, groupMembers, messages, prayerRequests, fundCategories, donations,
   platformConfig, youtubeStreamCache, restreamStatus,
-  eventGroups, eventRsvps,
+  eventGroups, eventRsvps, authCodes,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, and, gte, lte, lt, desc, sql, inArray } from "drizzle-orm";
@@ -154,6 +155,11 @@ export interface IStorage {
   getRestreamStatuses(): Promise<RestreamStatus[]>;
   getRestreamStatus(platform: string): Promise<RestreamStatus | undefined>;
   upsertRestreamStatus(platform: string, data: Partial<InsertRestreamStatus>): Promise<RestreamStatus>;
+
+  // Auth Codes
+  createAuthCode(memberId: string, code: string, expiresAt: Date): Promise<AuthCode>;
+  getAuthCodeByCode(code: string): Promise<AuthCode | undefined>;
+  markAuthCodeUsed(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -817,6 +823,21 @@ export class DatabaseStorage implements IStorage {
       .values({ ...data, platform })
       .returning();
     return created;
+  }
+
+  // ========== Auth Codes ==========
+  async createAuthCode(memberId: string, code: string, expiresAt: Date): Promise<AuthCode> {
+    const [result] = await db.insert(authCodes).values({ memberId, code, expiresAt }).returning();
+    return result;
+  }
+
+  async getAuthCodeByCode(code: string): Promise<AuthCode | undefined> {
+    const [result] = await db.select().from(authCodes).where(eq(authCodes.code, code));
+    return result;
+  }
+
+  async markAuthCodeUsed(id: string): Promise<void> {
+    await db.update(authCodes).set({ usedAt: new Date() }).where(eq(authCodes.id, id));
   }
 }
 

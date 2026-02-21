@@ -1,4 +1,5 @@
 import { Router } from "express";
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { storage } from "../storage";
 import { insertMemberSchema, loginMemberSchema } from "@shared/schema";
@@ -87,6 +88,51 @@ router.post("/refresh", async (req, res) => {
   } catch {
     return res.status(401).json({ message: "Invalid refresh token" });
   }
+});
+
+// POST /api/members/auth-code — generate a one-time code for browser login
+router.post("/auth-code", requireMember, async (req, res) => {
+  const code = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 1000); // 60 seconds
+
+  await storage.createAuthCode(req.member!.memberId, code, expiresAt);
+  res.json({ code });
+});
+
+// POST /api/members/exchange-code — exchange a one-time code for JWT tokens
+router.post("/exchange-code", async (req, res) => {
+  const { code } = req.body;
+  if (!code) {
+    return res.status(400).json({ message: "Code is required" });
+  }
+
+  const authCode = await storage.getAuthCodeByCode(code);
+  if (!authCode) {
+    return res.status(401).json({ message: "Invalid code" });
+  }
+  if (authCode.usedAt) {
+    return res.status(401).json({ message: "Code already used" });
+  }
+  if (new Date() > authCode.expiresAt) {
+    return res.status(401).json({ message: "Code expired" });
+  }
+
+  await storage.markAuthCodeUsed(authCode.id);
+
+  const member = await storage.getMember(authCode.memberId);
+  if (!member) {
+    return res.status(401).json({ message: "Member not found" });
+  }
+
+  const tokenPayload = { memberId: member.id, email: member.email, role: member.role };
+  const accessToken = signAccessToken(tokenPayload);
+  const refreshToken = signRefreshToken(tokenPayload);
+
+  res.json({
+    member: { ...member, password: undefined },
+    accessToken,
+    refreshToken,
+  });
 });
 
 // GET /api/members/me

@@ -87,6 +87,8 @@ Source: `server/routes/memberRoutes.ts` — mounted at `/api/members`
 | POST | `/api/members/register` | Public | Register a new member; returns member + JWT pair |
 | POST | `/api/members/login` | Public | Login with email & password; returns member + JWT pair |
 | POST | `/api/members/refresh` | Public | Exchange refresh token for new access + refresh tokens |
+| POST | `/api/members/auth-code` | Member JWT | Generate a one-time code for browser login (60s expiry) |
+| POST | `/api/members/exchange-code` | Public | Exchange a one-time code for JWT tokens |
 | GET | `/api/members/me` | Member JWT | Get current member profile |
 | PATCH | `/api/members/me` | Member JWT | Update own profile (name, phone, photo, privacy flags) |
 | GET | `/api/members/me/groups` | Member JWT | List groups the member belongs to |
@@ -96,6 +98,14 @@ Source: `server/routes/memberRoutes.ts` — mounted at `/api/members`
 | PATCH | `/api/members/admin/:id/reject` | Admin session | Reject a member |
 | GET | `/api/members/admin/all` | Admin session | All approved members with roles & group-admin assignments |
 | PATCH | `/api/members/admin/:id/role` | Admin session | Update member role, title, and group-admin assignments |
+
+**`POST /api/members/auth-code`** — returns `{ "code": "hex-string" }`. Code is single-use, expires in 60 seconds. Used by mobile apps to open the browser giving page with auto-login: `/give?code=<code>`.
+
+**`POST /api/members/exchange-code`** request body:
+```json
+{ "code": "hex-string" }
+```
+Returns `{ member, accessToken, refreshToken }` — same shape as login.
 
 **`POST /api/members/register`** request body:
 ```json
