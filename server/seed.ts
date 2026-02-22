@@ -20,36 +20,48 @@ export async function seedDatabase() {
   const existingMinistries = await db.select().from(ministries);
 
   if (existingLeaders.length === 0) {
-  await db.insert(leaders).values([
-    {
+    await db.insert(leaders).values([
+      {
+        name: "Pastor James Pacholek",
+        title: "Senior Pastor",
+        bio: "Pastor Pacholek has faithfully led First Pentecostal Church for over 15 years. His passion for preaching the uncompromising Word of God and his heart for the lost have been the driving force behind the church's growth. He holds a Master of Divinity and is a sought-after speaker at conferences across the nation.",
+        imageUrl: "/images/pastor-main.png",
+        orderIndex: 0,
+      },
+      {
+        name: "Coming Soon",
+        title: "Leadership Team",
+        bio: "More information about our leadership team will be available soon.",
+        imageUrl: "",
+        orderIndex: 1,
+      },
+      {
+        name: "Coming Soon",
+        title: "Leadership Team",
+        bio: "More information about our leadership team will be available soon.",
+        imageUrl: "",
+        orderIndex: 2,
+      },
+      {
+        name: "Coming Soon",
+        title: "Leadership Team",
+        bio: "More information about our leadership team will be available soon.",
+        imageUrl: "",
+        orderIndex: 3,
+      },
+    ]);
+  } else {
+    await db.update(leaders).set({
       name: "Pastor James Pacholek",
-      title: "Senior Pastor",
       bio: "Pastor Pacholek has faithfully led First Pentecostal Church for over 15 years. His passion for preaching the uncompromising Word of God and his heart for the lost have been the driving force behind the church's growth. He holds a Master of Divinity and is a sought-after speaker at conferences across the nation.",
-      imageUrl: "/images/pastor-main.png",
-      orderIndex: 0,
-    },
-    {
+    }).where(eq(leaders.orderIndex, 0));
+
+    await db.update(leaders).set({
       name: "Coming Soon",
       title: "Leadership Team",
       bio: "More information about our leadership team will be available soon.",
       imageUrl: "",
-      orderIndex: 1,
-    },
-    {
-      name: "Coming Soon",
-      title: "Leadership Team",
-      bio: "More information about our leadership team will be available soon.",
-      imageUrl: "",
-      orderIndex: 2,
-    },
-    {
-      name: "Coming Soon",
-      title: "Leadership Team",
-      bio: "More information about our leadership team will be available soon.",
-      imageUrl: "",
-      orderIndex: 3,
-    },
-  ]);
+    }).where(sql`${leaders.orderIndex} > 0`);
   }
 
   if (existingEvents.length === 0) {
