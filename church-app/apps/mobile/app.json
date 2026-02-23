@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "FPC Dallas",
+    "slug": "fpc-dallas",
+    "version": "1.0.0",
+    "scheme": "fpcd",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1b294b"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.fpcd.app",
+      "buildNumber": "6",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1b294b"
+      },
+      "package": "com.fpcd.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-updates"
+    ],
+    "updates": {
+      "url": "https://u.expo.dev/9276aa30-6449-4e92-ad25-17fbd5c706da"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "9276aa30-6449-4e92-ad25-17fbd5c706da"
+      }
+    },
+    "owner": "austinpach2014"
+  }
+}

@@ -363,6 +363,30 @@ export const insertRestreamStatusSchema = createInsertSchema(restreamStatus).omi
 export type InsertRestreamStatus = z.infer<typeof insertRestreamStatusSchema>;
 export type RestreamStatus = typeof restreamStatus.$inferSelect;
 
+// ===================== Recordings =====================
+
+export const recordings = pgTable("recordings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  r2Key: text("r2_key").notNull(),
+  r2Url: text("r2_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  duration: integer("duration_seconds"),
+  fileSize: integer("file_size_bytes"),
+  status: text("status").notNull().default("processing"), // processing | ready | error
+  streamStartedAt: timestamp("stream_started_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRecordingSchema = createInsertSchema(recordings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertRecording = z.infer<typeof insertRecordingSchema>;
+export type Recording = typeof recordings.$inferSelect;
+
 // ===================== Auth Codes (one-time mobile → browser login) =====================
 
 export const authCodes = pgTable("auth_codes", {

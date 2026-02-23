@@ -30,6 +30,11 @@ paths:
     readUser:
     readPass:
 
+    # Record streams automatically
+    record: yes
+    recordPath: /recordings/%Y-%m-%d_%H-%M-%S
+    recordFormat: fmp4
+
     # Webhook hooks - notify Express server when stream starts/stops
     runOnReady: >
       wget -q -O /dev/null --header="X-Webhook-Secret: $WEBHOOK_SECRET"

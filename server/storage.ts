@@ -16,10 +16,11 @@ import {
   type RestreamStatus, type InsertRestreamStatus,
   type EventGroup, type EventRsvp,
   type AuthCode,
+  type Recording, type InsertRecording,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
   members, groups, groupMembers, messages, prayerRequests, fundCategories, donations,
   platformConfig, youtubeStreamCache, restreamStatus,
-  eventGroups, eventRsvps, authCodes,
+  eventGroups, eventRsvps, authCodes, recordings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, and, gte, lte, lt, desc, sql, inArray } from "drizzle-orm";
@@ -160,6 +161,12 @@ export interface IStorage {
   createAuthCode(memberId: string, code: string, expiresAt: Date): Promise<AuthCode>;
   getAuthCodeByCode(code: string): Promise<AuthCode | undefined>;
   markAuthCodeUsed(id: string): Promise<void>;
+
+  // Recordings
+  getRecordings(limit?: number, offset?: number): Promise<{ items: Recording[]; total: number }>;
+  getRecording(id: string): Promise<Recording | undefined>;
+  createRecording(data: InsertRecording): Promise<Recording>;
+  updateRecording(id: string, data: Partial<InsertRecording>): Promise<Recording>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -838,6 +845,44 @@ export class DatabaseStorage implements IStorage {
 
   async markAuthCodeUsed(id: string): Promise<void> {
     await db.update(authCodes).set({ usedAt: new Date() }).where(eq(authCodes.id, id));
+  }
+
+  // ========== Recordings ==========
+  async getRecordings(limit = 12, offset = 0): Promise<{ items: Recording[]; total: number }> {
+    const [countRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(recordings)
+      .where(eq(recordings.status, "ready"));
+    const total = countRow?.count ?? 0;
+
+    const items = await db
+      .select()
+      .from(recordings)
+      .where(eq(recordings.status, "ready"))
+      .orderBy(desc(recordings.streamStartedAt))
+      .limit(limit)
+      .offset(offset);
+
+    return { items, total };
+  }
+
+  async getRecording(id: string): Promise<Recording | undefined> {
+    const [result] = await db.select().from(recordings).where(eq(recordings.id, id));
+    return result;
+  }
+
+  async createRecording(data: InsertRecording): Promise<Recording> {
+    const [result] = await db.insert(recordings).values(data).returning();
+    return result;
+  }
+
+  async updateRecording(id: string, data: Partial<InsertRecording>): Promise<Recording> {
+    const [result] = await db
+      .update(recordings)
+      .set(data)
+      .where(eq(recordings.id, id))
+      .returning();
+    return result;
   }
 }
 

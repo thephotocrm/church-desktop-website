@@ -11,6 +11,7 @@ import platformRoutes from "./routes/platformRoutes";
 import youtubeRoutes from "./routes/youtubeRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import { startRestreaming, stopRestreaming } from "./restreamManager";
+import recordingRoutes from "./routes/recordingRoutes";
 import { setupWebSocket } from "./websocket";
 import { startEventReminders } from "./eventReminders";
 
@@ -180,6 +181,7 @@ export async function registerRoutes(
   app.use("/api/giving", givingRoutes);
   app.use("/api/admin", platformRoutes);
   app.use("/api/youtube", youtubeRoutes);
+  app.use("/api/recordings", recordingRoutes);
 
   // POST /api/stream/webhook - MediaMTX webhook for stream start/stop
   app.post("/api/stream/webhook", async (req, res) => {
