@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,18 +19,35 @@ interface FundCategory {
 
 const presetAmounts = [10, 25, 50, 100];
 
-export function GivingForm() {
+interface GivingFormProps {
+  initialValues?: { amount?: string; fund?: string; type?: string; frequency?: string };
+}
+
+export function GivingForm({ initialValues }: GivingFormProps) {
   const { member } = useMemberAuth();
   const { toast } = useToast();
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(initialValues?.amount || "");
   const [fundId, setFundId] = useState("");
-  const [type, setType] = useState<"one_time" | "recurring">("one_time");
-  const [frequency, setFrequency] = useState<"weekly" | "monthly">("monthly");
+  const [type, setType] = useState<"one_time" | "recurring">(
+    initialValues?.type === "recurring" ? "recurring" : "one_time"
+  );
+  const [frequency, setFrequency] = useState<"weekly" | "monthly">(
+    initialValues?.frequency === "weekly" ? "weekly" : "monthly"
+  );
   const [loading, setLoading] = useState(false);
 
   const { data: funds } = useQuery<FundCategory[]>({
     queryKey: ["/api/giving/funds"],
   });
+
+  useEffect(() => {
+    if (initialValues?.fund && funds?.length && !fundId) {
+      const match = funds.find(
+        (f) => f.name.toLowerCase() === initialValues.fund!.toLowerCase()
+      );
+      if (match) setFundId(match.id);
+    }
+  }, [funds, initialValues?.fund]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

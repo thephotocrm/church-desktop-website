@@ -26,6 +26,15 @@ export default function Give() {
   const { member, exchangeCode } = useMemberAuth();
   const { toast } = useToast();
   const [showSuccess, setShowSuccess] = useState(false);
+  const [initialValues] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    return {
+      amount: p.get("amount") || undefined,
+      fund: p.get("fund") || undefined,
+      type: p.get("type") || undefined,
+      frequency: p.get("frequency") || undefined,
+    };
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -109,7 +118,7 @@ export default function Give() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
               <motion.div variants={fadeUp}>
-                <GivingForm />
+                <GivingForm initialValues={initialValues} />
               </motion.div>
               <motion.div variants={fadeUp} className="space-y-6">
                 <SavedPaymentMethods />
