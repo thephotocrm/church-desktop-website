@@ -1,15 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useMemberAuth } from "@/hooks/use-member-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { CreditCard, Heart, ArrowRight } from "lucide-react";
+import { Heart, ArrowRight, ChevronDown, Loader2 } from "lucide-react";
 
 interface FundCategory {
   id: string;
@@ -18,6 +12,18 @@ interface FundCategory {
 }
 
 const presetAmounts = [10, 25, 50, 100];
+
+const C = {
+  INK: "#1A1714",
+  INK2: "#231E1A",
+  GOLD: "#C9943A",
+  GOLD_LIGHT: "#E8B860",
+  GOLD_DIM: "rgba(201,148,58,0.18)",
+  WARM_GRAY: "#8C8078",
+  BORDER: "rgba(255,255,255,0.07)",
+  MUTED: "rgba(255,255,255,0.35)",
+  MUTED2: "rgba(255,255,255,0.08)",
+} as const;
 
 interface GivingFormProps {
   initialValues?: { amount?: string; fund?: string; type?: string; frequency?: string };
@@ -80,99 +86,194 @@ export function GivingForm({ initialValues }: GivingFormProps) {
     }
   };
 
-  return (
-    <Card className="border-gold/30">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Heart className="w-5 h-5 text-gold" />
-          <CardTitle className="text-lg">Make a Donation</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Fund selector */}
-          <div className="space-y-2">
-            <Label>Select Fund</Label>
-            <Select value={fundId} onValueChange={setFundId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a fund..." />
-              </SelectTrigger>
-              <SelectContent>
-                {funds?.map((fund) => (
-                  <SelectItem key={fund.id} value={fund.id}>
-                    {fund.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+  const selectedFund = funds?.find((f) => f.id === fundId);
 
-          {/* Amount presets */}
-          <div className="space-y-2">
-            <Label>Amount</Label>
-            <div className="grid grid-cols-4 gap-2 mb-2">
-              {presetAmounts.map((preset) => (
-                <Button
+  return (
+    <div
+      className="rounded-[20px] p-6"
+      style={{ background: C.INK2, border: `1px solid ${C.BORDER}` }}
+    >
+      {/* Card header */}
+      <div className="flex items-center gap-2.5 mb-6">
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center"
+          style={{ background: C.GOLD_DIM }}
+        >
+          <Heart className="w-4 h-4" style={{ color: C.GOLD }} />
+        </div>
+        <h3 className="text-white font-['Open_Sans'] text-[16px] font-bold">Make a Donation</h3>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Fund selector */}
+        <div className="space-y-2">
+          <label
+            className="font-['Open_Sans'] text-[11px] font-semibold uppercase tracking-[1.5px]"
+            style={{ color: C.WARM_GRAY }}
+          >
+            Select Fund
+          </label>
+          <div className="relative">
+            <select
+              value={fundId}
+              onChange={(e) => setFundId(e.target.value)}
+              className="w-full appearance-none rounded-[14px] px-4 py-3.5 font-['Open_Sans'] text-[14px] text-white outline-none focus:ring-1 transition-colors cursor-pointer"
+              style={{
+                background: C.MUTED2,
+                border: `1px solid ${C.BORDER}`,
+                color: fundId ? "white" : C.WARM_GRAY,
+              }}
+              onFocus={(e) => (e.target.style.borderColor = C.GOLD)}
+              onBlur={(e) => (e.target.style.borderColor = C.BORDER)}
+            >
+              <option value="" disabled>Choose a fund...</option>
+              {funds?.map((fund) => (
+                <option key={fund.id} value={fund.id} style={{ background: C.INK2, color: "white" }}>
+                  {fund.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+              style={{ color: C.WARM_GRAY }}
+            />
+          </div>
+        </div>
+
+        {/* Amount presets */}
+        <div className="space-y-2">
+          <label
+            className="font-['Open_Sans'] text-[11px] font-semibold uppercase tracking-[1.5px]"
+            style={{ color: C.WARM_GRAY }}
+          >
+            Amount
+          </label>
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            {presetAmounts.map((preset) => {
+              const isActive = amount === String(preset);
+              return (
+                <button
                   key={preset}
                   type="button"
-                  variant={amount === String(preset) ? "default" : "outline"}
-                  className={amount === String(preset) ? "bg-gold text-white border-gold" : ""}
-                  size="sm"
+                  className="py-2.5 rounded-[12px] font-['Open_Sans'] text-[14px] font-semibold transition-all"
+                  style={{
+                    background: isActive ? C.GOLD_DIM : C.MUTED2,
+                    border: `1px solid ${isActive ? C.GOLD : C.BORDER}`,
+                    color: isActive ? C.GOLD_LIGHT : "rgba(255,255,255,0.6)",
+                  }}
                   onClick={() => setAmount(String(preset))}
                 >
                   ${preset}
-                </Button>
-              ))}
-            </div>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-              <Input
-                type="number"
-                min="1"
-                step="0.01"
-                placeholder="Custom amount"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="pl-7"
-              />
-            </div>
+                </button>
+              );
+            })}
           </div>
-
-          {/* One-time vs Recurring */}
-          <div className="space-y-2">
-            <Label>Frequency</Label>
-            <Tabs value={type} onValueChange={(v) => setType(v as "one_time" | "recurring")}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="one_time">One-Time</TabsTrigger>
-                <TabsTrigger value="recurring">Recurring</TabsTrigger>
-              </TabsList>
-              <TabsContent value="recurring" className="pt-3">
-                <Select value={frequency} onValueChange={(v) => setFrequency(v as "weekly" | "monthly")}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </TabsContent>
-            </Tabs>
+          <div className="relative">
+            <span
+              className="absolute left-4 top-1/2 -translate-y-1/2 font-['Open_Sans'] text-[14px]"
+              style={{ color: C.WARM_GRAY }}
+            >
+              $
+            </span>
+            <input
+              type="number"
+              min="1"
+              step="0.01"
+              placeholder="Custom amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full rounded-[14px] pl-8 pr-4 py-3.5 font-['Open_Sans'] text-[14px] text-white outline-none focus:ring-1 transition-colors placeholder:text-[rgba(255,255,255,0.25)]"
+              style={{
+                background: C.MUTED2,
+                border: `1px solid ${C.BORDER}`,
+              }}
+              onFocus={(e) => (e.target.style.borderColor = C.GOLD)}
+              onBlur={(e) => (e.target.style.borderColor = C.BORDER)}
+            />
           </div>
+        </div>
 
-          {!member && (
-            <p className="text-xs text-muted-foreground">
-              <a href="/member-login" className="text-gold hover:underline">Sign in</a> to save your payment method for future donations.
-            </p>
+        {/* One-time vs Recurring */}
+        <div className="space-y-2">
+          <label
+            className="font-['Open_Sans'] text-[11px] font-semibold uppercase tracking-[1.5px]"
+            style={{ color: C.WARM_GRAY }}
+          >
+            Frequency
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["one_time", "recurring"] as const).map((t) => {
+              const isActive = type === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  className="py-3 rounded-[14px] font-['Open_Sans'] text-[13px] font-semibold transition-all"
+                  style={{
+                    background: isActive ? C.GOLD_DIM : C.MUTED2,
+                    border: `1px solid ${isActive ? C.GOLD : C.BORDER}`,
+                    color: isActive ? C.GOLD_LIGHT : "rgba(255,255,255,0.5)",
+                  }}
+                  onClick={() => setType(t)}
+                >
+                  {t === "one_time" ? "One-Time" : "Recurring"}
+                </button>
+              );
+            })}
+          </div>
+          {type === "recurring" && (
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              {(["weekly", "monthly"] as const).map((f) => {
+                const isActive = frequency === f;
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    className="py-2.5 rounded-[12px] font-['Open_Sans'] text-[12px] font-semibold capitalize transition-all"
+                    style={{
+                      background: isActive ? C.GOLD_DIM : C.MUTED2,
+                      border: `1px solid ${isActive ? C.GOLD : C.BORDER}`,
+                      color: isActive ? C.GOLD_LIGHT : "rgba(255,255,255,0.5)",
+                    }}
+                    onClick={() => setFrequency(f)}
+                  >
+                    {f}
+                  </button>
+                );
+              })}
+            </div>
           )}
+        </div>
 
-          <Button type="submit" className="w-full bg-gold text-white border-gold" size="lg" disabled={loading}>
-            <CreditCard className="w-4 h-4 mr-2" />
-            {loading ? "Processing..." : `Give${amount ? ` $${amount}` : ""}`}
-            {!loading && <ArrowRight className="w-4 h-4 ml-2" />}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        {!member && (
+          <p className="font-['Open_Sans'] text-[12px]" style={{ color: C.MUTED }}>
+            <a href="/member-login" className="font-semibold hover:underline" style={{ color: C.GOLD }}>Sign in</a>{" "}
+            to save your payment method for future donations.
+          </p>
+        )}
+
+        {/* CTA */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full py-4 rounded-[18px] font-['Open_Sans'] text-[16px] font-bold flex items-center justify-center gap-2.5 transition-opacity disabled:opacity-50"
+          style={{
+            background: "linear-gradient(135deg, #D4A04A, #A8741F)",
+            color: C.INK,
+            boxShadow: "0 8px 24px rgba(168,116,31,0.45)",
+          }}
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              <Heart className="w-5 h-5" />
+              Give{amount ? ` $${amount}` : ""}
+              <ArrowRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </form>
+    </div>
   );
 }

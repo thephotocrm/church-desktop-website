@@ -1,6 +1,4 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useMemberAuth } from "@/hooks/use-member-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +11,15 @@ interface PaymentMethod {
   expMonth: number;
   expYear: number;
 }
+
+const C = {
+  INK2: "#231E1A",
+  GOLD: "#C9943A",
+  GOLD_DIM: "rgba(201,148,58,0.18)",
+  WARM_GRAY: "#8C8078",
+  BORDER: "rgba(255,255,255,0.07)",
+  MUTED: "rgba(255,255,255,0.35)",
+} as const;
 
 export function SavedPaymentMethods() {
   const { member } = useMemberAuth();
@@ -40,34 +47,51 @@ export function SavedPaymentMethods() {
   if (!methods || methods.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center gap-2">
-          <CreditCard className="w-5 h-5 text-gold" />
-          Saved Cards
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {methods.map((m) => (
-          <div key={m.id} className="flex items-center justify-between p-3 rounded-md border">
+    <div
+      className="rounded-[20px] p-6"
+      style={{ background: C.INK2, border: `1px solid ${C.BORDER}` }}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2.5 mb-5">
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center"
+          style={{ background: C.GOLD_DIM }}
+        >
+          <CreditCard className="w-4 h-4" style={{ color: C.GOLD }} />
+        </div>
+        <h3 className="text-white font-['Open_Sans'] text-[16px] font-bold">Saved Cards</h3>
+      </div>
+
+      {/* Cards list */}
+      <div className="space-y-1">
+        {methods.map((m, i) => (
+          <div
+            key={m.id}
+            className="flex items-center justify-between py-3"
+            style={i < methods.length - 1 ? { borderBottom: `1px solid ${C.BORDER}` } : undefined}
+          >
             <div className="flex items-center gap-3">
-              <CreditCard className="w-5 h-5 text-muted-foreground" />
+              <CreditCard className="w-5 h-5" style={{ color: C.WARM_GRAY }} />
               <div>
-                <p className="text-sm font-medium capitalize">{m.brand} **** {m.last4}</p>
-                <p className="text-xs text-muted-foreground">Expires {m.expMonth}/{m.expYear}</p>
+                <p className="text-white font-['Open_Sans'] text-[14px] font-medium capitalize">
+                  {m.brand} •••• {m.last4}
+                </p>
+                <p className="font-['Open_Sans'] text-[11px]" style={{ color: C.MUTED }}>
+                  Expires {m.expMonth}/{m.expYear}
+                </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => removeMutation.mutate(m.id)}
               disabled={removeMutation.isPending}
+              className="p-2 rounded-full transition-opacity hover:opacity-70 disabled:opacity-40"
+              style={{ color: C.WARM_GRAY }}
             >
-              <Trash2 className="w-4 h-4 text-muted-foreground" />
-            </Button>
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

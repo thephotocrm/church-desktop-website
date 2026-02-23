@@ -16,7 +16,9 @@
       "Bash(npx tsc:*)",
       "Bash(pkill:*)",
       "Bash(psql:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(find /home/runner/workspace -name \".env*\" -type f 2>/dev/null | head -20)",
+      "Bash(gh api repos/thephotocrm/church-app/git/trees/main?recursive=1 --jq '.tree[].path' 2>&1 | head -100)"
     ]
   }
 }

@@ -16,6 +16,7 @@ import Leadership from "@/pages/leadership";
 import Connect from "@/pages/connect";
 import LiveStream from "@/pages/live";
 import Give from "@/pages/give";
+import GiveConfirm from "@/pages/give-confirm";
 import GivingHistory from "@/pages/giving-history";
 import Events from "@/pages/events";
 import MinistriesPage from "@/pages/ministries";
@@ -49,6 +50,7 @@ function Router() {
       <Route path="/leadership" component={Leadership} />
       <Route path="/connect" component={Connect} />
       <Route path="/live" component={LiveStream} />
+      <Route path="/give/confirm" component={GiveConfirm} />
       <Route path="/give" component={Give} />
       <Route path="/giving-history" component={GivingHistory} />
       <Route path="/events" component={Events} />
@@ -73,16 +75,17 @@ function AppLayout() {
   const [location] = useLocation();
   const isAdminRoute = location === "/login" || location === "/admin";
   const isMemberAuthRoute = location === "/member-login" || location === "/register";
+  const isGiveConfirm = location === "/give/confirm";
 
   return (
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
-      {!isAdminRoute && !isMemberAuthRoute && <Navigation />}
-      {!isAdminRoute && !isMemberAuthRoute && <LiveBanner />}
+      {!isAdminRoute && !isMemberAuthRoute && !isGiveConfirm && <Navigation />}
+      {!isAdminRoute && !isMemberAuthRoute && !isGiveConfirm && <LiveBanner />}
       <main className="flex-1">
         <Router />
       </main>
-      {!isAdminRoute && !isMemberAuthRoute && <Footer />}
+      {!isAdminRoute && !isMemberAuthRoute && !isGiveConfirm && <Footer />}
     </div>
   );
 }
