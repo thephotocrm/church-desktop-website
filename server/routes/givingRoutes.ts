@@ -147,6 +147,133 @@ router.post("/checkout-session", requireStripe, optionalMember, async (req, res)
   }
 });
 
+// POST /api/giving/create-payment-intent
+router.post("/create-payment-intent", requireStripe, optionalMember, async (req, res) => {
+  const stripe = getStripe();
+  const { amountCents, fundCategoryId, type, frequency } = req.body;
+
+  if (!amountCents || amountCents < 100) {
+    return res.status(400).json({ message: "Minimum donation is $1.00" });
+  }
+
+  if (!fundCategoryId) {
+    return res.status(400).json({ message: "Fund category is required" });
+  }
+
+  const fund = await storage.getFundCategory(fundCategoryId);
+  if (!fund) {
+    return res.status(404).json({ message: "Fund category not found" });
+  }
+
+  // Get or create Stripe customer for logged-in member
+  let customerId: string | undefined;
+  if (req.member) {
+    const member = await storage.getMember(req.member.memberId);
+    if (member?.stripeCustomerId) {
+      customerId = member.stripeCustomerId;
+    } else if (member) {
+      const customer = await stripe.customers.create({
+        email: member.email,
+        name: `${member.firstName} ${member.lastName}`,
+        metadata: { memberId: member.id },
+      });
+      await storage.updateMember(member.id, { stripeCustomerId: customer.id });
+      customerId = customer.id;
+    }
+  }
+
+  try {
+    if (type === "recurring" && frequency) {
+      // Recurring: create a Subscription with incomplete payment
+      // A customer is required for subscriptions
+      if (!customerId) {
+        // Create an anonymous customer for guest recurring donations
+        const customer = await stripe.customers.create({
+          metadata: { guest: "true" },
+        });
+        customerId = customer.id;
+      }
+
+      // Create an ad-hoc price for this recurring donation
+      const price = await stripe.prices.create({
+        currency: "usd",
+        unit_amount: amountCents,
+        recurring: {
+          interval: frequency === "weekly" ? "week" : "month",
+        },
+        product_data: {
+          name: `${fund.name} - Recurring Donation`,
+        },
+      });
+
+      const subscription = await stripe.subscriptions.create({
+        customer: customerId,
+        items: [{ price: price.id }],
+        payment_behavior: "default_incomplete",
+        payment_settings: { save_default_payment_method: "on_subscription" },
+        metadata: { fundCategoryId, memberId: req.member?.memberId || "" },
+        expand: ["latest_invoice.payment_intent"],
+      });
+
+      const invoice = subscription.latest_invoice as any;
+      const paymentIntent = invoice.payment_intent as any;
+
+      // Record pending donation
+      await storage.createDonation({
+        memberId: req.member?.memberId || null,
+        fundCategoryId,
+        amountCents,
+        currency: "usd",
+        type: "recurring",
+        frequency,
+        stripeSubscriptionId: subscription.id,
+        stripePaymentIntentId: paymentIntent.id,
+        status: "pending",
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        subscriptionId: subscription.id,
+        paymentIntentId: paymentIntent.id,
+      });
+    } else {
+      // One-time: create a PaymentIntent
+      const piParams: any = {
+        amount: amountCents,
+        currency: "usd",
+        description: `${fund.name} - Donation`,
+        metadata: { fundCategoryId, memberId: req.member?.memberId || "" },
+      };
+
+      if (customerId) {
+        piParams.customer = customerId;
+        piParams.setup_future_usage = "on_session";
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create(piParams);
+
+      // Record pending donation
+      await storage.createDonation({
+        memberId: req.member?.memberId || null,
+        fundCategoryId,
+        amountCents,
+        currency: "usd",
+        type: "one_time",
+        stripePaymentIntentId: paymentIntent.id,
+        status: "pending",
+      });
+
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id,
+      });
+    }
+  } catch (err: any) {
+    console.error("Failed to create payment intent:", err.message);
+    return res.status(500).json({ message: err.message || "Failed to create payment" });
+  }
+});
+
 // POST /api/giving/charge-saved
 router.post("/charge-saved", requireStripe, requireMember, async (req, res) => {
   const stripe = getStripe();

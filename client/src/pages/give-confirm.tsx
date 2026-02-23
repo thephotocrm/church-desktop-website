@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { loadStripe, type Stripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { useMemberAuth } from "@/hooks/use-member-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +35,86 @@ const C = {
   MUTED2: "rgba(255,255,255,0.08)",
 } as const;
 
+const stripeAppearance = {
+  theme: "night" as const,
+  variables: {
+    colorPrimary: "#C9943A",
+    colorBackground: "#231E1A",
+    colorText: "#ffffff",
+    colorTextSecondary: "#8C8078",
+    borderRadius: "14px",
+    fontFamily: "Open Sans, sans-serif",
+  },
+  rules: {
+    ".Input": {
+      border: "1px solid rgba(255,255,255,0.07)",
+      backgroundColor: "rgba(255,255,255,0.08)",
+    },
+    ".Input:focus": { borderColor: "#C9943A" },
+    ".Label": { color: "#8C8078" },
+  },
+};
+
+// Shared background with ambient glow
+const bgStyle: React.CSSProperties = {
+  background: `
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(201,148,58,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 100%, rgba(168,116,31,0.08) 0%, transparent 60%),
+    ${C.INK}
+  `,
+};
+
+// Inner checkout form component (must be inside <Elements>)
+function CheckoutForm({ amount, onSuccess }: { amount: string; onSuccess: () => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const { toast } = useToast();
+  const [processing, setProcessing] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setProcessing(true);
+    const { error } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+    });
+
+    if (error) {
+      toast({ title: error.message || "Payment failed", variant: "destructive" });
+      setProcessing(false);
+    } else {
+      onSuccess();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <PaymentElement options={{ layout: "tabs" }} />
+      <button
+        type="submit"
+        disabled={!stripe || processing}
+        className="w-full py-5 rounded-[22px] font-['Open_Sans'] text-[17px] font-bold flex items-center justify-center gap-2.5 transition-opacity disabled:opacity-50 mt-6"
+        style={{
+          background: "linear-gradient(135deg, #D4A04A, #A8741F)",
+          color: C.INK,
+          boxShadow: "0 8px 24px rgba(168,116,31,0.45)",
+        }}
+      >
+        {processing ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <>
+            <Heart className="w-5 h-5" />
+            Give{amount ? ` $${amount}` : ""}
+          </>
+        )}
+      </button>
+    </form>
+  );
+}
+
 export default function GiveConfirm() {
   const [, navigate] = useLocation();
   const { member, exchangeCode, isLoading: authLoading } = useMemberAuth();
@@ -46,62 +128,23 @@ export default function GiveConfirm() {
       type: p.get("type") || "one_time",
       frequency: p.get("frequency") || "monthly",
       code: p.get("code") || "",
-      success: p.get("success") === "true",
-      canceled: p.get("canceled") === "true",
     };
   });
 
   const [exchangingCode, setExchangingCode] = useState(!!params.code);
   const [fundId, setFundId] = useState("");
-  const [loading, setLoading] = useState(false);
   const [chargingCard, setChargingCard] = useState<string | null>(null);
-  const [showSuccess, setShowSuccess] = useState(params.success);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  // Read saved params from sessionStorage on success return
-  const [savedParams] = useState(() => {
-    if (params.success) {
-      try {
-        const stored = sessionStorage.getItem("giveConfirmParams");
-        if (stored) {
-          sessionStorage.removeItem("giveConfirmParams");
-          return JSON.parse(stored) as { amount: string; fund: string; type: string; frequency: string };
-        }
-      } catch {}
-    }
-    return null;
-  });
+  // Stripe state
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [intentError, setIntentError] = useState<string | null>(null);
 
-  const displayAmount = savedParams?.amount || params.amount;
-  const displayFund = savedParams?.fund || params.fund;
-  const displayType = savedParams?.type || params.type;
-  const displayFrequency = savedParams?.frequency || params.frequency;
-
-  // Redirect if missing required params (unless returning from Stripe)
+  // Redirect if missing required params
   useEffect(() => {
-    if (!params.success && !params.canceled && (!params.amount || !params.fund)) {
+    if (!params.amount || !params.fund) {
       navigate("/give");
-    }
-  }, []);
-
-  // Handle canceled return
-  useEffect(() => {
-    if (params.canceled) {
-      toast({ title: "Donation canceled", variant: "destructive" });
-      const stored = sessionStorage.getItem("giveConfirmParams");
-      if (stored) {
-        const restored = JSON.parse(stored);
-        const retryParams = new URLSearchParams(restored);
-        navigate(`/give/confirm?${retryParams.toString()}`);
-      } else {
-        navigate("/give");
-      }
-    }
-  }, []);
-
-  // Clean URL after reading params
-  useEffect(() => {
-    if (params.success) {
-      window.history.replaceState({}, "", "/give/confirm");
     }
   }, []);
 
@@ -121,6 +164,19 @@ export default function GiveConfirm() {
     }
   }, []);
 
+  // Load Stripe publishable key
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/config");
+        const data = await res.json();
+        if (data.stripePublishableKey) {
+          setStripePromise(loadStripe(data.stripePublishableKey));
+        }
+      } catch {}
+    })();
+  }, []);
+
   // Resolve fund name to ID
   const { data: funds } = useQuery<FundCategory[]>({
     queryKey: ["/api/giving/funds"],
@@ -135,6 +191,30 @@ export default function GiveConfirm() {
     }
   }, [funds, params.fund]);
 
+  // Create PaymentIntent once we have a fundId
+  useEffect(() => {
+    if (!fundId || clientSecret) return;
+
+    const amountNum = parseFloat(params.amount);
+    if (!amountNum || amountNum < 1) return;
+
+    (async () => {
+      try {
+        const res = await apiRequest("POST", "/api/giving/create-payment-intent", {
+          amountCents: Math.round(amountNum * 100),
+          fundCategoryId: fundId,
+          type: params.type === "recurring" ? "recurring" : "one_time",
+          frequency: params.type === "recurring" ? params.frequency : undefined,
+        });
+        const data = await res.json();
+        setClientSecret(data.clientSecret);
+      } catch (err: any) {
+        setIntentError(err.message || "Failed to initialize payment");
+        toast({ title: err.message || "Failed to initialize payment", variant: "destructive" });
+      }
+    })();
+  }, [fundId]);
+
   // Fetch saved payment methods
   const { data: paymentMethods } = useQuery<PaymentMethod[]>({
     queryKey: ["/api/giving/payment-methods"],
@@ -143,7 +223,7 @@ export default function GiveConfirm() {
 
   const amountNum = parseFloat(params.amount);
   const amountCents = Math.round(amountNum * 100);
-  const isRecurring = displayType === "recurring";
+  const isRecurring = params.type === "recurring";
 
   // Format amount parts for split display
   const amountWhole = Math.floor(amountNum || 0).toString();
@@ -152,7 +232,7 @@ export default function GiveConfirm() {
   // Charge saved card (one-time only)
   const handleChargeSaved = async (paymentMethodId: string) => {
     if (!fundId) {
-      toast({ title: "Fund not found. Please try Stripe Checkout instead.", variant: "destructive" });
+      toast({ title: "Fund not found. Please try the payment form below.", variant: "destructive" });
       return;
     }
     setChargingCard(paymentMethodId);
@@ -166,7 +246,7 @@ export default function GiveConfirm() {
     } catch (err: any) {
       const msg = err.message || "Payment failed";
       if (msg.includes("requires_action") || msg.includes("3D Secure")) {
-        toast({ title: "This card requires additional verification. Please use Stripe Checkout instead.", variant: "destructive" });
+        toast({ title: "This card requires additional verification. Please use the payment form below.", variant: "destructive" });
       } else {
         toast({ title: msg, variant: "destructive" });
       }
@@ -175,38 +255,9 @@ export default function GiveConfirm() {
     }
   };
 
-  // Stripe Checkout
-  const handleCheckout = async () => {
-    if (!fundId) {
-      toast({ title: "Fund not found. Please wait or try again.", variant: "destructive" });
-      return;
-    }
-    setLoading(true);
-
-    sessionStorage.setItem(
-      "giveConfirmParams",
-      JSON.stringify({ amount: params.amount, fund: params.fund, type: params.type, frequency: params.frequency })
-    );
-
-    try {
-      const origin = window.location.origin;
-      const res = await apiRequest("POST", "/api/giving/checkout-session", {
-        amountCents,
-        fundCategoryId: fundId,
-        type: isRecurring ? "recurring" : "one_time",
-        frequency: isRecurring ? params.frequency : undefined,
-        successUrl: `${origin}/give/confirm?success=true`,
-        cancelUrl: `${origin}/give/confirm?canceled=true`,
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (err: any) {
-      toast({ title: err.message || "Failed to create payment session", variant: "destructive" });
-      setLoading(false);
-    }
-  };
+  const handlePaymentSuccess = useCallback(() => {
+    setShowSuccess(true);
+  }, []);
 
   // Build "Edit details" link
   const editLink = `/give?${new URLSearchParams({
@@ -219,15 +270,6 @@ export default function GiveConfirm() {
   const isPageLoading = exchangingCode || authLoading;
 
   const showSavedCards = !isRecurring && paymentMethods && paymentMethods.length > 0;
-
-  // Shared background with ambient glow
-  const bgStyle: React.CSSProperties = {
-    background: `
-      radial-gradient(ellipse 60% 50% at 50% 0%, rgba(201,148,58,0.10) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 40% at 85% 100%, rgba(168,116,31,0.08) 0%, transparent 60%),
-      ${C.INK}
-    `,
-  };
 
   // Success state
   if (showSuccess) {
@@ -252,26 +294,26 @@ export default function GiveConfirm() {
           <p className="font-['Open_Sans'] text-sm mb-8" style={{ color: C.MUTED }}>
             Your generous gift has been received.
           </p>
-          {(displayAmount || displayFund) && (
+          {(params.amount || params.fund) && (
             <div
               className="rounded-[20px] p-6 mb-6"
               style={{ background: C.INK2, border: `1px solid ${C.BORDER}` }}
             >
-              {displayAmount && (
+              {params.amount && (
                 <div className="flex items-baseline justify-center">
                   <span className="font-['Playfair_Display'] text-[30px]" style={{ color: C.GOLD }}>$</span>
                   <span className="font-['Playfair_Display'] text-[52px] font-bold text-white leading-none">
-                    {Math.floor(parseFloat(displayAmount))}
+                    {Math.floor(parseFloat(params.amount))}
                   </span>
                   <span className="font-['Playfair_Display'] text-[30px]" style={{ color: C.MUTED }}>.00</span>
                 </div>
               )}
-              {displayFund && (
-                <p className="font-['Open_Sans'] text-sm mt-3" style={{ color: C.WARM_GRAY }}>{displayFund}</p>
+              {params.fund && (
+                <p className="font-['Open_Sans'] text-sm mt-3" style={{ color: C.WARM_GRAY }}>{params.fund}</p>
               )}
-              {displayType === "recurring" && (
+              {isRecurring && (
                 <p className="font-['Open_Sans'] text-xs mt-1 capitalize" style={{ color: C.MUTED }}>
-                  {displayFrequency} recurring
+                  {params.frequency} recurring
                 </p>
               )}
             </div>
@@ -390,7 +432,7 @@ export default function GiveConfirm() {
                     <div className="flex items-center gap-3">
                       <CreditCard className="w-5 h-5" style={{ color: C.GOLD }} />
                       <span className="text-white font-['Open_Sans'] text-[14px] capitalize">
-                        {m.brand} •••• {m.last4}
+                        {m.brand} &bull;&bull;&bull;&bull; {m.last4}
                       </span>
                     </div>
                     {chargingCard === m.id ? (
@@ -415,33 +457,48 @@ export default function GiveConfirm() {
                 className="font-['Open_Sans'] text-[10px] uppercase tracking-[1.5px]"
                 style={{ color: C.WARM_GRAY }}
               >
-                or
+                or pay with new card
               </span>
               <div className="flex-1" style={{ borderTop: `1px solid ${C.BORDER}` }} />
             </div>
           </>
         )}
 
-        {/* CTA Button */}
-        <button
-          onClick={handleCheckout}
-          disabled={loading || !fundId}
-          className="w-full py-5 rounded-[22px] font-['Open_Sans'] text-[17px] font-bold flex items-center justify-center gap-2.5 transition-opacity disabled:opacity-50"
-          style={{
-            background: "linear-gradient(135deg, #D4A04A, #A8741F)",
-            color: C.INK,
-            boxShadow: "0 8px 24px rgba(168,116,31,0.45)",
-          }}
-        >
-          {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <>
-              <Heart className="w-5 h-5" />
-              Proceed to Checkout
-            </>
-          )}
-        </button>
+        {/* Inline Payment Element */}
+        {intentError ? (
+          <div
+            className="rounded-[20px] p-6 text-center"
+            style={{ background: C.INK2, border: `1px solid ${C.BORDER}` }}
+          >
+            <p className="font-['Open_Sans'] text-sm" style={{ color: "rgba(239,68,68,0.9)" }}>
+              {intentError}
+            </p>
+            <button
+              onClick={() => navigate("/give")}
+              className="mt-4 font-['Open_Sans'] text-[13px] font-semibold hover:underline"
+              style={{ color: C.GOLD }}
+            >
+              Go back
+            </button>
+          </div>
+        ) : !stripePromise || !clientSecret ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: C.GOLD }} />
+            <span className="ml-3 font-['Open_Sans'] text-sm" style={{ color: C.MUTED }}>
+              Loading payment form...
+            </span>
+          </div>
+        ) : (
+          <Elements
+            stripe={stripePromise}
+            options={{
+              clientSecret,
+              appearance: stripeAppearance,
+            }}
+          >
+            <CheckoutForm amount={params.amount} onSuccess={handlePaymentSuccess} />
+          </Elements>
+        )}
 
         {/* Footer row */}
         <div className="flex items-center justify-between mt-6 px-1">
@@ -459,7 +516,7 @@ export default function GiveConfirm() {
             className="font-['Open_Sans'] text-[11.5px] font-semibold hover:underline"
             style={{ color: C.GOLD }}
           >
-            Edit details →
+            Edit details &rarr;
           </a>
         </div>
       </div>

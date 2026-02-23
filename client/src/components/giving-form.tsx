@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useMemberAuth } from "@/hooks/use-member-auth";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, ArrowRight, ChevronDown, Loader2 } from "lucide-react";
+import { Heart, ArrowRight, ChevronDown } from "lucide-react";
 
 interface FundCategory {
   id: string;
@@ -30,6 +30,7 @@ interface GivingFormProps {
 }
 
 export function GivingForm({ initialValues }: GivingFormProps) {
+  const [, navigate] = useLocation();
   const { member } = useMemberAuth();
   const { toast } = useToast();
   const [amount, setAmount] = useState(initialValues?.amount || "");
@@ -40,7 +41,6 @@ export function GivingForm({ initialValues }: GivingFormProps) {
   const [frequency, setFrequency] = useState<"weekly" | "monthly">(
     initialValues?.frequency === "weekly" ? "weekly" : "monthly"
   );
-  const [loading, setLoading] = useState(false);
 
   const { data: funds } = useQuery<FundCategory[]>({
     queryKey: ["/api/giving/funds"],
@@ -55,7 +55,7 @@ export function GivingForm({ initialValues }: GivingFormProps) {
     }
   }, [funds, initialValues?.fund]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseFloat(amount);
     if (!amountNum || amountNum < 1) {
@@ -67,23 +67,14 @@ export function GivingForm({ initialValues }: GivingFormProps) {
       return;
     }
 
-    setLoading(true);
-    try {
-      const res = await apiRequest("POST", "/api/giving/checkout-session", {
-        amountCents: Math.round(amountNum * 100),
-        fundCategoryId: fundId,
-        type,
-        frequency: type === "recurring" ? frequency : undefined,
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (err: any) {
-      toast({ title: err.message || "Failed to create payment session", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    const selectedFundName = funds?.find((f) => f.id === fundId)?.name || "";
+    const queryParams = new URLSearchParams({
+      amount: String(amountNum),
+      fund: selectedFundName,
+      type,
+      ...(type === "recurring" ? { frequency } : {}),
+    });
+    navigate(`/give/confirm?${queryParams.toString()}`);
   };
 
   const selectedFund = funds?.find((f) => f.id === fundId);
@@ -255,23 +246,16 @@ export function GivingForm({ initialValues }: GivingFormProps) {
         {/* CTA */}
         <button
           type="submit"
-          disabled={loading}
-          className="w-full py-4 rounded-[18px] font-['Open_Sans'] text-[16px] font-bold flex items-center justify-center gap-2.5 transition-opacity disabled:opacity-50"
+          className="w-full py-4 rounded-[18px] font-['Open_Sans'] text-[16px] font-bold flex items-center justify-center gap-2.5 transition-opacity"
           style={{
             background: "linear-gradient(135deg, #D4A04A, #A8741F)",
             color: C.INK,
             boxShadow: "0 8px 24px rgba(168,116,31,0.45)",
           }}
         >
-          {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <>
-              <Heart className="w-5 h-5" />
-              Give{amount ? ` $${amount}` : ""}
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
+          <Heart className="w-5 h-5" />
+          Give{amount ? ` $${amount}` : ""}
+          <ArrowRight className="w-4 h-4" />
         </button>
       </form>
     </div>
