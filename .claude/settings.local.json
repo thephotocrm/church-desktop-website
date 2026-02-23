@@ -19,7 +19,8 @@
       "Bash(npm run build:*)",
       "Bash(find /home/runner/workspace -name \".env*\" -type f 2>/dev/null | head -20)",
       "Bash(gh api repos/thephotocrm/church-app/git/trees/main?recursive=1 --jq '.tree[].path' 2>&1 | head -100)",
-      "Bash(chmod +x /home/runner/workspace/streaming/upload-recording.sh)"
+      "Bash(chmod +x /home/runner/workspace/streaming/upload-recording.sh)",
+      "Bash(npx drizzle-kit migrate 2>&1)"
     ]
   }
 }
