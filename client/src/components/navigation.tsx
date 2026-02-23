@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTheme } from "@/components/theme-provider";
 import { useMemberAuth } from "@/hooks/use-member-auth";
-import { Menu, X, Sun, Moon, Cross, User, LogIn } from "lucide-react";
+import { Menu, X, Sun, Moon, Cross, User, LogIn, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +13,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/beliefs", label: "Our Beliefs" },
+const aboutSubLinks = [
+  { href: "/about", label: "About Us" },
   { href: "/leadership", label: "Leadership" },
   { href: "/ministries", label: "Ministries" },
+  { href: "/beliefs", label: "Our Beliefs" },
+];
+
+const navLinks = [
+  { href: "/", label: "Home" },
   { href: "/events", label: "Events" },
   { href: "/live", label: "Live Stream" },
   { href: "/prayer", label: "Prayer" },
@@ -31,7 +34,11 @@ export function Navigation() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [mobileAboutOpen, setMobileAboutOpen] = useState(false);
   const { member, logout } = useMemberAuth();
+
+  const isAboutSection = aboutSubLinks.some((link) => location === link.href);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -72,7 +79,55 @@ export function Navigation() {
           </Link>
 
           <div className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link) => (
+            {/* Home link */}
+            <Link href="/">
+              <span
+                className={`px-3 py-2 text-sm font-body font-medium rounded-md cursor-pointer transition-colors ${
+                  location === "/"
+                    ? "text-gold"
+                    : scrolled || !isHome
+                      ? "text-foreground/80 hover:text-foreground"
+                      : "text-white/80 hover:text-white"
+                }`}
+                data-testid="link-nav-home"
+              >
+                Home
+              </span>
+            </Link>
+
+            {/* About dropdown */}
+            <DropdownMenu open={aboutOpen} onOpenChange={setAboutOpen}>
+              <DropdownMenuTrigger asChild>
+                <span
+                  className={`px-3 py-2 text-sm font-body font-medium rounded-md cursor-pointer transition-colors inline-flex items-center gap-1 ${
+                    isAboutSection
+                      ? "text-gold"
+                      : scrolled || !isHome
+                        ? "text-foreground/80 hover:text-foreground"
+                        : "text-white/80 hover:text-white"
+                  }`}
+                  data-testid="link-nav-about"
+                >
+                  About
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${aboutOpen ? "rotate-180" : ""}`} />
+                </span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                {aboutSubLinks.map((link) => (
+                  <Link key={link.href} href={link.href}>
+                    <DropdownMenuItem
+                      className={`cursor-pointer ${location === link.href ? "text-gold font-semibold" : ""}`}
+                      data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, "-")}`}
+                    >
+                      {link.label}
+                    </DropdownMenuItem>
+                  </Link>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Remaining nav links */}
+            {navLinks.filter((link) => link.href !== "/").map((link) => (
               <Link key={link.href} href={link.href}>
                 <span
                   className={`px-3 py-2 text-sm font-body font-medium rounded-md cursor-pointer transition-colors ${
@@ -173,7 +228,56 @@ export function Navigation() {
                         <p className="text-xs text-muted-foreground font-body">Church of Dallas</p>
                       </div>
                     </div>
-                    {navLinks.map((link) => (
+                    {/* Home link */}
+                    <Link href="/">
+                      <span
+                        onClick={() => setOpen(false)}
+                        className={`block px-4 py-3 rounded-md font-body text-base cursor-pointer transition-colors ${
+                          location === "/"
+                            ? "bg-accent text-accent-foreground font-semibold"
+                            : "text-foreground/80 hover-elevate"
+                        }`}
+                        data-testid="link-mobile-home"
+                      >
+                        Home
+                      </span>
+                    </Link>
+
+                    {/* About collapsible section */}
+                    <span
+                      onClick={() => setMobileAboutOpen(!mobileAboutOpen)}
+                      className={`flex items-center justify-between px-4 py-3 rounded-md font-body text-base cursor-pointer transition-colors ${
+                        isAboutSection
+                          ? "bg-accent text-accent-foreground font-semibold"
+                          : "text-foreground/80 hover-elevate"
+                      }`}
+                      data-testid="link-mobile-about-toggle"
+                    >
+                      About
+                      <ChevronDown className={`w-4 h-4 transition-transform ${mobileAboutOpen ? "rotate-180" : ""}`} />
+                    </span>
+                    {mobileAboutOpen && (
+                      <div className="ml-4">
+                        {aboutSubLinks.map((link) => (
+                          <Link key={link.href} href={link.href}>
+                            <span
+                              onClick={() => setOpen(false)}
+                              className={`block px-4 py-2.5 rounded-md font-body text-sm cursor-pointer transition-colors ${
+                                location === link.href
+                                  ? "bg-accent text-accent-foreground font-semibold"
+                                  : "text-foreground/70 hover-elevate"
+                              }`}
+                              data-testid={`link-mobile-${link.label.toLowerCase().replace(/\s/g, "-")}`}
+                            >
+                              {link.label}
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Remaining nav links */}
+                    {navLinks.filter((link) => link.href !== "/").map((link) => (
                       <Link key={link.href} href={link.href}>
                         <span
                           onClick={() => setOpen(false)}
