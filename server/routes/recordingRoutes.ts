@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { uploadBuffer } from "../r2";
-import { generateThumbnail } from "../thumbnailGenerator";
+import { generatePastorThumbnail, generateTitleOnlyThumbnail } from "../thumbnailGenerator";
 
 const router = Router();
 
@@ -117,7 +117,7 @@ router.post("/admin/upload-thumbnail", requireAuth, (req, res, next) => {
 
 // POST /api/recordings/admin/generate-thumbnail — admin: AI-generated YouTube-style thumbnail
 const generateThumbnailSchema = z.object({
-  snapshotUrl: z.string().url(),
+  snapshotUrl: z.string().url().nullable().optional(),
   title: z.string().min(1),
 });
 
@@ -130,17 +130,24 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
   try {
     const { snapshotUrl, title } = parsed.data;
 
-    // Download snapshot from URL
-    const response = await fetch(snapshotUrl);
-    if (!response.ok) {
-      return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
-    }
-    const arrayBuf = await response.arrayBuffer();
-    const snapshotBuffer = Buffer.from(arrayBuf);
+    let thumbnailBuffer: Buffer;
 
-    // Generate the AI thumbnail
-    console.log(`[Admin] Generating AI thumbnail for: "${title}"`);
-    const thumbnailBuffer = await generateThumbnail(snapshotBuffer, title);
+    if (snapshotUrl) {
+      // AI + Pastor mode: download snapshot and edit it
+      const response = await fetch(snapshotUrl);
+      if (!response.ok) {
+        return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
+      }
+      const arrayBuf = await response.arrayBuffer();
+      const snapshotBuffer = Buffer.from(arrayBuf);
+
+      console.log(`[Admin] Generating AI pastor thumbnail for: "${title}"`);
+      thumbnailBuffer = await generatePastorThumbnail(snapshotBuffer, title);
+    } else {
+      // AI Title Card mode: generate from scratch
+      console.log(`[Admin] Generating AI title-only thumbnail for: "${title}"`);
+      thumbnailBuffer = await generateTitleOnlyThumbnail(title);
+    }
 
     // Upload to R2
     const key = `thumbnails/ai/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;

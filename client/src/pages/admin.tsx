@@ -20,7 +20,8 @@ import {
 import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
   HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield,
-  Edit2, MapPin, Clock, Film, Image, Upload, Loader2, Wand2, Camera, Play
+  Edit2, MapPin, Clock, Film, Image, Upload, Loader2, Wand2, Camera, Play,
+  Type, RefreshCw, MousePointer
 } from "lucide-react";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -162,7 +163,7 @@ export default function Admin() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-gold border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -372,13 +373,18 @@ function RecordingsAdmin() {
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="shadow-md border-0 ring-1 ring-border/50">
+      <CardHeader className="pb-4">
         <div className="flex items-center gap-3">
-          <Film className="w-5 h-5 text-gold" />
-          <CardTitle>Recording Management</CardTitle>
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Film className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Recording Management</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Manage thumbnails, titles, and metadata</p>
+          </div>
           {recordings && (
-            <Badge variant="outline">{recordings.length} recordings</Badge>
+            <Badge variant="secondary" className="ml-auto tabular-nums">{recordings.length} recordings</Badge>
           )}
         </div>
       </CardHeader>
@@ -386,11 +392,11 @@ function RecordingsAdmin() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-muted animate-pulse rounded-md" />
+              <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
         ) : recordings && recordings.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {recordings.map((rec) =>
               editingId === rec.id ? (
                 <RecordingEditRow
@@ -400,10 +406,10 @@ function RecordingsAdmin() {
                   onSaved={() => setEditingId(null)}
                 />
               ) : (
-                <div key={rec.id} className="p-4 border rounded-md">
+                <div key={rec.id} className="group p-4 border rounded-lg hover:bg-muted/30 hover:border-border transition-all duration-150">
                   <div className="flex items-start gap-4">
                     {/* Thumbnail preview */}
-                    <div className="w-28 h-16 rounded overflow-hidden bg-muted flex-shrink-0">
+                    <div className="w-28 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0 ring-1 ring-border/50">
                       {rec.thumbnailUrl ? (
                         <img
                           src={rec.thumbnailUrl}
@@ -411,8 +417,8 @@ function RecordingsAdmin() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Film className="w-6 h-6 text-muted-foreground" />
+                        <div className="w-full h-full flex items-center justify-center bg-muted/60">
+                          <Film className="w-5 h-5 text-muted-foreground/40" />
                         </div>
                       )}
                     </div>
@@ -449,10 +455,11 @@ function RecordingsAdmin() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-1 flex-shrink-0">
+                    <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="h-8 w-8 p-0"
                         onClick={() => setEditingId(rec.id)}
                       >
                         <Edit2 className="w-4 h-4" />
@@ -460,6 +467,7 @@ function RecordingsAdmin() {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="h-8 w-8 p-0 hover:bg-red-500/10"
                         onClick={() => deleteMutation.mutate(rec.id)}
                         disabled={deleteMutation.isPending}
                       >
@@ -472,7 +480,11 @@ function RecordingsAdmin() {
             )}
           </div>
         ) : (
-          <p className="text-muted-foreground text-center py-6">No recordings yet</p>
+          <div className="text-center py-12">
+            <Film className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">No recordings yet</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Recordings will appear here after your first stream</p>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -496,20 +508,28 @@ function RecordingEditRow({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // AI Thumbnail generation state
-  const [showAiPanel, setShowAiPanel] = useState(false);
+  // Thumbnail Studio state
+  const [thumbnailMode, setThumbnailMode] = useState<'ai-pastor' | 'ai-title' | 'manual' | null>(null);
+  const [generatedPreview, setGeneratedPreview] = useState("");
   const [aiSnapshotUrl, setAiSnapshotUrl] = useState("");
   const [aiTitle, setAiTitle] = useState(recording.title);
   const [aiGenerating, setAiGenerating] = useState(false);
 
   // Frame capture state
   const [showFrameCapture, setShowFrameCapture] = useState(false);
-  const [frameTimestamp, setFrameTimestamp] = useState(3000); // 50 min default
+  const [frameTimestamp, setFrameTimestamp] = useState(3000);
   const [capturingFrame, setCapturingFrame] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const candidates = recording.thumbnailCandidates || [];
+  const currentThumb = customThumbUrl || selectedThumb || null;
+
+  const handleModeChange = (mode: 'ai-pastor' | 'ai-title' | 'manual') => {
+    setThumbnailMode(thumbnailMode === mode ? null : mode);
+    setGeneratedPreview("");
+    setShowFrameCapture(false);
+  };
 
   const handleThumbnailUpload = async (file: File) => {
     setUploading(true);
@@ -536,7 +556,7 @@ function RecordingEditRow({
     }
   };
 
-  const handleGenerateAiThumbnail = async () => {
+  const handleGenerateAiPastor = async () => {
     if (!aiSnapshotUrl || !aiTitle) {
       toast({ title: "Select a snapshot and enter a title", variant: "destructive" });
       return;
@@ -554,13 +574,53 @@ function RecordingEditRow({
         throw new Error(err.error || "Generation failed");
       }
       const { url } = await res.json();
-      setCustomThumbUrl(url);
-      setShowAiPanel(false);
-      toast({ title: "AI thumbnail generated!" });
+      setGeneratedPreview(url);
+      toast({ title: "AI thumbnail generated! Review below." });
     } catch (err: any) {
       toast({ title: err.message || "Generation failed", variant: "destructive" });
     } finally {
       setAiGenerating(false);
+    }
+  };
+
+  const handleGenerateAiTitle = async () => {
+    if (!aiTitle) {
+      toast({ title: "Enter a title", variant: "destructive" });
+      return;
+    }
+    setAiGenerating(true);
+    try {
+      const res = await fetch("/api/recordings/admin/generate-thumbnail", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snapshotUrl: null, title: aiTitle }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error(err.error || "Generation failed");
+      }
+      const { url } = await res.json();
+      setGeneratedPreview(url);
+      toast({ title: "AI thumbnail generated! Review below." });
+    } catch (err: any) {
+      toast({ title: err.message || "Generation failed", variant: "destructive" });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleAcceptGenerated = () => {
+    setCustomThumbUrl(generatedPreview);
+    setGeneratedPreview("");
+  };
+
+  const handleRegenerate = () => {
+    setGeneratedPreview("");
+    if (thumbnailMode === 'ai-pastor') {
+      handleGenerateAiPastor();
+    } else if (thumbnailMode === 'ai-title') {
+      handleGenerateAiTitle();
     }
   };
 
@@ -588,7 +648,6 @@ function RecordingEditRow({
       );
       if (!blob) throw new Error("Failed to capture frame");
 
-      // Upload via existing upload-thumbnail endpoint
       const formData = new FormData();
       formData.append("file", blob, `frame-${frameTimestamp}s.jpg`);
       const res = await fetch("/api/recordings/admin/upload-thumbnail", {
@@ -599,11 +658,9 @@ function RecordingEditRow({
       if (!res.ok) throw new Error("Upload failed");
       const { url } = await res.json();
 
-      // Set as the selected AI snapshot
       setAiSnapshotUrl(url);
-      setShowAiPanel(true);
       setShowFrameCapture(false);
-      toast({ title: "Frame captured! Now generate AI thumbnail." });
+      toast({ title: "Frame captured! Now generate your thumbnail." });
     } catch (err: any) {
       toast({ title: err.message || "Frame capture failed", variant: "destructive" });
     } finally {
@@ -639,19 +696,108 @@ function RecordingEditRow({
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  const modeCards: Array<{
+    mode: 'ai-pastor' | 'ai-title' | 'manual';
+    icon: typeof Wand2;
+    label: string;
+    desc: string;
+    accent: string;
+    borderActive: string;
+    bgActive: string;
+    ringActive: string;
+    iconBg: string;
+    iconColor: string;
+  }> = [
+    {
+      mode: 'ai-pastor',
+      icon: Wand2,
+      label: 'AI + Pastor',
+      desc: 'Select a snapshot of the speaker, AI creates thumbnail with pastor preserved',
+      accent: 'purple',
+      borderActive: 'border-purple-500',
+      bgActive: 'bg-purple-500/[0.05]',
+      ringActive: 'ring-purple-500/20',
+      iconBg: 'bg-purple-500/10',
+      iconColor: 'text-purple-500',
+    },
+    {
+      mode: 'ai-title',
+      icon: Type,
+      label: 'AI Title Card',
+      desc: 'Enter a title, AI generates a beautiful title-only design, no person',
+      accent: 'amber',
+      borderActive: 'border-amber-500',
+      bgActive: 'bg-amber-500/[0.05]',
+      ringActive: 'ring-amber-500/20',
+      iconBg: 'bg-amber-500/10',
+      iconColor: 'text-amber-500',
+    },
+    {
+      mode: 'manual',
+      icon: MousePointer,
+      label: 'Manual Select',
+      desc: 'Pick from auto-captures or upload your own image',
+      accent: 'blue',
+      borderActive: 'border-blue-500',
+      bgActive: 'bg-blue-500/[0.05]',
+      ringActive: 'ring-blue-500/20',
+      iconBg: 'bg-blue-500/10',
+      iconColor: 'text-blue-500',
+    },
+  ];
+
+  // AI result preview (shared between ai-pastor and ai-title)
+  const renderAiPreview = () => {
+    if (!generatedPreview) return null;
+    return (
+      <div className="space-y-3 mt-4">
+        <Label className="text-sm font-medium">Generated Preview</Label>
+        <div className="rounded-xl border-2 border-green-500/30 ring-2 ring-green-500/10 overflow-hidden">
+          <img src={generatedPreview} alt="AI generated thumbnail" className="w-full aspect-video object-cover" />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            className="bg-green-600 text-white hover:bg-green-700"
+            size="sm"
+            onClick={handleAcceptGenerated}
+          >
+            <Check className="w-4 h-4 mr-1" />
+            Use This Thumbnail
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRegenerate}
+            disabled={aiGenerating}
+          >
+            {aiGenerating ? (
+              <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Regenerating...</>
+            ) : (
+              <><RefreshCw className="w-4 h-4 mr-1" /> Regenerate</>
+            )}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="p-4 border-2 border-gold rounded-md space-y-4">
+    <div className="p-5 border-2 border-amber-500/30 bg-amber-500/[0.02] rounded-xl space-y-5">
+      {/* Title / Date */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor={`rec-title-${recording.id}`}>Title</Label>
+          <Label htmlFor={`rec-title-${recording.id}`} className="text-sm font-medium">Title</Label>
           <Input
             id={`rec-title-${recording.id}`}
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => { setTitle(e.target.value); setAiTitle(e.target.value); }}
+            className="h-10"
           />
         </div>
         <div className="space-y-2">
-          <Label>Date</Label>
+          <Label className="text-sm font-medium">Date</Label>
           <Input
             value={
               recording.streamStartedAt
@@ -659,10 +805,12 @@ function RecordingEditRow({
                 : "—"
             }
             disabled
+            className="h-10"
           />
         </div>
       </div>
 
+      {/* Description */}
       <div className="space-y-2">
         <Label htmlFor={`rec-desc-${recording.id}`}>Description</Label>
         <Textarea
@@ -674,165 +822,236 @@ function RecordingEditRow({
         />
       </div>
 
-      {/* Thumbnail picker */}
-      {candidates.length > 0 && (
-        <div className="space-y-2">
-          <Label className="flex items-center gap-1">
-            <Image className="w-3.5 h-3.5" />
-            Select Thumbnail
-          </Label>
-          <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-            {candidates.map((url, i) => (
+      {/* Thumbnail Studio */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
+            <Image className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <span className="text-sm font-semibold">Thumbnail Studio</span>
+        </div>
+
+        {/* Current thumbnail preview */}
+        {currentThumb && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Current Thumbnail</Label>
+            <div className="flex items-center gap-3">
+              <img
+                src={currentThumb}
+                alt="Current thumbnail"
+                className="h-20 aspect-video object-cover rounded-lg border ring-1 ring-border/50"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={() => { setCustomThumbUrl(""); setSelectedThumb(""); }}
+              >
+                <X className="w-3.5 h-3.5 mr-1" /> Clear
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* 3-column mode selector cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {modeCards.map((card) => {
+            const isActive = thumbnailMode === card.mode;
+            const Icon = card.icon;
+            return (
               <div
-                key={i}
-                onClick={() => { setSelectedThumb(url); setCustomThumbUrl(""); }}
-                className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
-                  selectedThumb === url && !customThumbUrl
-                    ? "border-gold ring-2 ring-gold/30"
-                    : "border-transparent hover:border-muted-foreground/30"
+                key={card.mode}
+                onClick={() => handleModeChange(card.mode)}
+                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  isActive
+                    ? `${card.borderActive} ${card.bgActive} ring-2 ${card.ringActive}`
+                    : 'border-border/50 hover:border-border'
                 }`}
               >
-                <img src={url} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-cover" />
-                {selectedThumb === url && !customThumbUrl && (
-                  <div className="absolute top-1 right-1 w-5 h-5 bg-gold rounded-full flex items-center justify-center">
-                    <Check className="w-3 h-3 text-white" />
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <div className={`w-7 h-7 rounded-lg ${card.iconBg} flex items-center justify-center`}>
+                    <Icon className={`w-4 h-4 ${card.iconColor}`} />
+                  </div>
+                  <span className="text-sm font-semibold">{card.label}</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">{card.desc}</p>
+                {isActive && (
+                  <div className={`absolute top-2.5 right-2.5 w-5 h-5 rounded-full ${card.iconBg} flex items-center justify-center`}>
+                    <Check className={`w-3 h-3 ${card.iconColor}`} />
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Custom thumbnail upload / URL */}
-      <div className="space-y-2">
-        <Label className="flex items-center gap-1">
-          <Upload className="w-3.5 h-3.5" />
-          Custom Thumbnail
-        </Label>
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleThumbnailUpload(file);
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {uploading ? (
-              <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Uploading...</>
-            ) : (
-              <><Upload className="w-4 h-4 mr-1" /> Upload Image</>
-            )}
-          </Button>
-          <span className="text-xs text-muted-foreground">or</span>
-          <Input
-            id={`rec-custom-thumb-${recording.id}`}
-            value={customThumbUrl}
-            onChange={(e) => setCustomThumbUrl(e.target.value)}
-            placeholder="Paste URL"
-            className="flex-1"
-          />
-        </div>
-        {customThumbUrl && (
-          <div className="flex items-center gap-2 mt-1">
-            <img
-              src={customThumbUrl}
-              alt="Custom thumbnail preview"
-              className="h-16 aspect-video object-cover rounded border"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setCustomThumbUrl("")}
-            >
-              <X className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* AI Thumbnail Generation + Frame Capture */}
-      <Separator />
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={showAiPanel ? "default" : "outline"}
-            size="sm"
-            className={showAiPanel ? "bg-purple-600 text-white hover:bg-purple-700" : ""}
-            onClick={() => { setShowAiPanel(!showAiPanel); setShowFrameCapture(false); }}
-          >
-            <Wand2 className="w-4 h-4 mr-1" />
-            Generate AI Thumbnail
-          </Button>
-          <Button
-            type="button"
-            variant={showFrameCapture ? "default" : "outline"}
-            size="sm"
-            className={showFrameCapture ? "bg-blue-600 text-white hover:bg-blue-700" : ""}
-            onClick={() => { setShowFrameCapture(!showFrameCapture); setShowAiPanel(false); }}
-          >
-            <Camera className="w-4 h-4 mr-1" />
-            Capture Custom Frame
-          </Button>
+            );
+          })}
         </div>
 
-        {/* AI Thumbnail Panel */}
-        {showAiPanel && (
-          <div className="p-4 border rounded-md bg-muted/50 space-y-3">
-            <p className="text-sm font-semibold flex items-center gap-1">
-              <Wand2 className="w-4 h-4 text-purple-500" />
-              AI Thumbnail Generator
+        {/* Mode content panels */}
+
+        {/* Mode 1: AI + Pastor */}
+        {thumbnailMode === 'ai-pastor' && (
+          <div className="p-4 border border-purple-500/20 rounded-xl bg-purple-500/[0.03] space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center">
+                <Wand2 className="w-3.5 h-3.5 text-purple-500" />
+              </span>
+              AI + Pastor Thumbnail
             </p>
             <p className="text-xs text-muted-foreground">
-              Select a snapshot below, enter the sermon title, and generate a YouTube-style thumbnail with background removal.
+              Select a snapshot of the speaker below, then generate a YouTube-style thumbnail that preserves the pastor.
             </p>
 
-            {/* Snapshot selection for AI */}
-            {candidates.length > 0 && (
-              <div className="space-y-1">
-                <Label className="text-xs">Select Source Snapshot</Label>
-                <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-                  {candidates.map((url, i) => (
-                    <div
-                      key={i}
-                      onClick={() => setAiSnapshotUrl(url)}
-                      className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
-                        aiSnapshotUrl === url
-                          ? "border-purple-500 ring-2 ring-purple-500/30"
-                          : "border-transparent hover:border-muted-foreground/30"
-                      }`}
-                    >
-                      <img src={url} alt={`Snapshot ${i + 1}`} className="w-full h-full object-cover" />
-                      {aiSnapshotUrl === url && (
-                        <div className="absolute top-1 right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
-                          <Check className="w-3 h-3 text-white" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
+            {/* Snapshot grid + Capture Frame card */}
+            <div className="space-y-1">
+              <Label className="text-xs">Select Source Snapshot</Label>
+              <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                {candidates.map((url, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setAiSnapshotUrl(url)}
+                    className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
+                      aiSnapshotUrl === url
+                        ? "border-purple-500 ring-2 ring-purple-500/30"
+                        : "border-transparent hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <img src={url} alt={`Snapshot ${i + 1}`} className="w-full h-full object-cover" />
+                    {aiSnapshotUrl === url && (
+                      <div className="absolute top-1 right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {/* + Capture Frame card */}
+                <div
+                  onClick={() => setShowFrameCapture(!showFrameCapture)}
+                  className={`aspect-video rounded border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-1 ${
+                    showFrameCapture
+                      ? "border-purple-500 bg-purple-500/[0.05]"
+                      : "border-muted-foreground/30 hover:border-purple-500/50 hover:bg-purple-500/[0.02]"
+                  }`}
+                >
+                  <Camera className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground font-medium">Capture Frame</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Inline frame capture (expands below grid) */}
+            {showFrameCapture && (
+              <div className="p-3 border border-purple-500/10 rounded-lg bg-background/50 space-y-2">
+                <div className="flex items-center gap-3">
+                  <Label className="text-xs whitespace-nowrap">Timestamp (seconds)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={recording.duration || 7200}
+                    value={frameTimestamp}
+                    onChange={(e) => setFrameTimestamp(Number(e.target.value))}
+                    className="w-28"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {formatTimestamp(frameTimestamp)}
+                  </span>
+                  <Button type="button" variant="outline" size="sm" onClick={handleSeekVideo}>
+                    <Play className="w-3 h-3 mr-1" /> Seek
+                  </Button>
+                </div>
+
+                <input
+                  type="range"
+                  min={0}
+                  max={recording.duration || 7200}
+                  value={frameTimestamp}
+                  onChange={(e) => setFrameTimestamp(Number(e.target.value))}
+                  onMouseUp={handleSeekVideo}
+                  onTouchEnd={handleSeekVideo}
+                  className="w-full"
+                />
+
+                <div className="rounded overflow-hidden border bg-black" style={{ maxWidth: 480 }}>
+                  <video
+                    ref={videoRef}
+                    src={recording.r2Url}
+                    crossOrigin="anonymous"
+                    preload="metadata"
+                    className="w-full"
+                    onLoadedMetadata={handleSeekVideo}
+                  />
+                </div>
+                <canvas ref={canvasRef} className="hidden" />
+
+                <Button
+                  type="button"
+                  className="bg-purple-600 text-white hover:bg-purple-700"
+                  size="sm"
+                  disabled={capturingFrame}
+                  onClick={handleCaptureFrame}
+                >
+                  {capturingFrame ? (
+                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Capturing...</>
+                  ) : (
+                    <><Camera className="w-4 h-4 mr-1" /> Capture Frame</>
+                  )}
+                </Button>
               </div>
             )}
 
-            {/* Custom snapshot URL (e.g. from frame capture) */}
+            {/* Captured frame chip (if custom frame selected) */}
             {aiSnapshotUrl && !candidates.includes(aiSnapshotUrl) && (
-              <div className="flex items-center gap-2">
-                <img src={aiSnapshotUrl} alt="Custom snapshot" className="h-14 aspect-video object-cover rounded border" />
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-purple-500/[0.05] border border-purple-500/20">
+                <img src={aiSnapshotUrl} alt="Custom snapshot" className="h-12 aspect-video object-cover rounded border" />
                 <span className="text-xs text-muted-foreground">Custom captured frame</span>
+                <Button type="button" variant="ghost" size="sm" className="ml-auto h-7 w-7 p-0" onClick={() => setAiSnapshotUrl("")}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
               </div>
             )}
+
+            {/* Title input */}
+            <div className="space-y-1">
+              <Label className="text-xs">Sermon Title (appears on thumbnail)</Label>
+              <Input
+                value={aiTitle}
+                onChange={(e) => setAiTitle(e.target.value)}
+                placeholder="e.g. God Is Good"
+              />
+            </div>
+
+            {/* Generate button OR result preview */}
+            {!generatedPreview ? (
+              <Button
+                type="button"
+                className="bg-purple-600 text-white hover:bg-purple-700"
+                size="sm"
+                disabled={aiGenerating || !aiSnapshotUrl || !aiTitle}
+                onClick={handleGenerateAiPastor}
+              >
+                {aiGenerating ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~30s)...</>
+                ) : (
+                  <><Wand2 className="w-4 h-4 mr-1" /> Generate Thumbnail</>
+                )}
+              </Button>
+            ) : (
+              renderAiPreview()
+            )}
+          </div>
+        )}
+
+        {/* Mode 2: AI Title Card */}
+        {thumbnailMode === 'ai-title' && (
+          <div className="p-4 border border-amber-500/20 rounded-xl bg-amber-500/[0.03] space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center">
+                <Type className="w-3.5 h-3.5 text-amber-500" />
+              </span>
+              AI Title Card
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Generate a beautiful title-only thumbnail design — no person, just cinematic text.
+            </p>
 
             <div className="space-y-1">
               <Label className="text-xs">Sermon Title (appears on thumbnail)</Label>
@@ -843,98 +1062,124 @@ function RecordingEditRow({
               />
             </div>
 
-            <Button
-              type="button"
-              className="bg-purple-600 text-white hover:bg-purple-700"
-              size="sm"
-              disabled={aiGenerating || !aiSnapshotUrl || !aiTitle}
-              onClick={handleGenerateAiThumbnail}
-            >
-              {aiGenerating ? (
-                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~10s)...</>
-              ) : (
-                <><Wand2 className="w-4 h-4 mr-1" /> Generate Thumbnail</>
-              )}
-            </Button>
+            {!generatedPreview ? (
+              <Button
+                type="button"
+                className="bg-amber-600 text-white hover:bg-amber-700"
+                size="sm"
+                disabled={aiGenerating || !aiTitle}
+                onClick={handleGenerateAiTitle}
+              >
+                {aiGenerating ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~30s)...</>
+                ) : (
+                  <><Wand2 className="w-4 h-4 mr-1" /> Generate Title Card</>
+                )}
+              </Button>
+            ) : (
+              renderAiPreview()
+            )}
           </div>
         )}
 
-        {/* Frame Capture Panel */}
-        {showFrameCapture && (
-          <div className="p-4 border rounded-md bg-muted/50 space-y-3">
-            <p className="text-sm font-semibold flex items-center gap-1">
-              <Camera className="w-4 h-4 text-blue-500" />
-              Capture Custom Frame
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Scrub to a specific moment in the recording and capture a frame for AI thumbnail generation.
+        {/* Mode 3: Manual Select */}
+        {thumbnailMode === 'manual' && (
+          <div className="p-4 border border-blue-500/20 rounded-xl bg-blue-500/[0.03] space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center">
+                <MousePointer className="w-3.5 h-3.5 text-blue-500" />
+              </span>
+              Manual Select
             </p>
 
+            {/* Candidates grid */}
+            {candidates.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">Auto-Captured Thumbnails</Label>
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                  {candidates.map((url, i) => (
+                    <div
+                      key={i}
+                      onClick={() => { setSelectedThumb(url); setCustomThumbUrl(""); }}
+                      className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
+                        selectedThumb === url && !customThumbUrl
+                          ? "border-blue-500 ring-2 ring-blue-500/30"
+                          : "border-transparent hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <img src={url} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-cover" />
+                      {selectedThumb === url && !customThumbUrl && (
+                        <div className="absolute top-1 right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Upload + URL */}
             <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <Label className="text-xs whitespace-nowrap">Timestamp (seconds)</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={recording.duration || 7200}
-                  value={frameTimestamp}
-                  onChange={(e) => setFrameTimestamp(Number(e.target.value))}
-                  className="w-28"
+              <Label className="text-xs">Upload or Paste URL</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleThumbnailUpload(file);
+                  }}
                 />
-                <span className="text-xs text-muted-foreground">
-                  {formatTimestamp(frameTimestamp)}
-                </span>
-                <Button type="button" variant="outline" size="sm" onClick={handleSeekVideo}>
-                  <Play className="w-3 h-3 mr-1" /> Seek
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploading ? (
+                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Uploading...</>
+                  ) : (
+                    <><Upload className="w-4 h-4 mr-1" /> Upload Image</>
+                  )}
                 </Button>
-              </div>
-
-              <input
-                type="range"
-                min={0}
-                max={recording.duration || 7200}
-                value={frameTimestamp}
-                onChange={(e) => {
-                  setFrameTimestamp(Number(e.target.value));
-                }}
-                onMouseUp={handleSeekVideo}
-                onTouchEnd={handleSeekVideo}
-                className="w-full"
-              />
-
-              <div className="rounded overflow-hidden border bg-black" style={{ maxWidth: 480 }}>
-                <video
-                  ref={videoRef}
-                  src={recording.r2Url}
-                  crossOrigin="anonymous"
-                  preload="metadata"
-                  className="w-full"
-                  onLoadedMetadata={handleSeekVideo}
+                <span className="text-xs text-muted-foreground">or</span>
+                <Input
+                  value={customThumbUrl}
+                  onChange={(e) => setCustomThumbUrl(e.target.value)}
+                  placeholder="Paste URL"
+                  className="flex-1"
                 />
               </div>
-              <canvas ref={canvasRef} className="hidden" />
-
-              <Button
-                type="button"
-                className="bg-blue-600 text-white hover:bg-blue-700"
-                size="sm"
-                disabled={capturingFrame}
-                onClick={handleCaptureFrame}
-              >
-                {capturingFrame ? (
-                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Capturing...</>
-                ) : (
-                  <><Camera className="w-4 h-4 mr-1" /> Capture & Use for AI Thumbnail</>
-                )}
-              </Button>
+              {customThumbUrl && (
+                <div className="flex items-center gap-2 mt-1">
+                  <img
+                    src={customThumbUrl}
+                    alt="Custom thumbnail preview"
+                    className="h-16 aspect-video object-cover rounded border"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCustomThumbUrl("")}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
+      {/* Save / Cancel */}
       <div className="flex gap-2">
         <Button
-          className="bg-gold text-white border-gold"
+          className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 shadow-sm hover:shadow-md transition-all"
           onClick={() => updateMutation.mutate()}
           disabled={updateMutation.isPending || !title}
         >
@@ -986,13 +1231,18 @@ function MembersAdmin() {
   return (
     <div className="space-y-6">
       {/* Section A: Pending Approvals */}
-      <Card>
-        <CardHeader>
+      <Card className="shadow-md border-0 ring-1 ring-border/50">
+        <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
-            <Users className="w-5 h-5 text-gold" />
-            <CardTitle>Pending Approvals</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <Users className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Pending Approvals</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Review and approve new member registrations</p>
+            </div>
             {pending && pending.length > 0 && (
-              <Badge className="bg-gold text-white border-gold">{pending.length}</Badge>
+              <Badge className="ml-auto bg-amber-500/10 text-amber-600 border-amber-500/20 tabular-nums">{pending.length} pending</Badge>
             )}
           </div>
         </CardHeader>
@@ -1000,13 +1250,13 @@ function MembersAdmin() {
           {isLoading ? (
             <div className="space-y-3">
               {[1, 2].map((i) => (
-                <div key={i} className="h-16 bg-muted animate-pulse rounded-md" />
+                <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
               ))}
             </div>
           ) : pending && pending.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {pending.map((m) => (
-                <div key={m.id} className="flex items-center justify-between p-4 border rounded-md">
+                <div key={m.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition-colors">
                   <div>
                     <p className="font-semibold">{m.firstName} {m.lastName}</p>
                     <p className="text-sm text-muted-foreground">{m.email}</p>
@@ -1017,7 +1267,7 @@ function MembersAdmin() {
                   <div className="flex gap-2">
                     <Button
                       size="sm"
-                      className="bg-green-600 text-white hover:bg-green-700"
+                      className="bg-green-600 text-white hover:bg-green-700 shadow-sm"
                       onClick={() => approveMutation.mutate(m.id)}
                       disabled={approveMutation.isPending}
                     >
@@ -1027,7 +1277,7 @@ function MembersAdmin() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-red-500 border-red-500 hover:bg-red-50"
+                      className="text-red-500 border-red-500/30 hover:bg-red-500/10 hover:border-red-500/50"
                       onClick={() => rejectMutation.mutate(m.id)}
                       disabled={rejectMutation.isPending}
                     >
@@ -1039,7 +1289,11 @@ function MembersAdmin() {
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-6">No pending member registrations</p>
+            <div className="text-center py-10">
+              <UserCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground font-medium">No pending registrations</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">New member signups will appear here for review</p>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -1063,13 +1317,18 @@ function ManageMembersSection() {
   });
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="shadow-md border-0 ring-1 ring-border/50">
+      <CardHeader className="pb-4">
         <div className="flex items-center gap-3">
-          <Shield className="w-5 h-5 text-gold" />
-          <CardTitle>Manage Members</CardTitle>
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Shield className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Manage Members</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Set roles, titles, and group permissions</p>
+          </div>
           {allMembers && (
-            <Badge variant="outline">{allMembers.length} members</Badge>
+            <Badge variant="secondary" className="ml-auto tabular-nums">{allMembers.length} members</Badge>
           )}
         </div>
       </CardHeader>
@@ -1077,17 +1336,20 @@ function ManageMembersSection() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-muted animate-pulse rounded-md" />
+              <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
         ) : allMembers && allMembers.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {allMembers.map((m) => (
               <MemberRow key={m.id} member={m} groups={groups || []} />
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-center py-6">No approved members</p>
+          <div className="text-center py-10">
+            <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">No approved members</p>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -1157,7 +1419,7 @@ function MemberRow({ member, groups }: { member: AdminMember; groups: Group[] })
   };
 
   return (
-    <div className="p-4 border rounded-md space-y-3">
+    <div className="p-4 border rounded-lg hover:bg-muted/30 transition-colors space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <p className="font-semibold">{member.firstName} {member.lastName}</p>
@@ -1166,7 +1428,7 @@ function MemberRow({ member, groups }: { member: AdminMember; groups: Group[] })
         {isDirty && (
           <Button
             size="sm"
-            className="bg-gold text-white border-gold"
+            className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 shadow-sm hover:shadow-md transition-all"
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending}
           >
@@ -1224,7 +1486,7 @@ function MemberRow({ member, groups }: { member: AdminMember; groups: Group[] })
               <Badge
                 key={g.id}
                 variant={groupAdminIds.includes(g.id) ? "default" : "outline"}
-                className={`cursor-pointer ${groupAdminIds.includes(g.id) ? "bg-gold text-white border-gold" : ""}`}
+                className={`cursor-pointer ${groupAdminIds.includes(g.id) ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0" : ""}`}
                 onClick={() => toggleGroupAdmin(g.id)}
               >
                 {g.name}
@@ -1267,20 +1529,25 @@ function PrayerAdmin() {
   });
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="shadow-md border-0 ring-1 ring-border/50">
+      <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <HandHeart className="w-5 h-5 text-gold" />
-            <CardTitle>Prayer Requests</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <HandHeart className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Prayer Requests</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Manage prayer submissions from members</p>
+            </div>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 bg-muted/50 p-1 rounded-lg">
             {["active", "answered", "archived"].map((s) => (
               <Button
                 key={s}
                 size="sm"
-                variant={filter === s ? "default" : "outline"}
-                className={filter === s ? "bg-gold text-white border-gold" : ""}
+                variant={filter === s ? "default" : "ghost"}
+                className={filter === s ? "shadow-sm h-8" : "h-8 text-muted-foreground"}
                 onClick={() => setFilter(s)}
               >
                 {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -1293,13 +1560,13 @@ function PrayerAdmin() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-muted animate-pulse rounded-md" />
+              <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
         ) : requests && requests.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {requests.map((r) => (
-              <div key={r.id} className="p-4 border rounded-md">
+              <div key={r.id} className="p-4 border rounded-lg hover:bg-muted/30 transition-colors">
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <p className="font-semibold">{r.title}</p>
@@ -1333,7 +1600,10 @@ function PrayerAdmin() {
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-center py-6">No {filter} prayer requests</p>
+          <div className="text-center py-10">
+            <HandHeart className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">No {filter} prayer requests</p>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -1381,46 +1651,72 @@ function GivingAdmin() {
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold text-gold">${(totalSucceeded / 100).toFixed(2)}</p>
-            <p className="text-sm text-muted-foreground">Total Received</p>
+        <Card className="shadow-md border-0 ring-1 ring-border/50 overflow-hidden">
+          <CardContent className="pt-6 pb-5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-yellow-500/10 flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums">${(totalSucceeded / 100).toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">Total Received</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold">{donations?.filter((d) => d.status === "succeeded").length || 0}</p>
-            <p className="text-sm text-muted-foreground">Successful Donations</p>
+        <Card className="shadow-md border-0 ring-1 ring-border/50 overflow-hidden">
+          <CardContent className="pt-6 pb-5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/10 flex items-center justify-center">
+                <Check className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums">{donations?.filter((d) => d.status === "succeeded").length || 0}</p>
+                <p className="text-sm text-muted-foreground">Successful Donations</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-3xl font-bold">{funds?.length || 0}</p>
-            <p className="text-sm text-muted-foreground">Fund Categories</p>
+        <Card className="shadow-md border-0 ring-1 ring-border/50 overflow-hidden">
+          <CardContent className="pt-6 pb-5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/10 flex items-center justify-center">
+                <Church className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold tabular-nums">{funds?.length || 0}</p>
+                <p className="text-sm text-muted-foreground">Fund Categories</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Fund Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-gold" />
-            Fund Categories
-          </CardTitle>
+      <Card className="shadow-md border-0 ring-1 ring-border/50">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <DollarSign className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Fund Categories</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Create and manage giving funds</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {fundsLoading ? (
-            <div className="h-20 bg-muted animate-pulse rounded-md" />
+            <div className="h-20 bg-muted animate-pulse rounded-lg" />
           ) : (
             <div className="space-y-2 mb-4">
               {funds?.map((f) => (
-                <div key={f.id} className="flex items-center justify-between p-3 border rounded-md">
+                <div key={f.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
                   <div>
                     <p className="font-medium">{f.name}</p>
                     {f.description && <p className="text-xs text-muted-foreground">{f.description}</p>}
                   </div>
-                  <Badge variant={f.isActive ? "default" : "secondary"}>
+                  <Badge variant={f.isActive ? "default" : "secondary"} className={f.isActive ? "bg-green-500/10 text-green-600 border-green-500/20" : ""}>
                     {f.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
@@ -1441,7 +1737,7 @@ function GivingAdmin() {
               onChange={(e) => setNewFundDesc(e.target.value)}
             />
             <Button
-              className="bg-gold text-white border-gold"
+              className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 shadow-sm hover:shadow-md transition-all"
               onClick={() => createFund.mutate()}
               disabled={!newFundName || createFund.isPending}
             >
@@ -1453,15 +1749,20 @@ function GivingAdmin() {
       </Card>
 
       {/* Recent Donations */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Donations</CardTitle>
+      <Card className="shadow-md border-0 ring-1 ring-border/50">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <DollarSign className="w-4 h-4 text-primary" />
+            </div>
+            <CardTitle className="text-lg">Recent Donations</CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
           {donationsLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-12 bg-muted animate-pulse rounded-md" />
+                <div key={i} className="h-12 bg-muted animate-pulse rounded-lg" />
               ))}
             </div>
           ) : donations && donations.length > 0 ? (
@@ -1473,7 +1774,7 @@ function GivingAdmin() {
                   failed: "bg-red-500",
                 };
                 return (
-                  <div key={d.id} className="flex items-center justify-between p-3 border rounded-md">
+                  <div key={d.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
                     <div>
                       <p className="font-medium">${(d.amountCents / 100).toFixed(2)}</p>
                       <p className="text-xs text-muted-foreground">
@@ -1489,7 +1790,10 @@ function GivingAdmin() {
               })}
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-6">No donations yet</p>
+            <div className="text-center py-10">
+              <DollarSign className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground font-medium">No donations yet</p>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -1532,13 +1836,14 @@ function RestreamAdmin() {
 
   return (
     <div className="space-y-6">
-      <div className="mb-4 p-3 rounded-md bg-muted text-sm text-muted-foreground">
+      <div className="mb-4 p-3 rounded-lg bg-muted/50 border border-border/50 text-sm text-muted-foreground flex items-start gap-2">
+        <Cast className="w-4 h-4 text-muted-foreground/60 flex-shrink-0 mt-0.5" />
         Configure YouTube and Facebook restreaming. When OBS starts streaming, the server automatically forwards to enabled platforms.
       </div>
       {configsLoading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div key={i} className="h-40 bg-muted animate-pulse rounded-md" />
+            <div key={i} className="h-40 bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
       ) : (
@@ -1627,18 +1932,20 @@ function PlatformCard({
   }[status?.status || "idle"] || "bg-gray-500";
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="shadow-md border-0 ring-1 ring-border/50">
+      <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Cast className="w-5 h-5 text-gold" />
-            <CardTitle>{label}</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Cast className="w-4 h-4 text-primary" />
+            </div>
+            <CardTitle className="text-lg">{label}</CardTitle>
           </div>
           <div className="flex items-center gap-3">
             <Badge className={`${statusColor} text-white border-0 capitalize`}>
               {status?.status || "idle"}
             </Badge>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50">
               <span className="text-sm text-muted-foreground">Enabled</span>
               <Switch checked={enabled} onCheckedChange={setEnabled} />
             </div>
@@ -1647,7 +1954,7 @@ function PlatformCard({
       </CardHeader>
       <CardContent>
         {status?.errorMessage && (
-          <div className="mb-4 p-3 rounded-md bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 text-sm">
+          <div className="mb-4 p-3 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 text-sm border border-red-500/20">
             Error: {status.errorMessage}
           </div>
         )}
@@ -1695,7 +2002,7 @@ function PlatformCard({
             </>
           )}
           <Button
-            className="bg-gold text-white border-gold"
+            className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 shadow-sm hover:shadow-md transition-all"
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending}
           >
@@ -1850,13 +2157,18 @@ function EventsAdmin() {
   return (
     <div className="space-y-6">
       {/* Event List */}
-      <Card>
-        <CardHeader>
+      <Card className="shadow-md border-0 ring-1 ring-border/50">
+        <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-gold" />
-            <CardTitle>Event Management</CardTitle>
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Calendar className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Event Management</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Create and manage church events</p>
+            </div>
             {events && (
-              <Badge variant="outline">{events.length} events</Badge>
+              <Badge variant="secondary" className="ml-auto tabular-nums">{events.length} events</Badge>
             )}
           </div>
         </CardHeader>
@@ -1864,11 +2176,11 @@ function EventsAdmin() {
           {isLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 bg-muted animate-pulse rounded-md" />
+                <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
               ))}
             </div>
           ) : events && events.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {events.map((event) => (
                 editingId === event.id ? (
                   <EventEditRow
@@ -1879,13 +2191,13 @@ function EventsAdmin() {
                     onSaved={() => setEditingId(null)}
                   />
                 ) : (
-                  <div key={event.id} className="p-4 border rounded-md">
+                  <div key={event.id} className="group p-4 border rounded-lg hover:bg-muted/30 transition-colors">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className="font-semibold">{event.title}</h4>
                           {event.featured && (
-                            <Badge className="bg-gold text-white border-gold text-xs">Featured</Badge>
+                            <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-xs">Featured</Badge>
                           )}
                           <Badge className={`${categoryColor[event.category || "general"]} text-white border-0 text-xs capitalize`}>
                             {event.category || "general"}
@@ -1919,10 +2231,11 @@ function EventsAdmin() {
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-1 ml-2">
+                      <div className="flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="h-8 w-8 p-0"
                           onClick={() => setEditingId(event.id)}
                         >
                           <Edit2 className="w-4 h-4" />
@@ -1930,6 +2243,7 @@ function EventsAdmin() {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="h-8 w-8 p-0 hover:bg-red-500/10"
                           onClick={() => deleteEvent.mutate(event.id)}
                           disabled={deleteEvent.isPending}
                         >
@@ -1942,18 +2256,27 @@ function EventsAdmin() {
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-6">No events created yet</p>
+            <div className="text-center py-10">
+              <Calendar className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground font-medium">No events created yet</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Create your first event below</p>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Create Event Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="w-5 h-5 text-gold" />
-            Create New Event
-          </CardTitle>
+      <Card className="shadow-md border-0 ring-1 ring-border/50">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+              <Plus className="w-4 h-4 text-green-600" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Create New Event</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Schedule a new church event</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -2043,7 +2366,7 @@ function EventsAdmin() {
                     <Badge
                       key={g.id}
                       variant={newGroupIds.includes(g.id) ? "default" : "outline"}
-                      className={`cursor-pointer ${newGroupIds.includes(g.id) ? "bg-gold text-white border-gold" : ""}`}
+                      className={`cursor-pointer ${newGroupIds.includes(g.id) ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0" : ""}`}
                       onClick={() => toggleGroupId(g.id)}
                     >
                       {g.name}
@@ -2054,7 +2377,7 @@ function EventsAdmin() {
             )}
 
             <Button
-              className="bg-gold text-white border-gold"
+              className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 shadow-sm hover:shadow-md transition-all"
               onClick={() => createEvent.mutate()}
               disabled={!newTitle || !newStartDate || !newDescription || createEvent.isPending}
             >
@@ -2136,20 +2459,20 @@ function EventEditRow({
   };
 
   return (
-    <div className="p-4 border-2 border-gold rounded-md space-y-4">
+    <div className="p-5 border-2 border-amber-500/30 bg-amber-500/[0.02] rounded-xl space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Title</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          <Label className="text-sm font-medium">Title</Label>
+          <Input value={title} onChange={(e) => setTitle(e.target.value)} className="h-10" />
         </div>
         <div className="space-y-2">
-          <Label>Location</Label>
-          <Input value={location} onChange={(e) => setLocation(e.target.value)} />
+          <Label className="text-sm font-medium">Location</Label>
+          <Input value={location} onChange={(e) => setLocation(e.target.value)} className="h-10" />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label>Description</Label>
+        <Label className="text-sm font-medium">Description</Label>
         <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
       </div>
 
@@ -2223,7 +2546,7 @@ function EventEditRow({
               <Badge
                 key={g.id}
                 variant={groupIds.includes(g.id) ? "default" : "outline"}
-                className={`cursor-pointer ${groupIds.includes(g.id) ? "bg-gold text-white border-gold" : ""}`}
+                className={`cursor-pointer ${groupIds.includes(g.id) ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0" : ""}`}
                 onClick={() => toggleGroupId(g.id)}
               >
                 {g.name}
@@ -2235,7 +2558,7 @@ function EventEditRow({
 
       <div className="flex gap-2">
         <Button
-          className="bg-gold text-white border-gold"
+          className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 shadow-sm hover:shadow-md transition-all"
           onClick={() => updateEvent.mutate()}
           disabled={updateEvent.isPending}
         >
@@ -2296,24 +2619,29 @@ function GroupsAdmin() {
   });
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="shadow-md border-0 ring-1 ring-border/50">
+      <CardHeader className="pb-4">
         <div className="flex items-center gap-3">
-          <Church className="w-5 h-5 text-gold" />
-          <CardTitle>Group Management</CardTitle>
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Church className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Group Management</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Organize members into chat and announcement groups</p>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2].map((i) => (
-              <div key={i} className="h-16 bg-muted animate-pulse rounded-md" />
+              <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
         ) : groups && groups.length > 0 ? (
           <div className="space-y-2 mb-4">
             {groups.map((g) => (
-              <div key={g.id} className="flex items-center justify-between p-3 border rounded-md">
+              <div key={g.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors">
                 <div className="flex items-center gap-2">
                   <div>
                     <p className="font-medium">{g.name}</p>
@@ -2323,7 +2651,7 @@ function GroupsAdmin() {
                     <Badge variant="outline" className="text-xs">Announcement</Badge>
                   )}
                   {g.isDefault && (
-                    <Badge className="bg-gold text-white border-gold text-xs">Default</Badge>
+                    <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 text-xs">Default</Badge>
                   )}
                 </div>
                 {!g.isDefault && (
@@ -2340,7 +2668,10 @@ function GroupsAdmin() {
             ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-center py-4 mb-4">No groups created yet</p>
+          <div className="text-center py-10 mb-4">
+            <Church className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">No groups created yet</p>
+          </div>
         )}
 
         <Separator className="my-4" />
@@ -2361,13 +2692,13 @@ function GroupsAdmin() {
           <select
             value={newType}
             onChange={(e) => setNewType(e.target.value as "chat" | "announcement")}
-            className="border rounded-md px-3 py-2 text-sm bg-background"
+            className="border rounded-lg px-3 py-2 text-sm bg-background h-10 focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="chat">Chat</option>
             <option value="announcement">Announcement</option>
           </select>
           <Button
-            className="bg-gold text-white border-gold"
+            className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 shadow-sm hover:shadow-md transition-all"
             onClick={() => createGroup.mutate()}
             disabled={!newName || createGroup.isPending}
           >

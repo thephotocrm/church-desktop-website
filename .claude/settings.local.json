@@ -21,7 +21,10 @@
       "Bash(gh api repos/thephotocrm/church-app/git/trees/main?recursive=1 --jq '.tree[].path' 2>&1 | head -100)",
       "Bash(chmod +x /home/runner/workspace/streaming/upload-recording.sh)",
       "Bash(npx drizzle-kit migrate 2>&1)",
-      "Bash(find /home/runner/workspace/server -name \"*upload*\" -o -name \"*file*\" 2>/dev/null | head -20)"
+      "Bash(find /home/runner/workspace/server -name \"*upload*\" -o -name \"*file*\" 2>/dev/null | head -20)",
+      "Bash(npx vite build 2>&1 | tail -20)",
+      "Bash(npx vite build 2>&1 | tail -10)",
+      "Bash(npx vite build 2>&1)"
     ]
   }
 }
