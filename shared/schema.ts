@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, uniqueIndex, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -372,6 +372,7 @@ export const recordings = pgTable("recordings", {
   r2Key: text("r2_key").notNull(),
   r2Url: text("r2_url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
+  thumbnailCandidates: json("thumbnail_candidates").$type<string[]>().default([]),
   duration: integer("duration_seconds"),
   fileSize: integer("file_size_bytes"),
   status: text("status").notNull().default("processing"), // processing | ready | error

@@ -167,6 +167,8 @@ export interface IStorage {
   getRecording(id: string): Promise<Recording | undefined>;
   createRecording(data: InsertRecording): Promise<Recording>;
   updateRecording(id: string, data: Partial<InsertRecording>): Promise<Recording>;
+  deleteRecording(id: string): Promise<void>;
+  getAllRecordings(): Promise<Recording[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -872,17 +874,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createRecording(data: InsertRecording): Promise<Recording> {
-    const [result] = await db.insert(recordings).values(data).returning();
+    const [result] = await db.insert(recordings).values(data as any).returning();
     return result;
   }
 
   async updateRecording(id: string, data: Partial<InsertRecording>): Promise<Recording> {
     const [result] = await db
       .update(recordings)
-      .set(data)
+      .set(data as any)
       .where(eq(recordings.id, id))
       .returning();
     return result;
+  }
+
+  async deleteRecording(id: string): Promise<void> {
+    await db.delete(recordings).where(eq(recordings.id, id));
+  }
+
+  async getAllRecordings(): Promise<Recording[]> {
+    return db
+      .select()
+      .from(recordings)
+      .orderBy(desc(recordings.streamStartedAt));
   }
 }
 

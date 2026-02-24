@@ -20,7 +20,7 @@ import {
 import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
   HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield,
-  Edit2, MapPin, Clock
+  Edit2, MapPin, Clock, Film, Image
 } from "lucide-react";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -197,8 +197,9 @@ export default function Admin() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="stream">
-          <TabsList className="grid w-full grid-cols-7 mb-8">
+          <TabsList className="grid w-full grid-cols-8 mb-8">
             <TabsTrigger value="stream"><Video className="w-4 h-4 mr-1" />Stream</TabsTrigger>
+            <TabsTrigger value="recordings"><Film className="w-4 h-4 mr-1" />Recordings</TabsTrigger>
             <TabsTrigger value="restream"><Cast className="w-4 h-4 mr-1" />Restream</TabsTrigger>
             <TabsTrigger value="members"><Users className="w-4 h-4 mr-1" />Members</TabsTrigger>
             <TabsTrigger value="events"><Calendar className="w-4 h-4 mr-1" />Events</TabsTrigger>
@@ -252,6 +253,11 @@ export default function Admin() {
             </Card>
           </TabsContent>
 
+          {/* Recordings Tab */}
+          <TabsContent value="recordings">
+            <RecordingsAdmin />
+          </TabsContent>
+
           {/* Restream Tab */}
           <TabsContent value="restream">
             <RestreamAdmin />
@@ -282,6 +288,305 @@ export default function Admin() {
             <GroupsAdmin />
           </TabsContent>
         </Tabs>
+      </div>
+    </div>
+  );
+}
+
+// ========== Recordings Admin ==========
+
+interface AdminRecording {
+  id: string;
+  title: string;
+  description: string | null;
+  r2Key: string;
+  r2Url: string;
+  thumbnailUrl: string | null;
+  thumbnailCandidates: string[] | null;
+  duration: number | null;
+  fileSize: number | null;
+  status: string;
+  streamStartedAt: string | null;
+  createdAt: string | null;
+}
+
+function formatDuration(seconds: number | null): string {
+  if (!seconds) return "0:00";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes) return "—";
+  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)} GB`;
+  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)} MB`;
+  return `${(bytes / 1024).toFixed(0)} KB`;
+}
+
+function RecordingsAdmin() {
+  const { toast } = useToast();
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const { data: recordings, isLoading } = useQuery<AdminRecording[]>({
+    queryKey: ["/api/recordings/admin/all"],
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/recordings/admin/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/recordings/admin/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recordings"] });
+      toast({ title: "Recording deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete recording", variant: "destructive" });
+    },
+  });
+
+  const statusColors: Record<string, string> = {
+    ready: "bg-green-500",
+    processing: "bg-yellow-500",
+    error: "bg-red-500",
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <Film className="w-5 h-5 text-gold" />
+          <CardTitle>Recording Management</CardTitle>
+          {recordings && (
+            <Badge variant="outline">{recordings.length} recordings</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 bg-muted animate-pulse rounded-md" />
+            ))}
+          </div>
+        ) : recordings && recordings.length > 0 ? (
+          <div className="space-y-3">
+            {recordings.map((rec) =>
+              editingId === rec.id ? (
+                <RecordingEditRow
+                  key={rec.id}
+                  recording={rec}
+                  onCancel={() => setEditingId(null)}
+                  onSaved={() => setEditingId(null)}
+                />
+              ) : (
+                <div key={rec.id} className="p-4 border rounded-md">
+                  <div className="flex items-start gap-4">
+                    {/* Thumbnail preview */}
+                    <div className="w-28 h-16 rounded overflow-hidden bg-muted flex-shrink-0">
+                      {rec.thumbnailUrl ? (
+                        <img
+                          src={rec.thumbnailUrl}
+                          alt={rec.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Film className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-semibold truncate">{rec.title}</h4>
+                        <Badge className={`${statusColors[rec.status] || "bg-gray-500"} text-white border-0 text-xs capitalize`}>
+                          {rec.status}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDuration(rec.duration)}
+                        </span>
+                        <span>
+                          {rec.streamStartedAt
+                            ? new Date(rec.streamStartedAt).toLocaleDateString("en-US", {
+                                month: "short", day: "numeric", year: "numeric",
+                              })
+                            : rec.createdAt
+                            ? new Date(rec.createdAt).toLocaleDateString("en-US", {
+                                month: "short", day: "numeric", year: "numeric",
+                              })
+                            : "—"}
+                        </span>
+                        <span>{formatFileSize(rec.fileSize)}</span>
+                      </div>
+                      {rec.description && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{rec.description}</p>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditingId(rec.id)}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteMutation.mutate(rec.id)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-center py-6">No recordings yet</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RecordingEditRow({
+  recording,
+  onCancel,
+  onSaved,
+}: {
+  recording: AdminRecording;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [title, setTitle] = useState(recording.title);
+  const [description, setDescription] = useState(recording.description || "");
+  const [selectedThumb, setSelectedThumb] = useState(recording.thumbnailUrl || "");
+  const [customThumbUrl, setCustomThumbUrl] = useState("");
+
+  const candidates = recording.thumbnailCandidates || [];
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const thumbnailUrl = customThumbUrl || selectedThumb || null;
+      await apiRequest("PATCH", `/api/recordings/admin/${recording.id}`, {
+        title,
+        description: description || null,
+        thumbnailUrl,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/recordings/admin/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recordings"] });
+      toast({ title: "Recording updated" });
+      onSaved();
+    },
+    onError: () => {
+      toast({ title: "Failed to update recording", variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="p-4 border-2 border-gold rounded-md space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor={`rec-title-${recording.id}`}>Title</Label>
+          <Input
+            id={`rec-title-${recording.id}`}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Date</Label>
+          <Input
+            value={
+              recording.streamStartedAt
+                ? new Date(recording.streamStartedAt).toLocaleDateString()
+                : "—"
+            }
+            disabled
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor={`rec-desc-${recording.id}`}>Description</Label>
+        <Textarea
+          id={`rec-desc-${recording.id}`}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={2}
+          placeholder="Optional description..."
+        />
+      </div>
+
+      {/* Thumbnail picker */}
+      {candidates.length > 0 && (
+        <div className="space-y-2">
+          <Label className="flex items-center gap-1">
+            <Image className="w-3.5 h-3.5" />
+            Select Thumbnail
+          </Label>
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+            {candidates.map((url, i) => (
+              <div
+                key={i}
+                onClick={() => { setSelectedThumb(url); setCustomThumbUrl(""); }}
+                className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
+                  selectedThumb === url && !customThumbUrl
+                    ? "border-gold ring-2 ring-gold/30"
+                    : "border-transparent hover:border-muted-foreground/30"
+                }`}
+              >
+                <img src={url} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-cover" />
+                {selectedThumb === url && !customThumbUrl && (
+                  <div className="absolute top-1 right-1 w-5 h-5 bg-gold rounded-full flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Custom thumbnail URL fallback */}
+      <div className="space-y-2">
+        <Label htmlFor={`rec-custom-thumb-${recording.id}`}>Custom Thumbnail URL</Label>
+        <Input
+          id={`rec-custom-thumb-${recording.id}`}
+          value={customThumbUrl}
+          onChange={(e) => setCustomThumbUrl(e.target.value)}
+          placeholder="Paste a custom thumbnail URL (overrides selection above)"
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <Button
+          className="bg-gold text-white border-gold"
+          onClick={() => updateMutation.mutate()}
+          disabled={updateMutation.isPending || !title}
+        >
+          <Save className="w-4 h-4 mr-1" />
+          {updateMutation.isPending ? "Saving..." : "Save"}
+        </Button>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
       </div>
     </div>
   );

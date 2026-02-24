@@ -1,0 +1,1 @@
+ALTER TABLE "recordings" ADD COLUMN "thumbnail_candidates" json DEFAULT '[]'::json;

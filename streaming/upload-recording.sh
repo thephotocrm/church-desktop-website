@@ -47,6 +47,62 @@ is_stable() {
   [ "$size1" = "$size2" ] && [ "$size1" -gt 0 ]
 }
 
+# ── Helper: generate smart title from filename ──
+# Expects filename like 2025-02-23_10-30-00.mp4
+generate_title() {
+  local name="$1"
+  # Extract date and time parts
+  local date_part="${name:0:10}"   # 2025-02-23
+  local time_part="${name:11:8}"   # 10-30-00
+
+  # Parse components
+  local year="${date_part:0:4}"
+  local month="${date_part:5:2}"
+  local day="${date_part:8:2}"
+  local hour="${time_part:0:2}"
+
+  # Remove leading zeros for comparison
+  hour=$((10#$hour))
+
+  # Get day of week (1=Mon .. 7=Sun)
+  local dow
+  dow=$(date -d "$date_part" +%u 2>/dev/null || echo "0")
+
+  # Format the date nicely: "Feb 23, 2025"
+  local month_names=("" "Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec")
+  local month_num=$((10#$month))
+  local day_num=$((10#$day))
+  local nice_date="${month_names[$month_num]} ${day_num}, ${year}"
+
+  # Determine service type based on day/time
+  local service_type="Worship Service"
+  if [ "$dow" = "7" ]; then
+    # Sunday
+    if [ "$hour" -lt 14 ]; then
+      service_type="Sunday Morning Worship"
+    else
+      service_type="Sunday Evening Service"
+    fi
+  elif [ "$dow" = "3" ]; then
+    # Wednesday
+    service_type="Wednesday Bible Study"
+  fi
+
+  echo "${service_type} — ${nice_date}"
+}
+
+# ── Helper: generate ISO 8601 timestamp from filename ──
+generate_stream_started_at() {
+  local name="$1"
+  local date_part="${name:0:10}"   # 2025-02-23
+  local time_part="${name:11:8}"   # 10-30-00
+
+  # Convert time hyphens to colons: 10-30-00 → 10:30:00
+  local time_formatted="${time_part//-/:}"
+
+  echo "${date_part}T${time_formatted}Z"
+}
+
 echo "[$(date -Iseconds)] Scanning $RECORDINGS_DIR for .mp4 files..."
 
 shopt -s nullglob
@@ -57,6 +113,9 @@ if [ ${#files[@]} -eq 0 ]; then
   echo "[$(date -Iseconds)] No .mp4 files found."
   exit 0
 fi
+
+# Thumbnail timestamps to capture (in seconds)
+THUMB_TIMESTAMPS=(5 30 120 300 600)
 
 for filepath in "${files[@]}"; do
   filename=$(basename "$filepath")
@@ -80,14 +139,48 @@ for filepath in "${files[@]}"; do
   filesize=$(stat -c%s "$filepath")
   echo "[$(date -Iseconds)] Size: $filesize bytes"
 
-  # Extract thumbnail at 5s mark
-  thumb_path="${RECORDINGS_DIR}/${name}_thumb.jpg"
-  if ffmpeg -y -i "$filepath" -ss 5 -vframes 1 -q:v 2 "$thumb_path" 2>/dev/null; then
-    echo "[$(date -Iseconds)] Thumbnail extracted."
-  else
-    echo "[$(date -Iseconds)] Thumbnail extraction failed (short video?)."
-    thumb_path=""
-  fi
+  # Generate smart title from filename
+  smart_title=$(generate_title "$name")
+  echo "[$(date -Iseconds)] Title: $smart_title"
+
+  # Generate streamStartedAt ISO 8601 from filename
+  stream_started_at=$(generate_stream_started_at "$name")
+  echo "[$(date -Iseconds)] Stream started at: $stream_started_at"
+
+  # Generate multiple thumbnail candidates
+  thumbnail_urls=()
+  primary_thumbnail_url=""
+
+  for ts in "${THUMB_TIMESTAMPS[@]}"; do
+    # Skip timestamps beyond the video duration
+    if [ "$ts" -ge "$duration" ]; then
+      continue
+    fi
+
+    thumb_path="${RECORDINGS_DIR}/${name}_thumb_${ts}s.jpg"
+    if ffmpeg -y -i "$filepath" -ss "$ts" -vframes 1 -q:v 2 "$thumb_path" 2>/dev/null; then
+      thumb_key="thumbnails/${name}_${ts}s.jpg"
+      echo "[$(date -Iseconds)] Uploading thumbnail (${ts}s) to R2: $thumb_key"
+      aws s3 cp "$thumb_path" "s3://${R2_BUCKET}/${thumb_key}" \
+        --endpoint-url "$R2_ENDPOINT" \
+        --profile "$AWS_PROFILE" \
+        --content-type "image/jpeg"
+
+      thumb_url="${R2_PUBLIC_URL}/${thumb_key}"
+      thumbnail_urls+=("$thumb_url")
+
+      # Use 5s mark as the primary thumbnail (or first successful one)
+      if [ -z "$primary_thumbnail_url" ]; then
+        primary_thumbnail_url="$thumb_url"
+      fi
+
+      rm -f "$thumb_path"
+    else
+      echo "[$(date -Iseconds)] Thumbnail extraction at ${ts}s failed (short video?)."
+    fi
+  done
+
+  echo "[$(date -Iseconds)] Generated ${#thumbnail_urls[@]} thumbnail candidates."
 
   # Upload video to R2
   video_key="videos/${name}.mp4"
@@ -99,34 +192,43 @@ for filepath in "${files[@]}"; do
 
   video_url="${R2_PUBLIC_URL}/${video_key}"
 
-  # Upload thumbnail to R2
-  thumbnail_url=""
-  if [ -n "$thumb_path" ] && [ -f "$thumb_path" ]; then
-    thumb_key="thumbnails/${name}.jpg"
-    echo "[$(date -Iseconds)] Uploading thumbnail to R2: $thumb_key"
-    aws s3 cp "$thumb_path" "s3://${R2_BUCKET}/${thumb_key}" \
-      --endpoint-url "$R2_ENDPOINT" \
-      --profile "$AWS_PROFILE" \
-      --content-type "image/jpeg"
-    thumbnail_url="${R2_PUBLIC_URL}/${thumb_key}"
+  # Build thumbnail candidates JSON array
+  thumb_candidates_json="[]"
+  if [ ${#thumbnail_urls[@]} -gt 0 ]; then
+    thumb_candidates_json="["
+    for i in "${!thumbnail_urls[@]}"; do
+      if [ "$i" -gt 0 ]; then
+        thumb_candidates_json+=","
+      fi
+      thumb_candidates_json+="\"${thumbnail_urls[$i]}\""
+    done
+    thumb_candidates_json+="]"
   fi
 
   # Build JSON payload
   json_payload=$(cat <<EOJSON
 {
-  "title": "Worship Service",
+  "title": $(printf '%s' "$smart_title" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))'),
   "r2Key": "$video_key",
   "r2Url": "$video_url",
-  "thumbnailUrl": "$thumbnail_url",
+  "thumbnailUrl": "$primary_thumbnail_url",
+  "thumbnailCandidates": $thumb_candidates_json,
   "duration": $duration,
-  "fileSize": $filesize
+  "fileSize": $filesize,
+  "streamStartedAt": "$stream_started_at"
 }
 EOJSON
 )
 
   # Remove thumbnailUrl if empty
-  if [ -z "$thumbnail_url" ]; then
-    json_payload=$(echo "$json_payload" | sed '/"thumbnailUrl": ""/d')
+  if [ -z "$primary_thumbnail_url" ]; then
+    json_payload=$(echo "$json_payload" | python3 -c '
+import sys, json
+d = json.load(sys.stdin)
+if not d.get("thumbnailUrl"):
+    del d["thumbnailUrl"]
+print(json.dumps(d))
+')
   fi
 
   # Call Express ingest API
@@ -144,7 +246,6 @@ EOJSON
 
     # Clean up local files
     rm -f "$filepath"
-    [ -n "$thumb_path" ] && rm -f "$thumb_path"
     echo "[$(date -Iseconds)] Cleaned up local files for $filename."
   else
     echo "[$(date -Iseconds)] ERROR: Ingest API returned HTTP $http_code"

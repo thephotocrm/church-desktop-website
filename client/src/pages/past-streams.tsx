@@ -6,26 +6,26 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Radio, Play, Eye, Clock, ArrowRight, ChevronDown } from "lucide-react";
-import { SiYoutube } from "react-icons/si";
+import { Radio, Play, Clock, ArrowRight, ChevronDown, Film } from "lucide-react";
 import { useSEO } from "@/hooks/use-seo";
 import { useStreamStatus } from "@/components/stream-player";
 
-interface PastStream {
-  videoId: string;
+interface Recording {
+  id: string;
   title: string;
   description: string | null;
+  r2Url: string;
   thumbnailUrl: string | null;
-  publishedAt: string | null;
-  duration: string | null;
-  viewCount: number | null;
-  likeCount: number | null;
+  duration: number | null;
+  fileSize: number | null;
+  status: string;
+  streamStartedAt: string | null;
+  createdAt: string | null;
 }
 
-interface PastStreamsResponse {
-  items: PastStream[];
-  nextPageToken: string | null;
-  fromCache: boolean;
+interface RecordingsResponse {
+  items: Recording[];
+  total: number;
 }
 
 const fadeUp = {
@@ -37,23 +37,13 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.08 } },
 };
 
-function formatDuration(iso: string | null): string {
-  if (!iso) return "";
-  // Parse ISO 8601 duration like PT1H23M45S
-  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!match) return "";
-  const h = match[1] ? parseInt(match[1]) : 0;
-  const m = match[2] ? parseInt(match[2]) : 0;
-  const s = match[3] ? parseInt(match[3]) : 0;
+function formatDuration(seconds: number | null): string {
+  if (!seconds) return "";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
   if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-function formatViews(count: number | null): string {
-  if (!count) return "0 views";
-  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M views`;
-  if (count >= 1000) return `${(count / 1000).toFixed(1)}K views`;
-  return `${count} views`;
 }
 
 function formatDate(dateStr: string | null): string {
@@ -74,32 +64,34 @@ export default function PastStreams() {
   const { data: streamStatus } = useStreamStatus();
   const isLive = streamStatus?.isLive ?? false;
 
-  const [pageToken, setPageToken] = useState<string | null>(null);
-  const [allItems, setAllItems] = useState<PastStream[]>([]);
-  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [allItems, setAllItems] = useState<Recording[]>([]);
+  const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
+  const limit = 12;
 
-  const { data, isLoading } = useQuery<PastStreamsResponse>({
-    queryKey: ["/api/youtube/past-streams", pageToken],
+  const { data, isLoading } = useQuery<RecordingsResponse>({
+    queryKey: ["/api/recordings", offset],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (pageToken) params.set("page", pageToken);
-      params.set("limit", "12");
-      const res = await fetch(`/api/youtube/past-streams?${params}`);
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
+      const res = await fetch(`/api/recordings?${params}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
   });
 
-  // Merge new items with existing
-  const items = pageToken && allItems.length > 0
-    ? [...allItems, ...(data?.items || []).filter(i => !allItems.find(a => a.videoId === i.videoId))]
+  // Merge new items with existing for load-more
+  const items = offset > 0 && allItems.length > 0
+    ? [...allItems, ...(data?.items || []).filter(i => !allItems.find(a => a.id === i.id))]
     : data?.items || [];
 
+  const total = data?.total || 0;
+  const hasMore = items.length < total;
+
   const handleLoadMore = () => {
-    if (data?.nextPageToken) {
-      setAllItems(items);
-      setPageToken(data.nextPageToken);
-    }
+    setAllItems(items);
+    setOffset(items.length);
   };
 
   return (
@@ -155,10 +147,10 @@ export default function PastStreams() {
             </div>
           ) : items.length === 0 ? (
             <div className="text-center py-20">
-              <SiYoutube className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-xl font-bold mb-2">No Past Streams Yet</h3>
+              <Film className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-xl font-bold mb-2">No Past Services Yet</h3>
               <p className="text-muted-foreground font-body">
-                Past live streams will appear here once a YouTube channel is configured.
+                Recorded services will appear here after they are uploaded.
               </p>
             </div>
           ) : (
@@ -168,46 +160,40 @@ export default function PastStreams() {
               variants={stagger}
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
             >
-              {items.map((stream) => (
-                <motion.div key={stream.videoId} variants={fadeUp}>
+              {items.map((recording) => (
+                <motion.div key={recording.id} variants={fadeUp}>
                   <Card
                     className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow group"
-                    onClick={() => setSelectedVideo(stream.videoId)}
+                    onClick={() => setSelectedRecording(recording)}
                   >
                     <div className="relative aspect-video bg-muted">
-                      {stream.thumbnailUrl ? (
+                      {recording.thumbnailUrl ? (
                         <img
-                          src={stream.thumbnailUrl}
-                          alt={stream.title}
+                          src={recording.thumbnailUrl}
+                          alt={recording.title}
                           className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <SiYoutube className="w-12 h-12 text-muted-foreground" />
+                          <Film className="w-12 h-12 text-muted-foreground" />
                         </div>
                       )}
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                         <Play className="w-12 h-12 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      {stream.duration && (
+                      {recording.duration && (
                         <Badge className="absolute bottom-2 right-2 bg-black/80 text-white border-0 font-mono text-xs">
-                          {formatDuration(stream.duration)}
+                          {formatDuration(recording.duration)}
                         </Badge>
                       )}
                     </div>
                     <div className="p-4">
-                      <h3 className="font-semibold text-sm line-clamp-2 mb-2">{stream.title}</h3>
+                      <h3 className="font-semibold text-sm line-clamp-2 mb-2">{recording.title}</h3>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground font-body">
-                        {stream.publishedAt && (
+                        {(recording.streamStartedAt || recording.createdAt) && (
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {formatDate(stream.publishedAt)}
-                          </span>
-                        )}
-                        {stream.viewCount !== null && stream.viewCount > 0 && (
-                          <span className="flex items-center gap-1">
-                            <Eye className="w-3 h-3" />
-                            {formatViews(stream.viewCount)}
+                            {formatDate(recording.streamStartedAt || recording.createdAt)}
                           </span>
                         )}
                       </div>
@@ -219,7 +205,7 @@ export default function PastStreams() {
           )}
 
           {/* Load More */}
-          {data?.nextPageToken && (
+          {hasMore && (
             <div className="text-center mt-10">
               <Button
                 variant="outline"
@@ -260,18 +246,20 @@ export default function PastStreams() {
         </div>
       </section>
 
-      {/* Video Dialog */}
-      <Dialog open={!!selectedVideo} onOpenChange={() => setSelectedVideo(null)}>
+      {/* Video Dialog — Native HTML5 player */}
+      <Dialog open={!!selectedRecording} onOpenChange={() => setSelectedRecording(null)}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black">
-          {selectedVideo && (
+          {selectedRecording && (
             <div className="aspect-video">
-              <iframe
-                src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`}
-                title="YouTube video"
+              <video
+                src={selectedRecording.r2Url}
+                controls
+                autoPlay
                 className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
+                playsInline
+              >
+                Your browser does not support the video tag.
+              </video>
             </div>
           )}
         </DialogContent>
