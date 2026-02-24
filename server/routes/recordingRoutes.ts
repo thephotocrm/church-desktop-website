@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import crypto from "crypto";
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
+import { uploadBuffer } from "../r2";
+import { generateThumbnail } from "../thumbnailGenerator";
 
 const router = Router();
 
@@ -65,6 +70,88 @@ router.get("/", async (req, res) => {
   } catch (err) {
     console.error("[Recordings] Error fetching recordings:", err);
     res.status(500).json({ error: "Failed to fetch recordings" });
+  }
+});
+
+// POST /api/recordings/admin/upload-thumbnail — admin: upload a custom thumbnail image
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = /^image\/(jpeg|png|gif|webp)$/;
+    if (allowed.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files (JPEG, PNG, GIF, WebP) are allowed"));
+    }
+  },
+});
+
+router.post("/admin/upload-thumbnail", requireAuth, (req, res, next) => {
+  upload.single("file")(req, res, (err: any) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: "File too large (max 5 MB)" });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed" });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file provided" });
+    }
+
+    const ext = path.extname(req.file.originalname).toLowerCase() || ".jpg";
+    const key = `thumbnails/custom/${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
+    const url = await uploadBuffer(req.file.buffer, key, req.file.mimetype);
+
+    console.log(`[Admin] Thumbnail uploaded: ${key}`);
+    res.json({ url });
+  } catch (err) {
+    console.error("[Admin] Error uploading thumbnail:", err);
+    res.status(500).json({ error: "Failed to upload thumbnail" });
+  }
+});
+
+// POST /api/recordings/admin/generate-thumbnail — admin: AI-generated YouTube-style thumbnail
+const generateThumbnailSchema = z.object({
+  snapshotUrl: z.string().url(),
+  title: z.string().min(1),
+});
+
+router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
+  const parsed = generateThumbnailSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.message });
+  }
+
+  try {
+    const { snapshotUrl, title } = parsed.data;
+
+    // Download snapshot from URL
+    const response = await fetch(snapshotUrl);
+    if (!response.ok) {
+      return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
+    }
+    const arrayBuf = await response.arrayBuffer();
+    const snapshotBuffer = Buffer.from(arrayBuf);
+
+    // Generate the AI thumbnail
+    console.log(`[Admin] Generating AI thumbnail for: "${title}"`);
+    const thumbnailBuffer = await generateThumbnail(snapshotBuffer, title);
+
+    // Upload to R2
+    const key = `thumbnails/ai/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
+    const url = await uploadBuffer(thumbnailBuffer, key, "image/jpeg");
+
+    console.log(`[Admin] AI thumbnail generated and uploaded: ${key}`);
+    res.json({ url });
+  } catch (err: any) {
+    console.error("[Admin] Error generating AI thumbnail:", err);
+    const message = err.message || "Failed to generate thumbnail";
+    res.status(500).json({ error: message });
   }
 });
 

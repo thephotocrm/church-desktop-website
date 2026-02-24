@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +20,7 @@ import {
 import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
   HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield,
-  Edit2, MapPin, Clock, Film, Image
+  Edit2, MapPin, Clock, Film, Image, Upload, Loader2, Wand2, Camera, Play
 } from "lucide-react";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -476,8 +476,123 @@ function RecordingEditRow({
   const [description, setDescription] = useState(recording.description || "");
   const [selectedThumb, setSelectedThumb] = useState(recording.thumbnailUrl || "");
   const [customThumbUrl, setCustomThumbUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // AI Thumbnail generation state
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiSnapshotUrl, setAiSnapshotUrl] = useState("");
+  const [aiTitle, setAiTitle] = useState(recording.title);
+  const [aiGenerating, setAiGenerating] = useState(false);
+
+  // Frame capture state
+  const [showFrameCapture, setShowFrameCapture] = useState(false);
+  const [frameTimestamp, setFrameTimestamp] = useState(3000); // 50 min default
+  const [capturingFrame, setCapturingFrame] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const candidates = recording.thumbnailCandidates || [];
+
+  const handleThumbnailUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/recordings/admin/upload-thumbnail", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || "Upload failed");
+      }
+      const { url } = await res.json();
+      setCustomThumbUrl(url);
+      toast({ title: "Thumbnail uploaded" });
+    } catch (err: any) {
+      toast({ title: err.message || "Upload failed", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleGenerateAiThumbnail = async () => {
+    if (!aiSnapshotUrl || !aiTitle) {
+      toast({ title: "Select a snapshot and enter a title", variant: "destructive" });
+      return;
+    }
+    setAiGenerating(true);
+    try {
+      const res = await fetch("/api/recordings/admin/generate-thumbnail", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snapshotUrl: aiSnapshotUrl, title: aiTitle }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error(err.error || "Generation failed");
+      }
+      const { url } = await res.json();
+      setCustomThumbUrl(url);
+      setShowAiPanel(false);
+      toast({ title: "AI thumbnail generated!" });
+    } catch (err: any) {
+      toast({ title: err.message || "Generation failed", variant: "destructive" });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleSeekVideo = () => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = frameTimestamp;
+    }
+  };
+
+  const handleCaptureFrame = async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    setCapturingFrame(true);
+    try {
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas context unavailable");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.9)
+      );
+      if (!blob) throw new Error("Failed to capture frame");
+
+      // Upload via existing upload-thumbnail endpoint
+      const formData = new FormData();
+      formData.append("file", blob, `frame-${frameTimestamp}s.jpg`);
+      const res = await fetch("/api/recordings/admin/upload-thumbnail", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const { url } = await res.json();
+
+      // Set as the selected AI snapshot
+      setAiSnapshotUrl(url);
+      setShowAiPanel(true);
+      setShowFrameCapture(false);
+      toast({ title: "Frame captured! Now generate AI thumbnail." });
+    } catch (err: any) {
+      toast({ title: err.message || "Frame capture failed", variant: "destructive" });
+    } finally {
+      setCapturingFrame(false);
+    }
+  };
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -498,6 +613,14 @@ function RecordingEditRow({
       toast({ title: "Failed to update recording", variant: "destructive" });
     },
   });
+
+  const formatTimestamp = (secs: number) => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = Math.floor(secs % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   return (
     <div className="p-4 border-2 border-gold rounded-md space-y-4">
@@ -564,15 +687,232 @@ function RecordingEditRow({
         </div>
       )}
 
-      {/* Custom thumbnail URL fallback */}
+      {/* Custom thumbnail upload / URL */}
       <div className="space-y-2">
-        <Label htmlFor={`rec-custom-thumb-${recording.id}`}>Custom Thumbnail URL</Label>
-        <Input
-          id={`rec-custom-thumb-${recording.id}`}
-          value={customThumbUrl}
-          onChange={(e) => setCustomThumbUrl(e.target.value)}
-          placeholder="Paste a custom thumbnail URL (overrides selection above)"
-        />
+        <Label className="flex items-center gap-1">
+          <Upload className="w-3.5 h-3.5" />
+          Custom Thumbnail
+        </Label>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleThumbnailUpload(file);
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploading ? (
+              <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Uploading...</>
+            ) : (
+              <><Upload className="w-4 h-4 mr-1" /> Upload Image</>
+            )}
+          </Button>
+          <span className="text-xs text-muted-foreground">or</span>
+          <Input
+            id={`rec-custom-thumb-${recording.id}`}
+            value={customThumbUrl}
+            onChange={(e) => setCustomThumbUrl(e.target.value)}
+            placeholder="Paste URL"
+            className="flex-1"
+          />
+        </div>
+        {customThumbUrl && (
+          <div className="flex items-center gap-2 mt-1">
+            <img
+              src={customThumbUrl}
+              alt="Custom thumbnail preview"
+              className="h-16 aspect-video object-cover rounded border"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setCustomThumbUrl("")}
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* AI Thumbnail Generation + Frame Capture */}
+      <Separator />
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant={showAiPanel ? "default" : "outline"}
+            size="sm"
+            className={showAiPanel ? "bg-purple-600 text-white hover:bg-purple-700" : ""}
+            onClick={() => { setShowAiPanel(!showAiPanel); setShowFrameCapture(false); }}
+          >
+            <Wand2 className="w-4 h-4 mr-1" />
+            Generate AI Thumbnail
+          </Button>
+          <Button
+            type="button"
+            variant={showFrameCapture ? "default" : "outline"}
+            size="sm"
+            className={showFrameCapture ? "bg-blue-600 text-white hover:bg-blue-700" : ""}
+            onClick={() => { setShowFrameCapture(!showFrameCapture); setShowAiPanel(false); }}
+          >
+            <Camera className="w-4 h-4 mr-1" />
+            Capture Custom Frame
+          </Button>
+        </div>
+
+        {/* AI Thumbnail Panel */}
+        {showAiPanel && (
+          <div className="p-4 border rounded-md bg-muted/50 space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-1">
+              <Wand2 className="w-4 h-4 text-purple-500" />
+              AI Thumbnail Generator
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Select a snapshot below, enter the sermon title, and generate a YouTube-style thumbnail with background removal.
+            </p>
+
+            {/* Snapshot selection for AI */}
+            {candidates.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">Select Source Snapshot</Label>
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                  {candidates.map((url, i) => (
+                    <div
+                      key={i}
+                      onClick={() => setAiSnapshotUrl(url)}
+                      className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
+                        aiSnapshotUrl === url
+                          ? "border-purple-500 ring-2 ring-purple-500/30"
+                          : "border-transparent hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <img src={url} alt={`Snapshot ${i + 1}`} className="w-full h-full object-cover" />
+                      {aiSnapshotUrl === url && (
+                        <div className="absolute top-1 right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Custom snapshot URL (e.g. from frame capture) */}
+            {aiSnapshotUrl && !candidates.includes(aiSnapshotUrl) && (
+              <div className="flex items-center gap-2">
+                <img src={aiSnapshotUrl} alt="Custom snapshot" className="h-14 aspect-video object-cover rounded border" />
+                <span className="text-xs text-muted-foreground">Custom captured frame</span>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <Label className="text-xs">Sermon Title (appears on thumbnail)</Label>
+              <Input
+                value={aiTitle}
+                onChange={(e) => setAiTitle(e.target.value)}
+                placeholder="e.g. God Is Good"
+              />
+            </div>
+
+            <Button
+              type="button"
+              className="bg-purple-600 text-white hover:bg-purple-700"
+              size="sm"
+              disabled={aiGenerating || !aiSnapshotUrl || !aiTitle}
+              onClick={handleGenerateAiThumbnail}
+            >
+              {aiGenerating ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~10s)...</>
+              ) : (
+                <><Wand2 className="w-4 h-4 mr-1" /> Generate Thumbnail</>
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* Frame Capture Panel */}
+        {showFrameCapture && (
+          <div className="p-4 border rounded-md bg-muted/50 space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-1">
+              <Camera className="w-4 h-4 text-blue-500" />
+              Capture Custom Frame
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Scrub to a specific moment in the recording and capture a frame for AI thumbnail generation.
+            </p>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <Label className="text-xs whitespace-nowrap">Timestamp (seconds)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={recording.duration || 7200}
+                  value={frameTimestamp}
+                  onChange={(e) => setFrameTimestamp(Number(e.target.value))}
+                  className="w-28"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {formatTimestamp(frameTimestamp)}
+                </span>
+                <Button type="button" variant="outline" size="sm" onClick={handleSeekVideo}>
+                  <Play className="w-3 h-3 mr-1" /> Seek
+                </Button>
+              </div>
+
+              <input
+                type="range"
+                min={0}
+                max={recording.duration || 7200}
+                value={frameTimestamp}
+                onChange={(e) => {
+                  setFrameTimestamp(Number(e.target.value));
+                }}
+                onMouseUp={handleSeekVideo}
+                onTouchEnd={handleSeekVideo}
+                className="w-full"
+              />
+
+              <div className="rounded overflow-hidden border bg-black" style={{ maxWidth: 480 }}>
+                <video
+                  ref={videoRef}
+                  src={recording.r2Url}
+                  crossOrigin="anonymous"
+                  preload="metadata"
+                  className="w-full"
+                  onLoadedMetadata={handleSeekVideo}
+                />
+              </div>
+              <canvas ref={canvasRef} className="hidden" />
+
+              <Button
+                type="button"
+                className="bg-blue-600 text-white hover:bg-blue-700"
+                size="sm"
+                disabled={capturingFrame}
+                onClick={handleCaptureFrame}
+              >
+                {capturingFrame ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Capturing...</>
+                ) : (
+                  <><Camera className="w-4 h-4 mr-1" /> Capture & Use for AI Thumbnail</>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">

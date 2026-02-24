@@ -58,6 +58,28 @@ export async function uploadRecording(filePath: string, key: string): Promise<st
 }
 
 /**
+ * Upload a buffer to R2 and return its public URL.
+ */
+export async function uploadBuffer(buffer: Buffer, key: string, contentType: string): Promise<string> {
+  const client = getS3Client();
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    })
+  );
+
+  if (!R2_PUBLIC_URL) {
+    throw new Error("R2_PUBLIC_URL not configured");
+  }
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
+/**
  * Delete an object from R2.
  */
 export async function deleteRecording(key: string): Promise<void> {
