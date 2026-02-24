@@ -17,10 +17,11 @@ import {
   type EventGroup, type EventRsvp,
   type AuthCode,
   type Recording, type InsertRecording,
+  type StyleReference, type InsertStyleReference,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
   members, groups, groupMembers, messages, prayerRequests, fundCategories, donations,
   platformConfig, youtubeStreamCache, restreamStatus,
-  eventGroups, eventRsvps, authCodes, recordings,
+  eventGroups, eventRsvps, authCodes, recordings, styleReferences,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, and, gte, lte, lt, desc, sql, inArray } from "drizzle-orm";
@@ -169,6 +170,12 @@ export interface IStorage {
   updateRecording(id: string, data: Partial<InsertRecording>): Promise<Recording>;
   deleteRecording(id: string): Promise<void>;
   getAllRecordings(): Promise<Recording[]>;
+
+  // Style References
+  getActiveStyleReferences(): Promise<StyleReference[]>;
+  getAllStyleReferences(): Promise<StyleReference[]>;
+  createStyleReference(data: InsertStyleReference): Promise<StyleReference>;
+  deleteStyleReference(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -896,6 +903,24 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(recordings)
       .orderBy(desc(recordings.streamStartedAt));
+  }
+
+  // ========== Style References ==========
+  async getActiveStyleReferences(): Promise<StyleReference[]> {
+    return db.select().from(styleReferences).where(eq(styleReferences.isActive, true));
+  }
+
+  async getAllStyleReferences(): Promise<StyleReference[]> {
+    return db.select().from(styleReferences).orderBy(desc(styleReferences.createdAt));
+  }
+
+  async createStyleReference(data: InsertStyleReference): Promise<StyleReference> {
+    const [result] = await db.insert(styleReferences).values(data).returning();
+    return result;
+  }
+
+  async deleteStyleReference(id: string): Promise<void> {
+    await db.delete(styleReferences).where(eq(styleReferences.id, id));
   }
 }
 

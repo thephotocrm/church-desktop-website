@@ -162,6 +162,90 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/recordings/admin/import-style-references — one-time import of Elevation Church thumbnails
+router.post("/admin/import-style-references", requireAuth, async (req, res) => {
+  const VIDEO_IDS = [
+    "azBTYPEM2mM", "57LVVwba6_8", "72AWy48vDcE", "aJE6iwQeIq0", "Qq6h-oZSSG4",
+    "mc79lzyrG7o", "RCJGFhj6-2o", "eyYgG56YJVY", "-3LoxiCBGzI", "DheGme_pzd0",
+    "7HLW6Qbfv6s", "EFfoJdV8QLk", "y4y_B0khuWo", "9U8UJReHPNI", "jROl4hLXzKA",
+    "Ap-SCgWbKtI", "8wFEr-jtwDI", "2OxoBLOQyrc", "DtZDArENC8k", "f6S3Mml9kFo",
+  ];
+
+  let imported = 0, skipped = 0, failed = 0;
+
+  // Get existing references to skip duplicates
+  const existing = await storage.getAllStyleReferences();
+  const existingVideoIds = new Set(existing.map(r => r.sourceVideoId));
+
+  for (const videoId of VIDEO_IDS) {
+    if (existingVideoIds.has(videoId)) {
+      skipped++;
+      continue;
+    }
+
+    try {
+      // Try maxresdefault first, fall back to sddefault
+      let imgUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      let imgRes = await fetch(imgUrl);
+
+      // maxresdefault returns a small placeholder if not available (check content-length)
+      if (!imgRes.ok || (imgRes.headers.get("content-length") && parseInt(imgRes.headers.get("content-length")!) < 5000)) {
+        imgUrl = `https://img.youtube.com/vi/${videoId}/sddefault.jpg`;
+        imgRes = await fetch(imgUrl);
+      }
+
+      if (!imgRes.ok) {
+        console.error(`[StyleRef] Failed to fetch thumbnail for ${videoId}: ${imgRes.status}`);
+        failed++;
+        continue;
+      }
+
+      const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+      const r2Key = `style-references/${videoId}.jpg`;
+      const r2Url = await uploadBuffer(imgBuffer, r2Key, "image/jpeg");
+
+      await storage.createStyleReference({
+        sourceVideoId: videoId,
+        r2Key,
+        r2Url,
+        label: `Elevation Church - ${videoId}`,
+        isActive: true,
+      });
+
+      imported++;
+      console.log(`[StyleRef] Imported ${videoId}`);
+    } catch (err) {
+      console.error(`[StyleRef] Error importing ${videoId}:`, err);
+      failed++;
+    }
+  }
+
+  console.log(`[StyleRef] Import complete: ${imported} imported, ${skipped} skipped, ${failed} failed`);
+  res.json({ imported, skipped, failed });
+});
+
+// GET /api/recordings/admin/style-references — list all style references
+router.get("/admin/style-references", requireAuth, async (_req, res) => {
+  try {
+    const refs = await storage.getAllStyleReferences();
+    res.json(refs);
+  } catch (err) {
+    console.error("[StyleRef] Error fetching style references:", err);
+    res.status(500).json({ error: "Failed to fetch style references" });
+  }
+});
+
+// DELETE /api/recordings/admin/style-references/:id — remove a style reference
+router.delete("/admin/style-references/:id", requireAuth, async (req, res) => {
+  try {
+    await storage.deleteStyleReference(req.params.id as string);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[StyleRef] Error deleting style reference:", err);
+    res.status(500).json({ error: "Failed to delete style reference" });
+  }
+});
+
 // GET /api/recordings/admin/all — admin: all recordings (any status)
 router.get("/admin/all", requireAuth, async (req, res) => {
   try {

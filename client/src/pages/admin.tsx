@@ -21,7 +21,7 @@ import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
   HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield,
   Edit2, MapPin, Clock, Film, Image, Upload, Loader2, Wand2, Camera, Play,
-  Type, RefreshCw, MousePointer
+  Type, RefreshCw, MousePointer, Download, Palette
 } from "lucide-react";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +85,16 @@ interface Group {
   description: string | null;
   type: string;
   isDefault: boolean | null;
+}
+
+interface StyleReference {
+  id: string;
+  sourceVideoId: string;
+  r2Key: string;
+  r2Url: string;
+  label: string | null;
+  isActive: boolean | null;
+  createdAt: string;
 }
 
 interface AdminMember {
@@ -352,6 +362,37 @@ function RecordingsAdmin() {
     queryKey: ["/api/recordings/admin/all"],
   });
 
+  const { data: styleRefs } = useQuery<StyleReference[]>({
+    queryKey: ["/api/recordings/admin/style-references"],
+  });
+
+  const importRefsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/recordings/admin/import-style-references");
+      return res.json();
+    },
+    onSuccess: (data: { imported: number; skipped: number; failed: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/recordings/admin/style-references"] });
+      toast({ title: "Import complete", description: `${data.imported} imported, ${data.skipped} skipped, ${data.failed} failed` });
+    },
+    onError: () => {
+      toast({ title: "Import failed", variant: "destructive" });
+    },
+  });
+
+  const deleteRefMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/recordings/admin/style-references/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/recordings/admin/style-references"] });
+      toast({ title: "Style reference removed" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete style reference", variant: "destructive" });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       await apiRequest("DELETE", `/api/recordings/admin/${id}`);
@@ -372,6 +413,8 @@ function RecordingsAdmin() {
     error: "bg-red-500",
   };
 
+  const activeRefCount = styleRefs?.filter(r => r.isActive).length ?? 0;
+
   return (
     <Card className="shadow-md border-0 ring-1 ring-border/50">
       <CardHeader className="pb-4">
@@ -389,6 +432,62 @@ function RecordingsAdmin() {
         </div>
       </CardHeader>
       <CardContent>
+        {/* AI Style References Section */}
+        <div className="mb-6 p-4 rounded-lg border border-border/50 bg-muted/20">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Palette className="w-4 h-4 text-amber-500" />
+              <h3 className="font-semibold text-sm">AI Style References</h3>
+              {activeRefCount > 0 && (
+                <Badge variant="secondary" className="text-xs">{activeRefCount} active</Badge>
+              )}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => importRefsMutation.mutate()}
+              disabled={importRefsMutation.isPending}
+            >
+              {importRefsMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              {importRefsMutation.isPending ? "Importing..." : "Import from Elevation"}
+            </Button>
+          </div>
+
+          {styleRefs && styleRefs.length > 0 ? (
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+              {styleRefs.map((ref) => (
+                <div key={ref.id} className="group relative aspect-video rounded-md overflow-hidden ring-1 ring-border/50 bg-muted">
+                  <img
+                    src={ref.r2Url}
+                    alt={ref.label || ref.sourceVideoId}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-white hover:bg-red-500/30"
+                      onClick={() => deleteRefMutation.mutate(ref.id)}
+                      disabled={deleteRefMutation.isPending}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center py-4">No style references imported yet. Click "Import from Elevation" to get started.</p>
+          )}
+        </div>
+
+        <Separator className="mb-4" />
+
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (

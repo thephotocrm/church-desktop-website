@@ -388,6 +388,22 @@ export const insertRecordingSchema = createInsertSchema(recordings).omit({
 export type InsertRecording = z.infer<typeof insertRecordingSchema>;
 export type Recording = typeof recordings.$inferSelect;
 
+// ===================== Style References =====================
+
+export const styleReferences = pgTable("style_references", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sourceVideoId: text("source_video_id").notNull().unique(),
+  r2Key: text("r2_key").notNull(),
+  r2Url: text("r2_url").notNull(),
+  label: text("label"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertStyleReferenceSchema = createInsertSchema(styleReferences).omit({ id: true, createdAt: true });
+export type InsertStyleReference = z.infer<typeof insertStyleReferenceSchema>;
+export type StyleReference = typeof styleReferences.$inferSelect;
+
 // ===================== Auth Codes (one-time mobile → browser login) =====================
 
 export const authCodes = pgTable("auth_codes", {
