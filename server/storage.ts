@@ -172,7 +172,7 @@ export interface IStorage {
   getAllRecordings(): Promise<Recording[]>;
 
   // Style References
-  getActiveStyleReferences(): Promise<StyleReference[]>;
+  getActiveStyleReferences(category?: string): Promise<StyleReference[]>;
   getAllStyleReferences(): Promise<StyleReference[]>;
   createStyleReference(data: InsertStyleReference): Promise<StyleReference>;
   deleteStyleReference(id: string): Promise<void>;
@@ -906,8 +906,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ========== Style References ==========
-  async getActiveStyleReferences(): Promise<StyleReference[]> {
-    return db.select().from(styleReferences).where(eq(styleReferences.isActive, true));
+  async getActiveStyleReferences(category?: string): Promise<StyleReference[]> {
+    const conditions = [eq(styleReferences.isActive, true)];
+    if (category) {
+      conditions.push(eq(styleReferences.category, category));
+    }
+    return db.select().from(styleReferences).where(and(...conditions));
   }
 
   async getAllStyleReferences(): Promise<StyleReference[]> {

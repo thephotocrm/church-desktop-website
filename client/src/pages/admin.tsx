@@ -608,7 +608,7 @@ function RecordingEditRow({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Thumbnail Studio state
-  const [thumbnailMode, setThumbnailMode] = useState<'ai-pastor' | 'ai-title' | 'manual' | null>(null);
+  const [thumbnailMode, setThumbnailMode] = useState<'pastor-title' | 'service-overlay' | 'title-background' | 'manual' | null>(null);
   const [generatedPreview, setGeneratedPreview] = useState("");
   const [aiSnapshotUrl, setAiSnapshotUrl] = useState("");
   const [aiTitle, setAiTitle] = useState(recording.title);
@@ -624,7 +624,7 @@ function RecordingEditRow({
   const candidates = recording.thumbnailCandidates || [];
   const currentThumb = customThumbUrl || selectedThumb || null;
 
-  const handleModeChange = (mode: 'ai-pastor' | 'ai-title' | 'manual') => {
+  const handleModeChange = (mode: 'pastor-title' | 'service-overlay' | 'title-background' | 'manual') => {
     setThumbnailMode(thumbnailMode === mode ? null : mode);
     setGeneratedPreview("");
     setShowFrameCapture(false);
@@ -655,7 +655,7 @@ function RecordingEditRow({
     }
   };
 
-  const handleGenerateAiPastor = async () => {
+  const handleGeneratePastorTitle = async () => {
     if (!aiSnapshotUrl || !aiTitle) {
       toast({ title: "Select a snapshot and enter a title", variant: "destructive" });
       return;
@@ -666,7 +666,7 @@ function RecordingEditRow({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ snapshotUrl: aiSnapshotUrl, title: aiTitle }),
+        body: JSON.stringify({ mode: 'pastor-title', snapshotUrl: aiSnapshotUrl, title: aiTitle }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
@@ -682,7 +682,34 @@ function RecordingEditRow({
     }
   };
 
-  const handleGenerateAiTitle = async () => {
+  const handleGenerateServiceOverlay = async () => {
+    if (!aiSnapshotUrl || !aiTitle) {
+      toast({ title: "Select a snapshot and enter a title", variant: "destructive" });
+      return;
+    }
+    setAiGenerating(true);
+    try {
+      const res = await fetch("/api/recordings/admin/generate-thumbnail", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: 'service-overlay', snapshotUrl: aiSnapshotUrl, title: aiTitle }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Generation failed" }));
+        throw new Error(err.error || "Generation failed");
+      }
+      const { url } = await res.json();
+      setGeneratedPreview(url);
+      toast({ title: "AI thumbnail generated! Review below." });
+    } catch (err: any) {
+      toast({ title: err.message || "Generation failed", variant: "destructive" });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleGenerateTitleBackground = async () => {
     if (!aiTitle) {
       toast({ title: "Enter a title", variant: "destructive" });
       return;
@@ -693,7 +720,7 @@ function RecordingEditRow({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ snapshotUrl: null, title: aiTitle }),
+        body: JSON.stringify({ mode: 'title-background', snapshotUrl: null, title: aiTitle }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
@@ -716,10 +743,12 @@ function RecordingEditRow({
 
   const handleRegenerate = () => {
     setGeneratedPreview("");
-    if (thumbnailMode === 'ai-pastor') {
-      handleGenerateAiPastor();
-    } else if (thumbnailMode === 'ai-title') {
-      handleGenerateAiTitle();
+    if (thumbnailMode === 'pastor-title') {
+      handleGeneratePastorTitle();
+    } else if (thumbnailMode === 'service-overlay') {
+      handleGenerateServiceOverlay();
+    } else if (thumbnailMode === 'title-background') {
+      handleGenerateTitleBackground();
     }
   };
 
@@ -796,7 +825,7 @@ function RecordingEditRow({
   };
 
   const modeCards: Array<{
-    mode: 'ai-pastor' | 'ai-title' | 'manual';
+    mode: 'pastor-title' | 'service-overlay' | 'title-background' | 'manual';
     icon: typeof Wand2;
     label: string;
     desc: string;
@@ -808,10 +837,10 @@ function RecordingEditRow({
     iconColor: string;
   }> = [
     {
-      mode: 'ai-pastor',
+      mode: 'pastor-title',
       icon: Wand2,
-      label: 'AI + Pastor',
-      desc: 'Select a snapshot of the speaker, AI creates thumbnail with pastor preserved',
+      label: 'Pastor + Title',
+      desc: 'Find a snapshot where the pastor is looking at the camera — AI creates a colorful background with title',
       accent: 'purple',
       borderActive: 'border-purple-500',
       bgActive: 'bg-purple-500/[0.05]',
@@ -820,16 +849,28 @@ function RecordingEditRow({
       iconColor: 'text-purple-500',
     },
     {
-      mode: 'ai-title',
-      icon: Type,
-      label: 'AI Title Card',
-      desc: 'Enter a title, AI generates a beautiful title-only design, no person',
+      mode: 'service-overlay',
+      icon: Film,
+      label: 'Title + Service Overlay',
+      desc: 'Pick a snapshot of the service — it becomes the backdrop behind big bold centered title text',
       accent: 'amber',
       borderActive: 'border-amber-500',
       bgActive: 'bg-amber-500/[0.05]',
       ringActive: 'ring-amber-500/20',
       iconBg: 'bg-amber-500/10',
       iconColor: 'text-amber-500',
+    },
+    {
+      mode: 'title-background',
+      icon: Palette,
+      label: 'Title + Colored Background',
+      desc: 'AI generates a vibrant colorful background with your title centered — no snapshot needed',
+      accent: 'emerald',
+      borderActive: 'border-emerald-500',
+      bgActive: 'bg-emerald-500/[0.05]',
+      ringActive: 'ring-emerald-500/20',
+      iconBg: 'bg-emerald-500/10',
+      iconColor: 'text-emerald-500',
     },
     {
       mode: 'manual',
@@ -954,7 +995,7 @@ function RecordingEditRow({
         )}
 
         {/* 3-column mode selector cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {modeCards.map((card) => {
             const isActive = thumbnailMode === card.mode;
             const Icon = card.icon;
@@ -987,22 +1028,22 @@ function RecordingEditRow({
 
         {/* Mode content panels */}
 
-        {/* Mode 1: AI + Pastor */}
-        {thumbnailMode === 'ai-pastor' && (
+        {/* Mode 1: Pastor + Title */}
+        {thumbnailMode === 'pastor-title' && (
           <div className="p-4 border border-purple-500/20 rounded-xl bg-purple-500/[0.03] space-y-3">
             <p className="text-sm font-semibold flex items-center gap-2">
               <span className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center">
                 <Wand2 className="w-3.5 h-3.5 text-purple-500" />
               </span>
-              AI + Pastor Thumbnail
+              Pastor + Title Thumbnail
             </p>
             <p className="text-xs text-muted-foreground">
-              Select a snapshot of the speaker below, then generate a YouTube-style thumbnail that preserves the pastor.
+              Find a snapshot where the pastor is looking at the camera, then generate a thumbnail with a colorful AI background and title.
             </p>
 
             {/* Snapshot grid + Capture Frame card */}
             <div className="space-y-1">
-              <Label className="text-xs">Select Source Snapshot</Label>
+              <Label className="text-xs">Select Pastor Snapshot</Label>
               <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
                 {candidates.map((url, i) => (
                   <div
@@ -1125,7 +1166,7 @@ function RecordingEditRow({
                 className="bg-purple-600 text-white hover:bg-purple-700"
                 size="sm"
                 disabled={aiGenerating || !aiSnapshotUrl || !aiTitle}
-                onClick={handleGenerateAiPastor}
+                onClick={handleGeneratePastorTitle}
               >
                 {aiGenerating ? (
                   <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~30s)...</>
@@ -1139,17 +1180,169 @@ function RecordingEditRow({
           </div>
         )}
 
-        {/* Mode 2: AI Title Card */}
-        {thumbnailMode === 'ai-title' && (
+        {/* Mode 2: Title + Service Overlay */}
+        {thumbnailMode === 'service-overlay' && (
           <div className="p-4 border border-amber-500/20 rounded-xl bg-amber-500/[0.03] space-y-3">
             <p className="text-sm font-semibold flex items-center gap-2">
               <span className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center">
-                <Type className="w-3.5 h-3.5 text-amber-500" />
+                <Film className="w-3.5 h-3.5 text-amber-500" />
               </span>
-              AI Title Card
+              Title + Service Overlay
             </p>
             <p className="text-xs text-muted-foreground">
-              Generate a beautiful title-only thumbnail design — no person, just cinematic text.
+              Pick a snapshot of the service — it becomes the backdrop behind big bold centered title text.
+            </p>
+
+            {/* Snapshot grid + Capture Frame card */}
+            <div className="space-y-1">
+              <Label className="text-xs">Select Service Snapshot</Label>
+              <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+                {candidates.map((url, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setAiSnapshotUrl(url)}
+                    className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
+                      aiSnapshotUrl === url
+                        ? "border-amber-500 ring-2 ring-amber-500/30"
+                        : "border-transparent hover:border-muted-foreground/30"
+                    }`}
+                  >
+                    <img src={url} alt={`Snapshot ${i + 1}`} className="w-full h-full object-cover" />
+                    {aiSnapshotUrl === url && (
+                      <div className="absolute top-1 right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center">
+                        <Check className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {/* + Capture Frame card */}
+                <div
+                  onClick={() => setShowFrameCapture(!showFrameCapture)}
+                  className={`aspect-video rounded border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-1 ${
+                    showFrameCapture
+                      ? "border-amber-500 bg-amber-500/[0.05]"
+                      : "border-muted-foreground/30 hover:border-amber-500/50 hover:bg-amber-500/[0.02]"
+                  }`}
+                >
+                  <Camera className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground font-medium">Capture Frame</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Inline frame capture (expands below grid) */}
+            {showFrameCapture && (
+              <div className="p-3 border border-amber-500/10 rounded-lg bg-background/50 space-y-2">
+                <div className="flex items-center gap-3">
+                  <Label className="text-xs whitespace-nowrap">Timestamp (seconds)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={recording.duration || 7200}
+                    value={frameTimestamp}
+                    onChange={(e) => setFrameTimestamp(Number(e.target.value))}
+                    className="w-28"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {formatTimestamp(frameTimestamp)}
+                  </span>
+                  <Button type="button" variant="outline" size="sm" onClick={handleSeekVideo}>
+                    <Play className="w-3 h-3 mr-1" /> Seek
+                  </Button>
+                </div>
+
+                <input
+                  type="range"
+                  min={0}
+                  max={recording.duration || 7200}
+                  value={frameTimestamp}
+                  onChange={(e) => setFrameTimestamp(Number(e.target.value))}
+                  onMouseUp={handleSeekVideo}
+                  onTouchEnd={handleSeekVideo}
+                  className="w-full"
+                />
+
+                <div className="rounded overflow-hidden border bg-black" style={{ maxWidth: 480 }}>
+                  <video
+                    ref={videoRef}
+                    src={recording.r2Url}
+                    crossOrigin="anonymous"
+                    preload="metadata"
+                    className="w-full"
+                    onLoadedMetadata={handleSeekVideo}
+                  />
+                </div>
+                <canvas ref={canvasRef} className="hidden" />
+
+                <Button
+                  type="button"
+                  className="bg-amber-600 text-white hover:bg-amber-700"
+                  size="sm"
+                  disabled={capturingFrame}
+                  onClick={handleCaptureFrame}
+                >
+                  {capturingFrame ? (
+                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Capturing...</>
+                  ) : (
+                    <><Camera className="w-4 h-4 mr-1" /> Capture Frame</>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {/* Captured frame chip (if custom frame selected) */}
+            {aiSnapshotUrl && !candidates.includes(aiSnapshotUrl) && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/[0.05] border border-amber-500/20">
+                <img src={aiSnapshotUrl} alt="Custom snapshot" className="h-12 aspect-video object-cover rounded border" />
+                <span className="text-xs text-muted-foreground">Custom captured frame</span>
+                <Button type="button" variant="ghost" size="sm" className="ml-auto h-7 w-7 p-0" onClick={() => setAiSnapshotUrl("")}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            )}
+
+            {/* Title input */}
+            <div className="space-y-1">
+              <Label className="text-xs">Sermon Title (appears on thumbnail)</Label>
+              <Input
+                value={aiTitle}
+                onChange={(e) => setAiTitle(e.target.value)}
+                placeholder="e.g. God Is Good"
+              />
+            </div>
+
+            {/* Generate button OR result preview */}
+            {!generatedPreview ? (
+              <Button
+                type="button"
+                className="bg-amber-600 text-white hover:bg-amber-700"
+                size="sm"
+                disabled={aiGenerating || !aiSnapshotUrl || !aiTitle}
+                onClick={handleGenerateServiceOverlay}
+              >
+                {aiGenerating ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~30s)...</>
+                ) : (
+                  <><Wand2 className="w-4 h-4 mr-1" /> Generate Thumbnail</>
+                )}
+              </Button>
+            ) : (
+              renderAiPreview()
+            )}
+          </div>
+        )}
+
+        {/* Mode 3: Title + Colored Background */}
+        {thumbnailMode === 'title-background' && (
+          <div className="p-4 border border-emerald-500/20 rounded-xl bg-emerald-500/[0.03] space-y-3">
+            <p className="text-sm font-semibold flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                <Palette className="w-3.5 h-3.5 text-emerald-500" />
+              </span>
+              Title + Colored Background
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Generate a vibrant, colorful background with your title centered — no snapshot needed.
             </p>
 
             <div className="space-y-1">
@@ -1164,15 +1357,15 @@ function RecordingEditRow({
             {!generatedPreview ? (
               <Button
                 type="button"
-                className="bg-amber-600 text-white hover:bg-amber-700"
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
                 size="sm"
                 disabled={aiGenerating || !aiTitle}
-                onClick={handleGenerateAiTitle}
+                onClick={handleGenerateTitleBackground}
               >
                 {aiGenerating ? (
                   <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~30s)...</>
                 ) : (
-                  <><Wand2 className="w-4 h-4 mr-1" /> Generate Title Card</>
+                  <><Palette className="w-4 h-4 mr-1" /> Generate Thumbnail</>
                 )}
               </Button>
             ) : (
@@ -1181,7 +1374,7 @@ function RecordingEditRow({
           </div>
         )}
 
-        {/* Mode 3: Manual Select */}
+        {/* Mode 4: Manual Select */}
         {thumbnailMode === 'manual' && (
           <div className="p-4 border border-blue-500/20 rounded-xl bg-blue-500/[0.03] space-y-3">
             <p className="text-sm font-semibold flex items-center gap-2">

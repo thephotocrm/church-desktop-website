@@ -7,26 +7,26 @@ const THUMB_HEIGHT = 720;
 
 const STYLE_REF_INSTRUCTION = `The additional images are style reference thumbnails from a professional church. Match their visual style closely — color grading, text treatment, layout, lighting, cinematic feel. Do NOT copy their text or subjects.`;
 
-function buildEditPrompt(title: string, hasStyleReferences: boolean): string {
-  let prompt = `Transform this into a professional YouTube thumbnail for a church sermon titled "${title}". If a person is visible in the image, keep them clearly visible and prominent on the right side — do NOT alter their appearance. If no person is visible, do not add or fabricate any person. Replace the background with a dramatic, cinematic design — dark tones with golden light accents, spiritual atmosphere. Add large bold text "${title}" on the left side. Professional church media style.`;
+function buildPastorTitlePrompt(title: string, hasStyleReferences: boolean): string {
+  let prompt = `Transform this into a professional YouTube thumbnail for a church sermon titled "${title}". The image contains a person (pastor/speaker) — keep them clearly visible and prominent on the right side. Do NOT alter their face or appearance. COMPLETELY REPLACE the background — remove the original background entirely and replace it with a vibrant, colorful, eye-catching design. Use bold saturated colors (deep blues, rich purples, warm oranges, electric teals) with abstract shapes, gradients, light rays, or bokeh effects. The background should be visually striking and modern — NOT dark or muted. Add large bold text "${title}" on the left side in a clean, modern sans-serif font. The text should be white or bright and highly readable against the colorful background. Professional church media / YouTube thumbnail style, 16:9 aspect ratio.`;
   if (hasStyleReferences) {
     prompt += ` ${STYLE_REF_INSTRUCTION}`;
   }
   return prompt;
 }
 
-function buildGeneratePrompt(title: string): string {
-  return `Create a professional YouTube thumbnail for a church sermon titled "${title}". Use a dramatic, cinematic design — dark tones with golden light accents, spiritual atmosphere. Add large bold text "${title}" prominently. Do not include any people. Professional church media style, 16:9 aspect ratio.`;
+function buildServiceOverlayPrompt(title: string): string {
+  return `Transform this image into a professional YouTube thumbnail for a church sermon titled "${title}". Use the provided image as a background scene — apply a subtle darkening overlay or color grade to make it serve as a cinematic backdrop. Do NOT preserve or highlight any specific person. Place large, bold, CENTERED text "${title}" prominently in the middle of the thumbnail. The text should be the dominant visual element — large, white or bright, with a clean modern sans-serif font. Add a slight text shadow or glow to ensure readability over the background image. The result should look like a professional YouTube thumbnail with the service scene creating atmosphere behind the title text. 16:9 aspect ratio.`;
 }
 
-function buildTitleOnlyEditPrompt(title: string): string {
-  return `Create a professional YouTube thumbnail for a church sermon titled "${title}". Use a dramatic, cinematic design — dark tones with golden light accents, spiritual atmosphere. Add large bold text "${title}" prominently. Do not include any people. Professional church media style, 16:9 aspect ratio. ${STYLE_REF_INSTRUCTION}`;
+function buildTitleColoredBgPrompt(title: string): string {
+  return `Create a professional YouTube thumbnail for a church sermon titled "${title}". Use a vibrant, colorful, eye-catching background design — bold saturated colors (deep blues, rich purples, warm oranges, electric teals) with abstract shapes, gradients, light rays, or bokeh effects. The background should be visually striking and modern. Place large, bold, CENTERED text "${title}" prominently in the middle. The text should be the dominant visual element — large, white or bright, clean modern sans-serif font. Do NOT include any people or human figures. Professional church media / YouTube thumbnail style, 16:9 aspect ratio.`;
 }
 
 /** Fetch up to `maxCount` random active style reference images as File objects */
-async function getStyleReferenceFiles(maxCount = 4): Promise<File[]> {
+async function getStyleReferenceFiles(category = "pastor-title", maxCount = 4): Promise<File[]> {
   try {
-    const refs = await storage.getActiveStyleReferences();
+    const refs = await storage.getActiveStyleReferences(category);
     if (refs.length === 0) return [];
 
     // Randomly select up to maxCount
@@ -78,11 +78,11 @@ async function decodeAndResize(response: { data?: Array<{ b64_json?: string; url
 }
 
 /**
- * Generate an AI thumbnail using an existing snapshot (preserves any visible person).
- * Uses openai.images.edit() with the snapshot as the source image.
- * Passes style reference images when available.
+ * Mode 1: Pastor + Title — snapshot of pastor → colorful background with title.
+ * Uses images.edit() with snapshot + style refs (category "pastor-title").
+ * Only mode that uses style references.
  */
-export async function generatePastorThumbnail(
+export async function generatePastorTitle(
   snapshotBuffer: Buffer,
   title: string
 ): Promise<Buffer> {
@@ -96,7 +96,7 @@ export async function generatePastorThumbnail(
   const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
   const snapshotFile = new File([snapshotPng], "snapshot.png", { type: "image/png" });
 
-  const refFiles = await getStyleReferenceFiles(4);
+  const refFiles = await getStyleReferenceFiles("pastor-title", 4);
   const hasRefs = refFiles.length > 0;
 
   const imageInput: File[] = [snapshotFile, ...refFiles];
@@ -104,7 +104,7 @@ export async function generatePastorThumbnail(
   const response = await openai.images.edit({
     model: "gpt-image-1",
     image: imageInput as any,
-    prompt: buildEditPrompt(title, hasRefs),
+    prompt: buildPastorTitlePrompt(title, hasRefs),
     size: "1536x1024",
     ...(hasRefs ? { input_fidelity: "high" } : {}),
   } as any);
@@ -113,11 +113,11 @@ export async function generatePastorThumbnail(
 }
 
 /**
- * Generate a title-only AI thumbnail (no person).
- * If style references are available, uses images.edit() with references.
- * Otherwise falls back to images.generate().
+ * Mode 2: Title + Service Overlay — snapshot as backdrop with big centered title.
+ * Uses images.edit() with snapshot only (no style refs).
  */
-export async function generateTitleOnlyThumbnail(
+export async function generateServiceOverlay(
+  snapshotBuffer: Buffer,
   title: string
 ): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -127,25 +127,36 @@ export async function generateTitleOnlyThumbnail(
 
   const openai = new OpenAI({ apiKey });
 
-  const refFiles = await getStyleReferenceFiles(4);
+  const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
+  const snapshotFile = new File([snapshotPng], "snapshot.png", { type: "image/png" });
 
-  if (refFiles.length > 0) {
-    // Use images.edit() with style references so the AI can see the style
-    const response = await openai.images.edit({
-      model: "gpt-image-1",
-      image: refFiles as any,
-      prompt: buildTitleOnlyEditPrompt(title),
-      size: "1536x1024",
-      input_fidelity: "high",
-    } as any);
+  const response = await openai.images.edit({
+    model: "gpt-image-1",
+    image: [snapshotFile] as any,
+    prompt: buildServiceOverlayPrompt(title),
+    size: "1536x1024",
+  } as any);
 
-    return decodeAndResize(response);
+  return decodeAndResize(response);
+}
+
+/**
+ * Mode 3: Title + Colored Background — AI generates vibrant background with centered title.
+ * Uses images.generate() only (no snapshot, no style refs).
+ */
+export async function generateTitleColoredBg(
+  title: string
+): Promise<Buffer> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not set");
   }
 
-  // Fallback: no references available, use images.generate()
+  const openai = new OpenAI({ apiKey });
+
   const response = await openai.images.generate({
     model: "gpt-image-1",
-    prompt: buildGeneratePrompt(title),
+    prompt: buildTitleColoredBgPrompt(title),
     size: "1536x1024",
   });
 

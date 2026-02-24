@@ -397,6 +397,7 @@ export const styleReferences = pgTable("style_references", {
   r2Url: text("r2_url").notNull(),
   label: text("label"),
   isActive: boolean("is_active").default(true),
+  category: text("category").default("pastor-title"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

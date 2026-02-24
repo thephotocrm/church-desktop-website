@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { uploadBuffer } from "../r2";
-import { generatePastorThumbnail, generateTitleOnlyThumbnail } from "../thumbnailGenerator";
+import { generatePastorTitle, generateServiceOverlay, generateTitleColoredBg } from "../thumbnailGenerator";
 
 const router = Router();
 
@@ -117,6 +117,7 @@ router.post("/admin/upload-thumbnail", requireAuth, (req, res, next) => {
 
 // POST /api/recordings/admin/generate-thumbnail — admin: AI-generated YouTube-style thumbnail
 const generateThumbnailSchema = z.object({
+  mode: z.enum(["pastor-title", "service-overlay", "title-background"]),
   snapshotUrl: z.string().url().nullable().optional(),
   title: z.string().min(1),
 });
@@ -128,25 +129,42 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
   }
 
   try {
-    const { snapshotUrl, title } = parsed.data;
+    const { mode, snapshotUrl, title } = parsed.data;
 
     let thumbnailBuffer: Buffer;
 
-    if (snapshotUrl) {
-      // AI + Pastor mode: download snapshot and edit it
-      const response = await fetch(snapshotUrl);
-      if (!response.ok) {
-        return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
+    switch (mode) {
+      case "pastor-title": {
+        if (!snapshotUrl) {
+          return res.status(400).json({ error: "Snapshot URL is required for pastor-title mode" });
+        }
+        const response = await fetch(snapshotUrl);
+        if (!response.ok) {
+          return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
+        }
+        const snapshotBuffer = Buffer.from(await response.arrayBuffer());
+        console.log(`[Admin] Generating pastor-title thumbnail for: "${title}"`);
+        thumbnailBuffer = await generatePastorTitle(snapshotBuffer, title);
+        break;
       }
-      const arrayBuf = await response.arrayBuffer();
-      const snapshotBuffer = Buffer.from(arrayBuf);
-
-      console.log(`[Admin] Generating AI pastor thumbnail for: "${title}"`);
-      thumbnailBuffer = await generatePastorThumbnail(snapshotBuffer, title);
-    } else {
-      // AI Title Card mode: generate from scratch
-      console.log(`[Admin] Generating AI title-only thumbnail for: "${title}"`);
-      thumbnailBuffer = await generateTitleOnlyThumbnail(title);
+      case "service-overlay": {
+        if (!snapshotUrl) {
+          return res.status(400).json({ error: "Snapshot URL is required for service-overlay mode" });
+        }
+        const response = await fetch(snapshotUrl);
+        if (!response.ok) {
+          return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
+        }
+        const snapshotBuffer = Buffer.from(await response.arrayBuffer());
+        console.log(`[Admin] Generating service-overlay thumbnail for: "${title}"`);
+        thumbnailBuffer = await generateServiceOverlay(snapshotBuffer, title);
+        break;
+      }
+      case "title-background": {
+        console.log(`[Admin] Generating title-background thumbnail for: "${title}"`);
+        thumbnailBuffer = await generateTitleColoredBg(title);
+        break;
+      }
     }
 
     // Upload to R2
@@ -171,7 +189,7 @@ router.post("/admin/import-style-references", requireAuth, async (req, res) => {
     "Ap-SCgWbKtI", "8wFEr-jtwDI", "2OxoBLOQyrc", "DtZDArENC8k", "f6S3Mml9kFo",
   ];
 
-  let imported = 0, skipped = 0, failed = 0;
+  let imported = 0, skipped = 0, failed = 0, shorts = 0;
 
   // Get existing references to skip duplicates
   const existing = await storage.getAllStyleReferences();
@@ -184,6 +202,30 @@ router.post("/admin/import-style-references", requireAuth, async (req, res) => {
     }
 
     try {
+      // Check oEmbed to filter out shorts/vertical videos
+      let videoLabel = `Elevation Church - ${videoId}`;
+      try {
+        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+        if (!oembedRes.ok) {
+          console.warn(`[StyleRef] oEmbed failed for ${videoId} (${oembedRes.status}), skipping`);
+          shorts++;
+          continue;
+        }
+        const oembed = await oembedRes.json() as { width?: number; height?: number; title?: string };
+        if (oembed.height && oembed.width && oembed.height > oembed.width) {
+          console.log(`[StyleRef] Skipping short/vertical video ${videoId}`);
+          shorts++;
+          continue;
+        }
+        if (oembed.title) {
+          videoLabel = oembed.title;
+        }
+      } catch {
+        console.warn(`[StyleRef] oEmbed error for ${videoId}, skipping`);
+        shorts++;
+        continue;
+      }
+
       // Try maxresdefault first, fall back to sddefault
       let imgUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       let imgRes = await fetch(imgUrl);
@@ -208,20 +250,21 @@ router.post("/admin/import-style-references", requireAuth, async (req, res) => {
         sourceVideoId: videoId,
         r2Key,
         r2Url,
-        label: `Elevation Church - ${videoId}`,
+        label: videoLabel,
         isActive: true,
+        category: "pastor-title",
       });
 
       imported++;
-      console.log(`[StyleRef] Imported ${videoId}`);
+      console.log(`[StyleRef] Imported ${videoId}: ${videoLabel}`);
     } catch (err) {
       console.error(`[StyleRef] Error importing ${videoId}:`, err);
       failed++;
     }
   }
 
-  console.log(`[StyleRef] Import complete: ${imported} imported, ${skipped} skipped, ${failed} failed`);
-  res.json({ imported, skipped, failed });
+  console.log(`[StyleRef] Import complete: ${imported} imported, ${skipped} skipped, ${shorts} shorts filtered, ${failed} failed`);
+  res.json({ imported, skipped, failed, shorts });
 });
 
 // GET /api/recordings/admin/style-references — list all style references

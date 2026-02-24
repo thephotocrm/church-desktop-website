@@ -24,7 +24,9 @@
       "Bash(find /home/runner/workspace/server -name \"*upload*\" -o -name \"*file*\" 2>/dev/null | head -20)",
       "Bash(npx vite build 2>&1 | tail -20)",
       "Bash(npx vite build 2>&1 | tail -10)",
-      "Bash(npx vite build 2>&1)"
+      "Bash(npx vite build 2>&1)",
+      "WebSearch",
+      "WebFetch(domain:www.elevationchurch.org)"
     ]
   }
 }
