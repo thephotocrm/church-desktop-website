@@ -170,81 +170,98 @@ export default function Admin() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background font-body">
       {/* Header */}
-      <div className="border-b bg-card">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <div className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md shadow-sm">
+        <div className="h-1 w-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Settings className="w-6 h-6 text-gold" />
-            <h1 className="text-xl font-bold">Admin Dashboard</h1>
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow-md">
+              <Settings className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold leading-tight">Admin Dashboard</h1>
+              <p className="text-xs text-muted-foreground leading-tight">Manage your church platform</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
-              Logged in as <strong>{user.username}</strong>
-            </span>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-muted-foreground">{user.username}</span>
+            </div>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
+              className="text-muted-foreground hover:text-foreground"
               onClick={() => logout.mutate()}
               disabled={logout.isPending}
             >
-              <LogOut className="w-4 h-4 mr-1" />
+              <LogOut className="w-4 h-4 mr-1.5" />
               Logout
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Tabs defaultValue="stream">
-          <TabsList className="grid w-full grid-cols-8 mb-8">
-            <TabsTrigger value="stream"><Video className="w-4 h-4 mr-1" />Stream</TabsTrigger>
-            <TabsTrigger value="recordings"><Film className="w-4 h-4 mr-1" />Recordings</TabsTrigger>
-            <TabsTrigger value="restream"><Cast className="w-4 h-4 mr-1" />Restream</TabsTrigger>
-            <TabsTrigger value="members"><Users className="w-4 h-4 mr-1" />Members</TabsTrigger>
-            <TabsTrigger value="events"><Calendar className="w-4 h-4 mr-1" />Events</TabsTrigger>
-            <TabsTrigger value="prayer"><HandHeart className="w-4 h-4 mr-1" />Prayer</TabsTrigger>
-            <TabsTrigger value="giving"><DollarSign className="w-4 h-4 mr-1" />Giving</TabsTrigger>
-            <TabsTrigger value="groups"><Church className="w-4 h-4 mr-1" />Groups</TabsTrigger>
+          <TabsList className="flex w-full gap-1 overflow-x-auto mb-8 p-1 bg-muted/50 rounded-xl">
+            <TabsTrigger value="stream" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Video className="w-4 h-4" />Stream</TabsTrigger>
+            <TabsTrigger value="recordings" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Film className="w-4 h-4" />Recordings</TabsTrigger>
+            <TabsTrigger value="restream" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Cast className="w-4 h-4" />Restream</TabsTrigger>
+            <TabsTrigger value="members" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Users className="w-4 h-4" />Members</TabsTrigger>
+            <TabsTrigger value="events" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Calendar className="w-4 h-4" />Events</TabsTrigger>
+            <TabsTrigger value="prayer" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><HandHeart className="w-4 h-4" />Prayer</TabsTrigger>
+            <TabsTrigger value="giving" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><DollarSign className="w-4 h-4" />Giving</TabsTrigger>
+            <TabsTrigger value="groups" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Church className="w-4 h-4" />Groups</TabsTrigger>
           </TabsList>
 
           {/* Stream Tab */}
           <TabsContent value="stream">
-            <Card>
-              <CardHeader>
+            <Card className="shadow-md border-0 ring-1 ring-border/50">
+              <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Video className="w-5 h-5 text-gold" />
-                    <CardTitle>Live Stream</CardTitle>
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Video className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">Live Stream</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-0.5">Configure your stream settings</p>
+                    </div>
                   </div>
                   {streamStatus?.isLive ? (
-                    <Badge className="bg-red-600 text-white border-red-600">
-                      <Radio className="w-3 h-3 mr-1 animate-pulse" />
+                    <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20 gap-1.5 px-3">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                       Live
                     </Badge>
                   ) : (
-                    <Badge variant="secondary">Offline</Badge>
+                    <Badge variant="secondary" className="gap-1.5 px-3">
+                      <span className="w-2 h-2 rounded-full bg-gray-400" />
+                      Offline
+                    </Badge>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="mb-4 p-3 rounded-md bg-muted text-sm text-muted-foreground">
+                <div className="mb-6 p-3 rounded-lg bg-muted/50 border border-border/50 text-sm text-muted-foreground flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-muted-foreground/60 flex-shrink-0" />
                   Stream status is auto-detected from your MediaMTX server.
                 </div>
-                <form onSubmit={handleSave} className="space-y-4">
+                <form onSubmit={handleSave} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="stream-title">Stream Title</Label>
-                    <Input id="stream-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                    <Label htmlFor="stream-title" className="text-sm font-medium">Stream Title</Label>
+                    <Input id="stream-title" value={title} onChange={(e) => setTitle(e.target.value)} className="h-10" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="stream-description">Description</Label>
+                    <Label htmlFor="stream-description" className="text-sm font-medium">Description</Label>
                     <Textarea id="stream-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="stream-thumbnail">Thumbnail URL</Label>
-                    <Input id="stream-thumbnail" value={thumbnailUrl} onChange={(e) => setThumbnailUrl(e.target.value)} />
+                    <Label htmlFor="stream-thumbnail" className="text-sm font-medium">Thumbnail URL</Label>
+                    <Input id="stream-thumbnail" value={thumbnailUrl} onChange={(e) => setThumbnailUrl(e.target.value)} className="h-10" />
                   </div>
-                  <Button type="submit" className="bg-gold text-white border-gold" disabled={updateConfig.isPending}>
+                  <Button type="submit" className="bg-gradient-to-r from-amber-500 to-yellow-500 text-white border-0 shadow-sm hover:shadow-md transition-all" disabled={updateConfig.isPending}>
                     <Save className="w-4 h-4 mr-2" />
                     {updateConfig.isPending ? "Saving..." : "Save Settings"}
                   </Button>

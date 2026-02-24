@@ -3,11 +3,29 @@ import sharp from "sharp";
 
 const THUMB_WIDTH = 1280;
 const THUMB_HEIGHT = 720;
+const BLANK_BRIGHTNESS_THRESHOLD = 15;
+
+/** Check if an image is blank/dark by examining average brightness across all channels. */
+async function isBlankImage(buffer: Buffer): Promise<boolean> {
+  const { channels } = await sharp(buffer).stats();
+  const meanBrightness =
+    channels.reduce((sum, ch) => sum + ch.mean, 0) / channels.length;
+  return meanBrightness < BLANK_BRIGHTNESS_THRESHOLD;
+}
+
+function buildEditPrompt(title: string): string {
+  return `Transform this into a professional YouTube thumbnail for a church sermon titled "${title}". If a person is visible in the image, keep them clearly visible and prominent on the right side — do NOT alter their appearance. If no person is visible, do not add or fabricate any person. Replace the background with a dramatic, cinematic design — dark tones with golden light accents, spiritual atmosphere. Add large bold text "${title}" on the left side. Professional church media style.`;
+}
+
+function buildGeneratePrompt(title: string): string {
+  return `Create a professional YouTube thumbnail for a church sermon titled "${title}". Use a dramatic, cinematic design — dark tones with golden light accents, spiritual atmosphere. Add large bold text "${title}" prominently. Do not include any people. Professional church media style, 16:9 aspect ratio.`;
+}
 
 /**
  * Generate a unique AI-designed YouTube-style thumbnail using OpenAI gpt-image-1.
- * Sends the pastor snapshot as input and prompts the model to redesign the background
- * creatively while keeping the person visible and adding the sermon title as text.
+ * Detects blank/dark snapshots and branches accordingly:
+ * - Blank image → generates a title-only thumbnail (no fabricated person)
+ * - Image with content → edits the snapshot, preserving any visible person
  */
 export async function generateThumbnail(
   snapshotBuffer: Buffer,
@@ -20,16 +38,27 @@ export async function generateThumbnail(
 
   const openai = new OpenAI({ apiKey });
 
-  // Convert snapshot buffer to a File object for the API
-  const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
-  const file = new File([snapshotPng], "snapshot.png", { type: "image/png" });
+  let response;
 
-  const response = await openai.images.edit({
-    model: "gpt-image-1",
-    image: file,
-    prompt: `Transform this into a professional YouTube thumbnail for a church sermon titled "${title}". Keep the person clearly visible on the right side. Replace the background with a dramatic, cinematic design — dark tones with golden light accents, spiritual atmosphere. Add large bold text "${title}" on the left side. Professional church media style.`,
-    size: "1536x1024",
-  });
+  if (await isBlankImage(snapshotBuffer)) {
+    // Blank/dark image — generate from scratch without any person
+    response = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt: buildGeneratePrompt(title),
+      size: "1536x1024",
+    });
+  } else {
+    // Image has content — edit it, preserving any visible person
+    const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
+    const file = new File([snapshotPng], "snapshot.png", { type: "image/png" });
+
+    response = await openai.images.edit({
+      model: "gpt-image-1",
+      image: file,
+      prompt: buildEditPrompt(title),
+      size: "1536x1024",
+    });
+  }
 
   // Get result image data (base64)
   const imageData = response.data?.[0];
