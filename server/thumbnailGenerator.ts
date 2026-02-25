@@ -306,7 +306,8 @@ export async function generatePastorTitle(
   // Remove background to isolate the person
   console.log(`[ThumbnailGen] Removing background from snapshot...`);
   const bgRemoveStart = Date.now();
-  const foregroundBlob = await removeBackground(snapshotPng, {
+  const snapshotBlob = new Blob([snapshotPng], { type: "image/png" });
+  const foregroundBlob = await removeBackground(snapshotBlob, {
     output: { format: "image/png", quality: 1 },
   });
   const foregroundBuffer = Buffer.from(await foregroundBlob.arrayBuffer());
