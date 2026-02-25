@@ -6,6 +6,87 @@ import { storage } from "./storage";
 const THUMB_WIDTH = 1280;
 const THUMB_HEIGHT = 720;
 
+// --- Layout analysis types for pastor-title mode ---
+
+type SubjectZone = "LEFT_HERO" | "RIGHT_HERO" | "CENTER_STAGE";
+
+interface LayoutInfo {
+  bbox: { x1: number; y1: number; x2: number; y2: number }; // normalized 0-1
+  centroid: { cx: number; cy: number }; // normalized 0-1
+  zone: SubjectZone;
+  subjectWidthPct: number; // 0-1
+  textZone: {
+    side: "right" | "left" | "top_bottom";
+    from: number; // normalized x or y start
+    to: number;   // normalized x or y end
+  };
+}
+
+function analyzeMask(maskGray: Buffer, width: number, height: number): LayoutInfo {
+  let minX = width, maxX = 0, minY = height, maxY = 0;
+  let sumX = 0, sumY = 0, count = 0;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (maskGray[y * width + x] >= 128) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        sumX += x;
+        sumY += y;
+        count++;
+      }
+    }
+  }
+
+  // Fallback if mask is empty
+  if (count === 0) {
+    return {
+      bbox: { x1: 0.3, y1: 0.1, x2: 0.7, y2: 0.9 },
+      centroid: { cx: 0.5, cy: 0.5 },
+      zone: "CENTER_STAGE",
+      subjectWidthPct: 0.4,
+      textZone: { side: "top_bottom", from: 0, to: 1 },
+    };
+  }
+
+  const bbox = {
+    x1: minX / width,
+    y1: minY / height,
+    x2: maxX / width,
+    y2: maxY / height,
+  };
+  const centroid = {
+    cx: sumX / count / width,
+    cy: sumY / count / height,
+  };
+  const subjectWidthPct = bbox.x2 - bbox.x1;
+
+  let zone: SubjectZone;
+  if (subjectWidthPct > 0.55) {
+    zone = "CENTER_STAGE";
+  } else if (centroid.cx < 0.45) {
+    zone = "LEFT_HERO";
+  } else if (centroid.cx > 0.55) {
+    zone = "RIGHT_HERO";
+  } else {
+    zone = "CENTER_STAGE";
+  }
+
+  const PADDING = 0.05;
+  let textZone: LayoutInfo["textZone"];
+  if (zone === "LEFT_HERO") {
+    textZone = { side: "right", from: bbox.x2 + PADDING, to: 1.0 };
+  } else if (zone === "RIGHT_HERO") {
+    textZone = { side: "left", from: 0.0, to: bbox.x1 - PADDING };
+  } else {
+    textZone = { side: "top_bottom", from: 0.0, to: 1.0 };
+  }
+
+  return { bbox, centroid, zone, subjectWidthPct, textZone };
+}
+
 // --- Variety pools for Title + Colored Background mode ---
 
 const COLOR_PALETTES = [
@@ -88,14 +169,34 @@ const BG_DESIGN_ELEMENTS = [
   "soft cloud-like shapes and ethereal wisps of color blending organically",
 ];
 
-const BG_COMPOSITIONS = [
-  "radial glow centered behind the person, brightest near their silhouette and fading outward",
-  "diagonal gradient sweeping from bottom-left to top-right with bold color transitions",
-  "split-tone background — darker on one side, brighter on the other, creating contrast",
-  "vignette with vivid color in the center fading to deep dark edges",
-  "horizontal layered bands of color with soft blending between them",
-  "asymmetric color blocks with organic flowing boundaries between zones",
+const COMPOSITIONS_LEFT_HERO = [
+  "radial glow on the left side behind the person, fading to darker tones on the right",
+  "spotlight beam coming from the upper-left illuminating the left portion, right side in shadow",
+  "gradient flowing from bright warm tones on the left to deep cool tones on the right",
+  "volumetric light rays emanating from behind the person on the left, dissipating rightward",
 ];
+
+const COMPOSITIONS_RIGHT_HERO = [
+  "radial glow on the right side behind the person, fading to darker tones on the left",
+  "spotlight beam coming from the upper-right illuminating the right portion, left side in shadow",
+  "gradient flowing from deep cool tones on the left to bright warm tones on the right",
+  "volumetric light rays emanating from behind the person on the right, dissipating leftward",
+];
+
+const COMPOSITIONS_CENTER_STAGE = [
+  "centered radial glow behind the person, brightest at center fading to dark edges",
+  "symmetric vignette with vivid color in the center fading equally to deep dark edges",
+  "stage lighting from below and above, illuminating center with dramatic falloff to sides",
+  "concentric rings of light centered on the person, alternating bright and subtle dark bands",
+];
+
+function getCompositionsForZone(zone: SubjectZone): string[] {
+  switch (zone) {
+    case "LEFT_HERO": return COMPOSITIONS_LEFT_HERO;
+    case "RIGHT_HERO": return COMPOSITIONS_RIGHT_HERO;
+    case "CENTER_STAGE": return COMPOSITIONS_CENTER_STAGE;
+  }
+}
 
 const TITLE_TREATMENTS = [
   "white bold text with a strong dark drop shadow for maximum contrast",
@@ -112,12 +213,13 @@ const TITLE_TREATMENTS = [
 const recentPastorCombos: Array<[number, number, number, number]> = [];
 const PASTOR_HISTORY_SIZE = 12;
 
-function pickDiversePastorCombo(): { palette: number; element: number; composition: number; treatment: number } {
+function pickDiversePastorCombo(zone: SubjectZone): { palette: number; element: number; composition: number; treatment: number } {
+  const compositions = getCompositionsForZone(zone);
   for (let i = 0; i < 20; i++) {
     const c = {
       palette: Math.floor(Math.random() * BG_COLOR_PALETTES.length),
       element: Math.floor(Math.random() * BG_DESIGN_ELEMENTS.length),
-      composition: Math.floor(Math.random() * BG_COMPOSITIONS.length),
+      composition: Math.floor(Math.random() * compositions.length),
       treatment: Math.floor(Math.random() * TITLE_TREATMENTS.length),
     };
     const tooSimilar = recentPastorCombos.some(([p, e, co, t]) => {
@@ -137,7 +239,7 @@ function pickDiversePastorCombo(): { palette: number; element: number; compositi
   const f = {
     palette: Math.floor(Math.random() * BG_COLOR_PALETTES.length),
     element: Math.floor(Math.random() * BG_DESIGN_ELEMENTS.length),
-    composition: Math.floor(Math.random() * BG_COMPOSITIONS.length),
+    composition: Math.floor(Math.random() * compositions.length),
     treatment: Math.floor(Math.random() * TITLE_TREATMENTS.length),
   };
   recentPastorCombos.push([f.palette, f.element, f.composition, f.treatment]);
@@ -183,21 +285,98 @@ function pickDiverseCombo(): { palette: number; element: number; composition: nu
   return f;
 }
 
-function buildPastorTitlePrompt(title: string): { prompt: string; combo: { palette: number; element: number; composition: number; treatment: number } } {
-  const combo = pickDiversePastorCombo();
+function buildPastorTitlePrompt(title: string, layoutInfo: LayoutInfo): { prompt: string; combo: { palette: number; element: number; composition: number; treatment: number } } {
+  const combo = pickDiversePastorCombo(layoutInfo.zone);
+  const compositions = getCompositionsForZone(layoutInfo.zone);
   const palette = BG_COLOR_PALETTES[combo.palette];
   const element = BG_DESIGN_ELEMENTS[combo.element];
-  const composition = BG_COMPOSITIONS[combo.composition];
+  const composition = compositions[combo.composition];
   const treatment = TITLE_TREATMENTS[combo.treatment];
+
+  const subjectLeftPct = Math.round(layoutInfo.bbox.x1 * 100);
+  const subjectRightPct = Math.round(layoutInfo.bbox.x2 * 100);
+  const textFromPct = Math.round(layoutInfo.textZone.from * 100);
+  const textToPct = Math.round(layoutInfo.textZone.to * 100);
+
+  let layoutSection: string[];
+  let textSection: string[];
+  let depthSection: string[];
+
+  if (layoutInfo.zone === "LEFT_HERO") {
+    layoutSection = [
+      `LAYOUT: Left Hero Composition`,
+      `- The person is positioned in the left ~${subjectRightPct}% of the frame.`,
+      `- The right ${100 - subjectRightPct}% is the TEXT ZONE — darken this area for text contrast.`,
+      `- Create a soft radial glow behind the person on the left side.`,
+      `- Gradient: lighter left (behind person), darker toward right.`,
+    ];
+    textSection = [
+      `TEXT PLACEMENT:`,
+      `- Place title "${title}" in the RIGHT portion (text zone, right ${textToPct - textFromPct}%)`,
+      `- Style: ${treatment}`,
+      `- Text MUST NOT extend into the left ${subjectRightPct}% where the person is`,
+    ];
+    depthSection = [
+      `DEPTH & POLISH:`,
+      `- Atmospheric separation between person zone and background`,
+      `- Vignette darkening edges, heavier on the right side`,
+      `- Composition should feel designed around the person's left-side position`,
+    ];
+  } else if (layoutInfo.zone === "RIGHT_HERO") {
+    layoutSection = [
+      `LAYOUT: Right Hero Composition`,
+      `- The person is positioned in the right ~${100 - subjectLeftPct}% of the frame.`,
+      `- The left ${subjectLeftPct}% is the TEXT ZONE — darken this area for text contrast.`,
+      `- Create a soft radial glow behind the person on the right side.`,
+      `- Gradient: lighter right (behind person), darker toward left.`,
+    ];
+    textSection = [
+      `TEXT PLACEMENT:`,
+      `- Place title "${title}" in the LEFT portion (text zone, left ${textToPct - textFromPct}%)`,
+      `- Style: ${treatment}`,
+      `- Text MUST NOT extend into the right ${100 - subjectLeftPct}% where the person is`,
+    ];
+    depthSection = [
+      `DEPTH & POLISH:`,
+      `- Atmospheric separation between person zone and background`,
+      `- Vignette darkening edges, heavier on the left side`,
+      `- Composition should feel designed around the person's right-side position`,
+    ];
+  } else {
+    layoutSection = [
+      `LAYOUT: Center Stage Composition`,
+      `- The person is centered in the frame (roughly ${subjectLeftPct}% to ${subjectRightPct}% horizontally).`,
+      `- Text zones are ABOVE and BELOW the person.`,
+      `- Create a centered radial glow behind the person.`,
+      `- Symmetric lighting — darker at top and bottom edges for text contrast.`,
+    ];
+    textSection = [
+      `TEXT PLACEMENT:`,
+      `- Place title "${title}" ABOVE or BELOW the person (not overlapping)`,
+      `- Style: ${treatment}`,
+      `- Text MUST NOT overlap the centered person area`,
+    ];
+    depthSection = [
+      `DEPTH & POLISH:`,
+      `- Atmospheric separation between person and background`,
+      `- Symmetric vignette darkening all edges equally`,
+      `- Composition should feel like professional stage lighting centered on the person`,
+    ];
+  }
 
   const sections = [
     `Replace the background with a vibrant YouTube thumbnail background for a church sermon titled "${title}".`,
     ``,
-    `BACKGROUND DESIGN:`,
-    `Color palette: ${palette}. Effect: ${element}. Layout: ${composition}.`,
+    ...layoutSection,
     ``,
-    `TEXT PLACEMENT:`,
-    `Add large bold title text "${title}" prominently in the thumbnail. Style: ${treatment}. Text must be clearly readable and not overlap the person.`,
+    `BACKGROUND DESIGN:`,
+    `- Color palette: ${palette}`,
+    `- Effect: ${element} — concentrated in the text zone for energy`,
+    `- Light flow: ${composition}`,
+    ``,
+    ...textSection,
+    ``,
+    ...depthSection,
     ``,
     `The person in the image must remain exactly as they are — do not alter, redraw, or distort them in any way.`,
     `Professional church media style. 16:9 aspect ratio.`,
@@ -284,6 +463,45 @@ async function decodeAndResize(response: { data?: Array<{ b64_json?: string; url
     .toBuffer();
 }
 
+/** Generate a radial vignette overlay as a multiply-blend layer */
+async function createVignetteOverlay(width: number, height: number, layoutInfo: LayoutInfo): Promise<Buffer> {
+  // Work at 1/4 resolution for performance
+  const qw = Math.max(1, Math.round(width / 4));
+  const qh = Math.max(1, Math.round(height / 4));
+
+  // Offset bright center toward subject position
+  let cx: number, cy: number;
+  if (layoutInfo.zone === "LEFT_HERO") {
+    cx = 0.35; cy = 0.5;
+  } else if (layoutInfo.zone === "RIGHT_HERO") {
+    cx = 0.65; cy = 0.5;
+  } else {
+    cx = 0.5; cy = 0.5;
+  }
+
+  const MIN_BRIGHTNESS = 0.3;
+  const buf = Buffer.alloc(qw * qh);
+
+  for (let y = 0; y < qh; y++) {
+    for (let x = 0; x < qw; x++) {
+      const nx = x / qw;
+      const ny = y / qh;
+      const dx = nx - cx;
+      const dy = ny - cy;
+      // Elliptical distance (wider horizontally)
+      const dist = Math.sqrt(dx * dx + dy * dy * 1.5);
+      const brightness = Math.max(MIN_BRIGHTNESS, 1.0 - dist * 1.2);
+      buf[y * qw + x] = Math.round(brightness * 255);
+    }
+  }
+
+  // Resize up to full resolution and blur for smooth gradient
+  return sharp(buf, { raw: { width: qw, height: qh, channels: 1 } })
+    .resize(width, height, { fit: "fill" })
+    .blur(Math.max(1, Math.round(width / 40)))
+    .toBuffer();
+}
+
 /**
  * Mode 1: Pastor + Title — send full snapshot + alpha mask to OpenAI images.edit().
  * The mask tells GPT which pixels to keep (pastor) vs edit (background).
@@ -316,6 +534,10 @@ export async function generatePastorTitle(
     .raw()
     .toBuffer();
 
+  // Analyze mask to determine subject position and layout zone
+  const layoutInfo = analyzeMask(maskResized, snapW, snapH);
+  console.log(`[ThumbnailGen] Layout analysis: zone=${layoutInfo.zone}, centroid=(${layoutInfo.centroid.cx.toFixed(2)}, ${layoutInfo.centroid.cy.toFixed(2)}), subjectWidth=${(layoutInfo.subjectWidthPct * 100).toFixed(1)}%, textZone=${layoutInfo.textZone.side} (${(layoutInfo.textZone.from * 100).toFixed(0)}%-${(layoutInfo.textZone.to * 100).toFixed(0)}%)`);
+
   // Build RGBA mask: opaque where painted (keep), transparent where not (edit)
   const maskRgba = Buffer.alloc(snapW * snapH * 4);
   for (let i = 0; i < snapW * snapH; i++) {
@@ -335,10 +557,11 @@ export async function generatePastorTitle(
   const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
   console.log(`[ThumbnailGen] Converted snapshot PNG: ${snapshotPng.length} bytes`);
 
-  // Send full snapshot + mask to OpenAI images.edit()
-  const { prompt, combo } = buildPastorTitlePrompt(title);
+  // Send full snapshot + mask to OpenAI images.edit() with layout-aware prompt
+  const { prompt, combo } = buildPastorTitlePrompt(title, layoutInfo);
   console.log(`[ThumbnailGen] === PASTOR-TITLE REQUEST ===`);
   console.log(`[ThumbnailGen] Title: "${title}"`);
+  console.log(`[ThumbnailGen] Zone: ${layoutInfo.zone} | Subject: x=${(layoutInfo.bbox.x1 * 100).toFixed(0)}%-${(layoutInfo.bbox.x2 * 100).toFixed(0)}% | Text: ${layoutInfo.textZone.side}`);
   console.log(`[ThumbnailGen] Combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, treatment=${combo.treatment}`);
   console.log(`[ThumbnailGen] FULL PROMPT:\n${prompt}`);
   console.log(`[ThumbnailGen] Calling openai.images.edit() with model=gpt-image-1, size=1536x1024, mask=true`);
@@ -364,7 +587,77 @@ export async function generatePastorTitle(
     console.log(`[ThumbnailGen] Has url: ${!!d.url}`);
   }
 
-  return decodeAndResize(response);
+  // Decode AI result
+  const imageData = response.data?.[0];
+  if (!imageData) throw new Error("No image returned from OpenAI");
+  let aiBuffer: Buffer;
+  if ((imageData as any).b64_json) {
+    aiBuffer = Buffer.from((imageData as any).b64_json, "base64");
+  } else if ((imageData as any).url) {
+    const imgResp = await fetch((imageData as any).url);
+    if (!imgResp.ok) throw new Error(`Failed to fetch generated image: ${imgResp.status}`);
+    aiBuffer = Buffer.from(await imgResp.arrayBuffer());
+  } else {
+    throw new Error("Unexpected response format from OpenAI");
+  }
+
+  // Resize AI result to match original snapshot dimensions
+  const aiResized = await sharp(aiBuffer)
+    .resize(snapW, snapH, { fit: "fill" })
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
+
+  // Build a cutout of the original pastor pixels using the mask
+  // (original snapshot pixels where mask is white, transparent elsewhere)
+  const snapRaw = await sharp(snapshotBuffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
+
+  const pastorCutout = Buffer.alloc(snapW * snapH * 4);
+  for (let i = 0; i < snapW * snapH; i++) {
+    const keep = maskResized[i] >= 128;
+    if (keep) {
+      pastorCutout[i * 4]     = snapRaw[i * 4];
+      pastorCutout[i * 4 + 1] = snapRaw[i * 4 + 1];
+      pastorCutout[i * 4 + 2] = snapRaw[i * 4 + 2];
+      pastorCutout[i * 4 + 3] = 255;
+    }
+    // else stays 0,0,0,0 (transparent)
+  }
+
+  const pastorOverlay = await sharp(pastorCutout, { raw: { width: snapW, height: snapH, channels: 4 } })
+    .png()
+    .toBuffer();
+
+  // Create vignette overlay to reinforce layout (darker edges, bright near subject)
+  const vignetteGray = await createVignetteOverlay(snapW, snapH, layoutInfo);
+  // Convert single-channel vignette to RGBA for multiply blend
+  const vignetteRgba = Buffer.alloc(snapW * snapH * 4);
+  for (let i = 0; i < snapW * snapH; i++) {
+    const v = vignetteGray[i];
+    vignetteRgba[i * 4]     = v;
+    vignetteRgba[i * 4 + 1] = v;
+    vignetteRgba[i * 4 + 2] = v;
+    vignetteRgba[i * 4 + 3] = 255;
+  }
+  const vignettePng = await sharp(vignetteRgba, { raw: { width: snapW, height: snapH, channels: 4 } })
+    .png()
+    .toBuffer();
+
+  // Composite: AI background + vignette (multiply) + original pastor pixels on top
+  console.log(`[ThumbnailGen] Compositing: AI bg + vignette (${layoutInfo.zone}) + pastor overlay`);
+  const composited = await sharp(aiResized, { raw: { width: snapW, height: snapH, channels: 4 } })
+    .composite([
+      { input: vignettePng, blend: "multiply" as any },
+      { input: pastorOverlay, blend: "over" },
+    ])
+    .resize(THUMB_WIDTH, THUMB_HEIGHT, { fit: "cover" })
+    .jpeg({ quality: 90 })
+    .toBuffer();
+
+  return composited;
 }
 
 /**
