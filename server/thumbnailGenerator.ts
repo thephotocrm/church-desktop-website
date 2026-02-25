@@ -348,6 +348,8 @@ export async function generatePastorTitle(
   console.log(`[ThumbnailGen] Background resized to ${THUMB_WIDTH}x${THUMB_HEIGHT}: ${bgBuffer.length} bytes`);
 
   // Step 4: Trim transparent padding from foreground, resize to fit right portion
+  // Constrain to ~40% of frame width and full height, preserving aspect ratio
+  const maxFgWidth = Math.round(THUMB_WIDTH * 0.4);
   const trimmed = await sharp(foregroundBuffer)
     .trim()
     .toBuffer();
@@ -355,7 +357,7 @@ export async function generatePastorTitle(
   console.log(`[ThumbnailGen] Trimmed foreground: ${trimmedMeta.width}x${trimmedMeta.height}`);
 
   const fgResized = await sharp(trimmed)
-    .resize({ height: THUMB_HEIGHT, withoutEnlargement: false })
+    .resize({ width: maxFgWidth, height: THUMB_HEIGHT, fit: "inside", withoutEnlargement: false })
     .png()
     .toBuffer();
   const fgMeta = await sharp(fgResized).metadata();
