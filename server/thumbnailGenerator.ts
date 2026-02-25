@@ -10,38 +10,38 @@ const STYLE_REF_INSTRUCTION = `The additional images are style reference thumbna
 // --- Variety pools for Title + Colored Background mode ---
 
 const COLOR_PALETTES = [
-  "deep navy blue and royal purple with accents of molten gold, like stained glass at night",
-  "warm coral, soft peach, and amber tones fading into pale cream, like a sunrise over still water",
-  "electric teal and cyan with flashes of hot magenta and dark charcoal, high-energy neon atmosphere",
-  "deep emerald green and forest tones contrasted with burnt sienna and ember orange, earthy and alive",
-  "soft lavender, icy periwinkle, and silver-white with subtle rose gold highlights, cool and ethereal",
-  "rich honey gold, deep bronze, and warm mahogany with bursts of sunlit yellow, like late afternoon light",
-  "ultra-deep indigo, dark teal, and black with luminous aquamarine and white light accents, deep sea bioluminescence",
-  "oxidized copper green, warm terracotta, and cool slate gray with cream accents, sophisticated and warm",
-  "deep crimson, burgundy wine, and dark plum with polished gold leaf accents, rich and regal",
-  "ice blue, pale mint, and soft white with streaks of pale pink and warm gray, crisp winter morning light",
+  "warm dusty coral, soft peach, and muted rose blending into warm taupe, like a sun-faded fresco",
+  "soft golden amber, warm honey, and creamy wheat tones with touches of burnt sienna, like late afternoon sunlight on old stone",
+  "muted sage green, warm olive, and dusty cream with hints of soft terracotta, like a Tuscan landscape in soft focus",
+  "dusty mauve, soft plum, and warm blush pink fading into pale champagne, like dried flowers in warm light",
+  "warm cinnamon, rich caramel, and soft sand tones blending into muted clay, like desert earth at golden hour",
+  "soft steel blue, warm dove gray, and pale cream with subtle lavender undertones, like an overcast sky at dawn",
+  "muted teal, warm seafoam, and sandy beige with touches of dusty copper, like weathered coastal patina",
+  "warm burgundy, dusty rose, and soft copper fading into antique cream, like aged leather and velvet",
+  "soft ochre, warm paprika, and muted terra cotta blending into dusty peach, like sun-baked clay tiles",
+  "pale periwinkle, soft lilac, and warm silver with hints of blush, like early morning mist over a garden",
 ];
 
 const DESIGN_ELEMENTS = [
-  "sharp crystalline geometric shapes, overlapping translucent triangles and hexagons with glass-like refraction",
-  "large soft out-of-focus bokeh circles of varying sizes, dreamy and luminous like distant city lights",
-  "smooth undulating silk fabric folds with gentle sheen and soft shadows, flowing and organic",
-  "dramatic volumetric light rays cutting through atmospheric haze, god rays streaming through clouds",
-  "loose watercolor paint washes bleeding and feathering into each other, wet-on-wet artistic texture",
-  "thousands of tiny luminous particles and dust motes suspended in space, constellation-like scatter with depth",
-  "polished marble veining patterns with metallic foil inlay, luxurious natural stone texture with depth",
-  "swirling ink-in-water smoke tendrils, wispy and turbulent vapor trails with sharp and diffused edges",
-  "bold impasto paint strokes with visible texture and thick ridges, expressive brushwork like an abstract oil painting",
-  "subtle perspective grid lines fading into depth with glowing node intersections, clean modern tech aesthetic",
+  "soft watercolor paint washes gently bleeding into each other, wet-on-wet artistic texture with visible paper grain",
+  "subtle canvas texture with gentle brushstroke marks, like an aged oil painting seen up close",
+  "soft chalky pastel texture with gentle powder-like grain, matte and velvety like a renaissance fresco",
+  "gentle washes of translucent color layered like glazes, soft and luminous with a hand-painted quality",
+  "subtle linen or woven fabric texture underneath the color, giving warmth and tactile depth",
+  "soft atmospheric fog and mist, colors dissolving gently into each other with no hard edges anywhere",
+  "delicate plaster or stucco wall texture with subtle cracks and warmth, aged and beautiful",
+  "gentle stippled or sponged paint texture, soft and organic with tiny variations in tone and density",
+  "smooth matte gradient with the faintest hint of paper grain, minimal and serene like a meditation",
+  "soft dry-brush texture with whisper-light strokes visible at the edges, painterly and effortless",
 ];
 
 const COMPOSITIONS = [
-  "radiating outward from the center, brighter at the center and deeper at the edges, creating a focal spotlight",
-  "sweeping diagonally from the bottom-left to the upper-right, with colors transitioning along the diagonal",
-  "arranged in wide horizontal bands, layered like a landscape horizon with distinct zones from top to bottom",
-  "concentrated in the corners and edges, leaving the center darker and open, creating a natural vignette frame",
-  "divided into two unequal zones along a curved line, each side using a different intensity of the palette",
-  "scattered organically across the canvas at varying scales and opacities, some elements large and blurred in foreground, others small and sharp behind, creating parallax depth",
+  "glowing softly brighter in the center and gradually deepening toward the edges, a warm natural vignette",
+  "sweeping gently on a diagonal from one corner to the opposite, colors flowing and transitioning smoothly",
+  "blended in soft horizontal layers like a hazy landscape, warm tones settling naturally from top to bottom",
+  "warmest and richest in the corners, softening and lightening toward the center to frame the text area",
+  "shifting gradually from one side to the other, a gentle lateral gradient with organic color pooling",
+  "softly mottled and organic across the entire canvas, no strong focal point, like a painted wall with natural color variation",
 ];
 
 // Anti-repeat ring buffer: stores last 12 combo indices to avoid near-duplicates
@@ -102,9 +102,10 @@ function buildTitleColoredBgPrompt(title: string): { prompt: string; combo: { pa
     ``,
     `BACKGROUND DESIGN:`,
     `Color palette: ${palette}.`,
-    `Visual elements: ${element}.`,
-    `Layout: The background elements are ${composition}.`,
-    `The overall mood should feel uplifting, modern, and spiritually inviting.`,
+    `Texture: ${element}.`,
+    `Layout: The colors are ${composition}.`,
+    `The background should look like a soft, warm, hand-painted canvas — muted and elegant, NOT flashy, neon, or digitally sharp.`,
+    `Think fine art texture, subtle color transitions, and a calm inviting warmth. No geometric shapes, no bokeh, no glowing effects.`,
     ``,
     `TEXT:`,
     `Place large, bold, CENTERED text "${title}" prominently in the middle of the image.`,
@@ -113,6 +114,7 @@ function buildTitleColoredBgPrompt(title: string): { prompt: string; combo: { pa
     ``,
     `CONSTRAINTS:`,
     `Do NOT include any people, human figures, or faces.`,
+    `Do NOT use bright neon colors, sharp geometric shapes, or high-contrast digital effects.`,
     `Professional church media style. 16:9 aspect ratio.`,
   ].join("\n");
 
