@@ -3,6 +3,9 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import crypto from "crypto";
+import { execFile } from "child_process";
+import { readFile, unlink } from "fs/promises";
+import os from "os";
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { uploadBuffer } from "../r2";
@@ -360,6 +363,58 @@ router.delete("/admin/:id", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[Admin] Error deleting recording:", err);
     res.status(500).json({ error: "Failed to delete recording" });
+  }
+});
+
+// POST /api/recordings/admin/:id/capture-frame — extract a frame server-side via ffmpeg
+const captureFrameSchema = z.object({
+  timestamp: z.number().min(0),
+});
+
+router.post("/admin/:id/capture-frame", requireAuth, async (req, res) => {
+  const parsed = captureFrameSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.message });
+  }
+
+  try {
+    const recording = await storage.getRecording(req.params.id as string);
+    if (!recording) {
+      return res.status(404).json({ error: "Recording not found" });
+    }
+
+    const { timestamp } = parsed.data;
+    const outPath = path.join(os.tmpdir(), `frame-${crypto.randomBytes(8).toString("hex")}.jpg`);
+
+    await new Promise<void>((resolve, reject) => {
+      execFile("ffmpeg", [
+        "-ss", String(timestamp),
+        "-i", recording.r2Url,
+        "-frames:v", "1",
+        "-q:v", "2",
+        "-y",
+        outPath,
+      ], { timeout: 30000 }, (err, _stdout, stderr) => {
+        if (err) {
+          console.error("[CaptureFrame] ffmpeg error:", stderr);
+          reject(new Error("Failed to extract frame"));
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    const imgBuffer = await readFile(outPath);
+    await unlink(outPath).catch(() => {});
+
+    const r2Key = `thumbnails/custom/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
+    const url = await uploadBuffer(imgBuffer, r2Key, "image/jpeg");
+
+    console.log(`[CaptureFrame] Extracted frame at ${timestamp}s from ${recording.id}, uploaded ${r2Key}`);
+    res.json({ url });
+  } catch (err: any) {
+    console.error("[CaptureFrame] Error:", err);
+    res.status(500).json({ error: err.message || "Failed to capture frame" });
   }
 });
 
