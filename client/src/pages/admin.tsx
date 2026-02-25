@@ -18,11 +18,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
   HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield,
   Edit2, MapPin, Clock, Film, Image, Upload, Loader2, Wand2, Camera, Play,
-  Type, RefreshCw, MousePointer, Download, Palette
+  Type, RefreshCw, MousePointer, Download, Palette, Paintbrush
 } from "lucide-react";
+import { BrushMaskEditor } from "@/components/brush-mask-editor";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -618,6 +626,10 @@ function RecordingEditRow({
   const [aiSubtitle, setAiSubtitle] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
 
+  // Brush mask state
+  const [showBrushEditor, setShowBrushEditor] = useState(false);
+  const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
+
   // Frame capture state
   const [showFrameCapture, setShowFrameCapture] = useState(false);
   const [frameTimestamp, setFrameTimestamp] = useState(0);
@@ -627,6 +639,11 @@ function RecordingEditRow({
 
   const candidates = recording.thumbnailCandidates || [];
   const currentThumb = customThumbUrl || selectedThumb || null;
+
+  // Clear mask when snapshot changes
+  useEffect(() => {
+    setMaskDataUrl(null);
+  }, [aiSnapshotUrl]);
 
   const handleModeChange = (mode: 'pastor-title' | 'service-overlay' | 'title-background' | 'manual') => {
     setThumbnailMode(thumbnailMode === mode ? null : mode);
@@ -670,7 +687,7 @@ function RecordingEditRow({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: 'pastor-title', snapshotUrl: aiSnapshotUrl, title: aiTitle }),
+        body: JSON.stringify({ mode: 'pastor-title', snapshotUrl: aiSnapshotUrl, title: aiTitle, maskDataUrl: maskDataUrl || undefined }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
@@ -1160,6 +1177,48 @@ function RecordingEditRow({
                 </Button>
               </div>
             )}
+
+            {/* Select Person brush tool */}
+            {aiSnapshotUrl && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBrushEditor(true)}
+                  className="border-purple-500/30 text-purple-600 hover:bg-purple-500/10"
+                >
+                  <Paintbrush className="w-4 h-4 mr-1" /> Select Person
+                </Button>
+                {maskDataUrl && (
+                  <span className="text-xs text-purple-600 flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Mask applied
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Brush mask editor dialog */}
+            <Dialog open={showBrushEditor} onOpenChange={setShowBrushEditor}>
+              <DialogContent className="max-w-3xl w-[90vw]">
+                <DialogHeader>
+                  <DialogTitle>Select Person</DialogTitle>
+                  <DialogDescription>
+                    Paint over the person you want to keep in the thumbnail.
+                  </DialogDescription>
+                </DialogHeader>
+                {showBrushEditor && aiSnapshotUrl && (
+                  <BrushMaskEditor
+                    imageUrl={aiSnapshotUrl}
+                    onConfirm={(dataUrl) => {
+                      setMaskDataUrl(dataUrl);
+                      setShowBrushEditor(false);
+                    }}
+                    onCancel={() => setShowBrushEditor(false)}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
 
             {/* Title input */}
             <div className="space-y-1">

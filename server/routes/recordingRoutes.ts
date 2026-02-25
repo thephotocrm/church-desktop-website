@@ -123,6 +123,7 @@ const generateThumbnailSchema = z.object({
   snapshotUrl: z.string().url().nullable().optional(),
   title: z.string().min(1),
   subtitle: z.string().optional(),
+  maskDataUrl: z.string().optional(),
 });
 
 router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
@@ -132,7 +133,7 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
   }
 
   try {
-    const { mode, snapshotUrl, title, subtitle } = parsed.data;
+    const { mode, snapshotUrl, title, subtitle, maskDataUrl } = parsed.data;
 
     let thumbnailBuffer: Buffer;
 
@@ -158,8 +159,19 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
         } catch (e: any) {
           console.log(`[Admin] WARNING: Could not read snapshot metadata: ${e.message}`);
         }
+
+        // Decode mask if provided
+        let maskBuffer: Buffer | undefined;
+        if (maskDataUrl) {
+          const base64Match = maskDataUrl.match(/^data:image\/png;base64,(.+)$/);
+          if (base64Match) {
+            maskBuffer = Buffer.from(base64Match[1], "base64");
+            console.log(`[Admin] Mask provided: ${maskBuffer.length} bytes`);
+          }
+        }
+
         console.log(`[Admin] Generating pastor-title thumbnail for: "${title}"`);
-        thumbnailBuffer = await generatePastorTitle(snapshotBuffer, title);
+        thumbnailBuffer = await generatePastorTitle(snapshotBuffer, title, maskBuffer);
         break;
       }
       case "service-overlay": {

@@ -296,7 +296,8 @@ async function decodeAndResize(response: { data?: Array<{ b64_json?: string; url
  */
 export async function generatePastorTitle(
   snapshotBuffer: Buffer,
-  title: string
+  title: string,
+  maskBuffer?: Buffer
 ): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -306,7 +307,46 @@ export async function generatePastorTitle(
   const openai = new OpenAI({ apiKey });
 
   console.log(`[ThumbnailGen] Input snapshot buffer: ${snapshotBuffer.length} bytes`);
-  const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
+
+  // If a mask is provided, crop the snapshot to the painted region before BG removal
+  let processedSnapshot = snapshotBuffer;
+  if (maskBuffer) {
+    console.log(`[ThumbnailGen] Applying brush mask to crop snapshot...`);
+    const snapshotMeta = await sharp(snapshotBuffer).metadata();
+    const snapW = snapshotMeta.width!;
+    const snapH = snapshotMeta.height!;
+
+    // Resize mask (grayscale) to match snapshot dimensions
+    const maskResized = await sharp(maskBuffer)
+      .resize(snapW, snapH, { fit: "fill" })
+      .grayscale()
+      .raw()
+      .toBuffer();
+
+    // Load snapshot as raw RGBA
+    const snapRaw = await sharp(snapshotBuffer)
+      .ensureAlpha()
+      .raw()
+      .toBuffer();
+
+    // Zero out alpha where mask is black (unselected)
+    for (let i = 0; i < snapW * snapH; i++) {
+      const maskVal = maskResized[i];
+      if (maskVal < 128) {
+        snapRaw[i * 4 + 3] = 0; // set alpha to 0
+      }
+    }
+
+    // Reconstruct PNG and trim to bounding box of painted area
+    const maskedPng = await sharp(snapRaw, { raw: { width: snapW, height: snapH, channels: 4 } })
+      .png()
+      .toBuffer();
+    processedSnapshot = await sharp(maskedPng).trim().toBuffer();
+    const trimMeta = await sharp(processedSnapshot).metadata();
+    console.log(`[ThumbnailGen] Mask-cropped snapshot: ${trimMeta.width}x${trimMeta.height}`);
+  }
+
+  const snapshotPng = await sharp(processedSnapshot).png().toBuffer();
   console.log(`[ThumbnailGen] Converted snapshot PNG: ${snapshotPng.length} bytes`);
 
   // Step 1: Remove background to isolate the person
