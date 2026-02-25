@@ -14,11 +14,11 @@ const COLOR_PALETTES = [
   "soft golden amber, warm honey, and creamy wheat tones with touches of burnt sienna, like late afternoon sunlight on old stone",
   "muted sage green, warm olive, and dusty cream with hints of soft terracotta, like a Tuscan landscape in soft focus",
   "dusty mauve, soft plum, and warm blush pink fading into pale champagne, like dried flowers in warm light",
-  "warm cinnamon, rich caramel, and soft sand tones blending into muted clay, like desert earth at golden hour",
+  "deep navy, rich midnight blue, and dark indigo with silver and pale moonlight accents, like a clear night sky",
   "soft steel blue, warm dove gray, and pale cream with subtle lavender undertones, like an overcast sky at dawn",
   "muted teal, warm seafoam, and sandy beige with touches of dusty copper, like weathered coastal patina",
   "warm burgundy, dusty rose, and soft copper fading into antique cream, like aged leather and velvet",
-  "soft ochre, warm paprika, and muted terra cotta blending into dusty peach, like sun-baked clay tiles",
+  "rich forest green, deep emerald, and dark pine with aged gold and parchment accents, like an ancient woodland",
   "pale periwinkle, soft lilac, and warm silver with hints of blush, like early morning mist over a garden",
 ];
 
@@ -50,37 +50,51 @@ const COMPOSITIONS = [
   "softly mottled and organic across the entire canvas, no strong focal point, like a painted wall with natural color variation",
 ];
 
+const FONT_STYLES = [
+  "clean modern sans-serif font with strong bold weight, like Montserrat or Gotham",
+  "tall condensed sans-serif font with impactful heavy weight, like Impact or Bebas Neue",
+  "elegant thin serif font with refined letterforms, like Didot or Bodoni",
+  "rounded friendly sans-serif font with medium weight, like Nunito or Poppins",
+  "classic bold serif font with strong presence, like Georgia Bold or Playfair Display",
+  "wide extended sans-serif font with generous letter spacing, like Oswald or Raleway",
+  "hand-lettered brush script font with natural texture, bold and expressive",
+  "geometric sans-serif font with clean precise letterforms, like Futura or Century Gothic",
+];
+
 // Anti-repeat ring buffer: stores last 12 combo indices to avoid near-duplicates
-const recentCombos: Array<[number, number, number]> = [];
+const recentCombos: Array<[number, number, number, number]> = [];
 const HISTORY_SIZE = 12;
 
-function pickDiverseCombo(): { palette: number; element: number; composition: number } {
+function pickDiverseCombo(): { palette: number; element: number; composition: number; font: number } {
   for (let i = 0; i < 20; i++) {
     const c = {
       palette: Math.floor(Math.random() * COLOR_PALETTES.length),
       element: Math.floor(Math.random() * DESIGN_ELEMENTS.length),
       composition: Math.floor(Math.random() * COMPOSITIONS.length),
+      font: Math.floor(Math.random() * FONT_STYLES.length),
     };
-    const tooSimilar = recentCombos.some(([p, e, co]) => {
+    const tooSimilar = recentCombos.some(([p, e, co, f]) => {
       let m = 0;
       if (p === c.palette) m++;
       if (e === c.element) m++;
       if (co === c.composition) m++;
+      if (f === c.font) m++;
       return m >= 2;
     });
     if (!tooSimilar) {
-      recentCombos.push([c.palette, c.element, c.composition]);
+      recentCombos.push([c.palette, c.element, c.composition, c.font]);
       if (recentCombos.length > HISTORY_SIZE) recentCombos.shift();
       return c;
     }
   }
-  // Fallback (extremely unlikely with 600 combos vs 12 history)
+  // Fallback (extremely unlikely with 7680 combos vs 12 history)
   const f = {
     palette: Math.floor(Math.random() * COLOR_PALETTES.length),
     element: Math.floor(Math.random() * DESIGN_ELEMENTS.length),
     composition: Math.floor(Math.random() * COMPOSITIONS.length),
+    font: Math.floor(Math.random() * FONT_STYLES.length),
   };
-  recentCombos.push([f.palette, f.element, f.composition]);
+  recentCombos.push([f.palette, f.element, f.composition, f.font]);
   if (recentCombos.length > HISTORY_SIZE) recentCombos.shift();
   return f;
 }
@@ -97,16 +111,20 @@ function buildServiceOverlayPrompt(title: string): string {
   return `Transform this image into a professional YouTube thumbnail for a church sermon titled "${title}". Use the provided image as a background scene — apply a subtle darkening overlay or color grade to make it serve as a cinematic backdrop. Do NOT preserve or highlight any specific person. Place large, bold, CENTERED text "${title}" prominently in the middle of the thumbnail. The text should be the dominant visual element — large, white or bright, with a clean modern sans-serif font. Add a slight text shadow or glow to ensure readability over the background image. The result should look like a professional YouTube thumbnail with the service scene creating atmosphere behind the title text. 16:9 aspect ratio.`;
 }
 
-function buildTitleColoredBgPrompt(title: string, subtitle?: string): { prompt: string; combo: { palette: number; element: number; composition: number } } {
+function buildTitleColoredBgPrompt(title: string, subtitle?: string): { prompt: string; combo: { palette: number; element: number; composition: number; font: number } } {
   const combo = pickDiverseCombo();
   const palette = COLOR_PALETTES[combo.palette];
   const element = DESIGN_ELEMENTS[combo.element];
   const composition = COMPOSITIONS[combo.composition];
+  const font = FONT_STYLES[combo.font];
 
   const textLines = [
-    `TEXT:`,
-    `Place large, bold, CENTERED text "${title}" prominently in the middle of the image.`,
-    `The text must be the dominant visual element — large, white or very bright, in a clean modern sans-serif font.`,
+    `TEXT PLACEMENT (CRITICAL — follow exactly):`,
+    `Place the text PERFECTLY CENTERED — both horizontally and vertically in the image.`,
+    `The text must have equal empty space on the left and right sides.`,
+    `Do NOT place the text off to one side. It must be dead center.`,
+    `The title text "${title}" must be large and bold — the dominant visual element.`,
+    `Use a ${font}. The text should be white or very bright.`,
   ];
 
   if (subtitle) {
@@ -127,8 +145,8 @@ function buildTitleColoredBgPrompt(title: string, subtitle?: string): { prompt: 
     `Color palette: ${palette}.`,
     `Texture: ${element}.`,
     `Layout: The colors are ${composition}.`,
-    `The background should look like a soft, warm, hand-painted canvas — muted and elegant, NOT flashy, neon, or digitally sharp.`,
-    `Think fine art texture, subtle color transitions, and a calm inviting warmth. No geometric shapes, no bokeh, no glowing effects.`,
+    `The background should look like a soft, artistic, hand-painted canvas — muted and elegant, NOT flashy, neon, or digitally sharp.`,
+    `Think fine art texture, subtle color transitions, and a calm painterly elegance. No geometric shapes, no bokeh, no glowing effects.`,
     ``,
     ...textLines,
     ``,
@@ -274,7 +292,7 @@ export async function generateTitleColoredBg(
   const openai = new OpenAI({ apiKey });
 
   const { prompt, combo } = buildTitleColoredBgPrompt(title, subtitle);
-  console.log(`[ThumbnailGen] title-background combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}`);
+  console.log(`[ThumbnailGen] title-background combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, font=${combo.font}`);
 
   const response = await openai.images.generate({
     model: "gpt-image-1",
