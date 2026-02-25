@@ -120,6 +120,7 @@ const generateThumbnailSchema = z.object({
   mode: z.enum(["pastor-title", "service-overlay", "title-background"]),
   snapshotUrl: z.string().url().nullable().optional(),
   title: z.string().min(1),
+  subtitle: z.string().optional(),
 });
 
 router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
@@ -129,7 +130,7 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
   }
 
   try {
-    const { mode, snapshotUrl, title } = parsed.data;
+    const { mode, snapshotUrl, title, subtitle } = parsed.data;
 
     let thumbnailBuffer: Buffer;
 
@@ -161,8 +162,8 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
         break;
       }
       case "title-background": {
-        console.log(`[Admin] Generating title-background thumbnail for: "${title}"`);
-        thumbnailBuffer = await generateTitleColoredBg(title);
+        console.log(`[Admin] Generating title-background thumbnail for: "${title}"${subtitle ? ` / "${subtitle}"` : ""}`);
+        thumbnailBuffer = await generateTitleColoredBg(title, subtitle);
         break;
       }
     }
@@ -317,7 +318,7 @@ router.get("/:id", async (req, res) => {
 // PATCH /api/recordings/admin/:id — admin: update recording metadata
 const updateRecordingSchema = z.object({
   title: z.string().min(1).optional(),
-  description: z.string().optional(),
+  description: z.string().nullable().optional(),
   thumbnailUrl: z.string().url().nullable().optional(),
   status: z.enum(["processing", "ready", "error"]).optional(),
 });

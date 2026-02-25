@@ -33,6 +33,12 @@ const DESIGN_ELEMENTS = [
   "gentle stippled or sponged paint texture, soft and organic with tiny variations in tone and density",
   "smooth matte gradient with the faintest hint of paper grain, minimal and serene like a meditation",
   "soft dry-brush texture with whisper-light strokes visible at the edges, painterly and effortless",
+  "bold confident diagonal brush strokes sweeping across the canvas, thick painterly swooshes with visible bristle texture and layered overlap",
+  "scattered organic paint splatters and spots of varying sizes, some crisp and some softly diffused, like an artist's drop cloth",
+  "torn and layered paper collage shapes with soft edges, overlapping organic forms creating subtle depth and texture",
+  "large sweeping curved brush arcs flowing across the canvas, calligraphic and graceful with tapered edges and paint buildup",
+  "subtle cross-hatched pencil or charcoal lines beneath washes of color, a layered mixed-media feel with warmth and depth",
+  "softly scattered leaf-like or petal-like organic shapes drifting across the canvas, translucent and layered at varying scales",
 ];
 
 const COMPOSITIONS = [
@@ -91,11 +97,28 @@ function buildServiceOverlayPrompt(title: string): string {
   return `Transform this image into a professional YouTube thumbnail for a church sermon titled "${title}". Use the provided image as a background scene — apply a subtle darkening overlay or color grade to make it serve as a cinematic backdrop. Do NOT preserve or highlight any specific person. Place large, bold, CENTERED text "${title}" prominently in the middle of the thumbnail. The text should be the dominant visual element — large, white or bright, with a clean modern sans-serif font. Add a slight text shadow or glow to ensure readability over the background image. The result should look like a professional YouTube thumbnail with the service scene creating atmosphere behind the title text. 16:9 aspect ratio.`;
 }
 
-function buildTitleColoredBgPrompt(title: string): { prompt: string; combo: { palette: number; element: number; composition: number } } {
+function buildTitleColoredBgPrompt(title: string, subtitle?: string): { prompt: string; combo: { palette: number; element: number; composition: number } } {
   const combo = pickDiverseCombo();
   const palette = COLOR_PALETTES[combo.palette];
   const element = DESIGN_ELEMENTS[combo.element];
   const composition = COMPOSITIONS[combo.composition];
+
+  const textLines = [
+    `TEXT:`,
+    `Place large, bold, CENTERED text "${title}" prominently in the middle of the image.`,
+    `The text must be the dominant visual element — large, white or very bright, in a clean modern sans-serif font.`,
+  ];
+
+  if (subtitle) {
+    textLines.push(
+      `Directly below the main title, place smaller subtitle text "${subtitle}" in the same font but at roughly 40% the size of the main title.`,
+      `The subtitle should be white or light-colored and clearly readable, but visually secondary to the main title.`,
+    );
+  }
+
+  textLines.push(
+    `Add a subtle drop shadow or outer glow behind the text to guarantee readability over any background.`,
+  );
 
   const prompt = [
     `Create a professional YouTube thumbnail for a church sermon titled "${title}".`,
@@ -107,10 +130,7 @@ function buildTitleColoredBgPrompt(title: string): { prompt: string; combo: { pa
     `The background should look like a soft, warm, hand-painted canvas — muted and elegant, NOT flashy, neon, or digitally sharp.`,
     `Think fine art texture, subtle color transitions, and a calm inviting warmth. No geometric shapes, no bokeh, no glowing effects.`,
     ``,
-    `TEXT:`,
-    `Place large, bold, CENTERED text "${title}" prominently in the middle of the image.`,
-    `The text must be the dominant visual element — large, white or very bright, in a clean modern sans-serif font.`,
-    `Add a subtle drop shadow or outer glow behind the text to guarantee readability over any background.`,
+    ...textLines,
     ``,
     `CONSTRAINTS:`,
     `Do NOT include any people, human figures, or faces.`,
@@ -243,7 +263,8 @@ export async function generateServiceOverlay(
  * Uses images.generate() only (no snapshot, no style refs).
  */
 export async function generateTitleColoredBg(
-  title: string
+  title: string,
+  subtitle?: string
 ): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -252,7 +273,7 @@ export async function generateTitleColoredBg(
 
   const openai = new OpenAI({ apiKey });
 
-  const { prompt, combo } = buildTitleColoredBgPrompt(title);
+  const { prompt, combo } = buildTitleColoredBgPrompt(title, subtitle);
   console.log(`[ThumbnailGen] title-background combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}`);
 
   const response = await openai.images.generate({

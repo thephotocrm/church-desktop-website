@@ -612,6 +612,7 @@ function RecordingEditRow({
   const [generatedPreview, setGeneratedPreview] = useState("");
   const [aiSnapshotUrl, setAiSnapshotUrl] = useState("");
   const [aiTitle, setAiTitle] = useState(recording.title);
+  const [aiSubtitle, setAiSubtitle] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
 
   // Frame capture state
@@ -720,7 +721,7 @@ function RecordingEditRow({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: 'title-background', snapshotUrl: null, title: aiTitle }),
+        body: JSON.stringify({ mode: 'title-background', snapshotUrl: null, title: aiTitle, subtitle: aiSubtitle || undefined }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
@@ -1342,15 +1343,24 @@ function RecordingEditRow({
               Title + Colored Background
             </p>
             <p className="text-xs text-muted-foreground">
-              Generate a vibrant, colorful background with your title centered — no snapshot needed.
+              Generate a warm, painterly background with your title centered — no snapshot needed.
             </p>
 
             <div className="space-y-1">
-              <Label className="text-xs">Sermon Title (appears on thumbnail)</Label>
+              <Label className="text-xs">Title (appears on thumbnail)</Label>
               <Input
                 value={aiTitle}
                 onChange={(e) => setAiTitle(e.target.value)}
                 placeholder="e.g. God Is Good"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Subtitle (optional, smaller text below title)</Label>
+              <Input
+                value={aiSubtitle}
+                onChange={(e) => setAiSubtitle(e.target.value)}
+                placeholder="e.g. A Series on Grace"
               />
             </div>
 
