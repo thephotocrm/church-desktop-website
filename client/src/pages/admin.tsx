@@ -677,8 +677,8 @@ function RecordingEditRow({
   };
 
   const handleGeneratePastorTitle = async () => {
-    if (!aiSnapshotUrl || !aiTitle) {
-      toast({ title: "Select a snapshot and enter a title", variant: "destructive" });
+    if (!aiSnapshotUrl || !aiTitle || !maskDataUrl) {
+      toast({ title: "Select a snapshot, paint over the pastor, and enter a title", variant: "destructive" });
       return;
     }
     setAiGenerating(true);
@@ -1236,7 +1236,7 @@ function RecordingEditRow({
                 type="button"
                 className="bg-purple-600 text-white hover:bg-purple-700"
                 size="sm"
-                disabled={aiGenerating || !aiSnapshotUrl || !aiTitle}
+                disabled={aiGenerating || !aiSnapshotUrl || !aiTitle || !maskDataUrl}
                 onClick={handleGeneratePastorTitle}
               >
                 {aiGenerating ? (

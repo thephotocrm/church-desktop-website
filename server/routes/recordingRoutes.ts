@@ -142,6 +142,9 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
         if (!snapshotUrl) {
           return res.status(400).json({ error: "Snapshot URL is required for pastor-title mode" });
         }
+        if (!maskDataUrl) {
+          return res.status(400).json({ error: "Mask is required for pastor-title mode — paint over the pastor first" });
+        }
         console.log(`[Admin] Fetching snapshot from: ${snapshotUrl}`);
         const response = await fetch(snapshotUrl);
         if (!response.ok) {
