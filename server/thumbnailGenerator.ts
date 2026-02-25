@@ -191,21 +191,16 @@ function buildPastorTitlePrompt(title: string): { prompt: string; combo: { palet
   const treatment = TITLE_TREATMENTS[combo.treatment];
 
   const sections = [
-    `Transform this image into a professional YouTube thumbnail for a church sermon titled "${title}".`,
-    ``,
-    `PERSON:`,
-    `Use the person visible in this image. Keep their face and body pixel-accurate — do NOT alter, redraw, or distort them.`,
-    `Naturally integrate them into the new background, keeping natural proportions. If part of their body is cropped or cut off, extend it naturally.`,
+    `Replace the background with a vibrant YouTube thumbnail background for a church sermon titled "${title}".`,
     ``,
     `BACKGROUND DESIGN:`,
-    `Replace the background entirely with a vibrant, professional thumbnail background.`,
     `Color palette: ${palette}. Effect: ${element}. Layout: ${composition}.`,
     ``,
     `TEXT PLACEMENT:`,
-    `Place large bold text "${title}" prominently in the thumbnail. Style: ${treatment}. Text must be clearly readable and not overlap the person's face.`,
+    `Add large bold title text "${title}" prominently in the thumbnail. Style: ${treatment}. Text must be clearly readable and not overlap the person.`,
     ``,
-    `CONSTRAINTS:`,
-    `Professional church media style. 16:9 aspect ratio. The result should look like a polished YouTube thumbnail.`,
+    `The person in the image must remain exactly as they are — do not alter, redraw, or distort them in any way.`,
+    `Professional church media style. 16:9 aspect ratio.`,
   ];
 
   return { prompt: sections.join("\n"), combo };
@@ -290,8 +285,8 @@ async function decodeAndResize(response: { data?: Array<{ b64_json?: string; url
 }
 
 /**
- * Mode 1: Pastor + Title — send cropped snapshot to OpenAI images.edit() which
- * handles background replacement, person integration, and title placement in one call.
+ * Mode 1: Pastor + Title — send full snapshot + alpha mask to OpenAI images.edit().
+ * The mask tells GPT which pixels to keep (pastor) vs edit (background).
  */
 export async function generatePastorTitle(
   snapshotBuffer: Buffer,
@@ -307,8 +302,9 @@ export async function generatePastorTitle(
 
   console.log(`[ThumbnailGen] Input snapshot buffer: ${snapshotBuffer.length} bytes`);
 
-  // Crop snapshot to the painted mask region
-  console.log(`[ThumbnailGen] Applying brush mask to crop snapshot...`);
+  // Build an OpenAI-compatible mask from the user's brush mask:
+  // - alpha=255 (opaque) where user painted (pastor → keep)
+  // - alpha=0 (transparent) where user didn't paint (background → edit)
   const snapshotMeta = await sharp(snapshotBuffer).metadata();
   const snapW = snapshotMeta.width!;
   const snapH = snapshotMeta.height!;
@@ -320,45 +316,41 @@ export async function generatePastorTitle(
     .raw()
     .toBuffer();
 
-  // Load snapshot as raw RGBA
-  const snapRaw = await sharp(snapshotBuffer)
-    .ensureAlpha()
-    .raw()
-    .toBuffer();
-
-  // Zero out alpha where mask is black (unselected)
+  // Build RGBA mask: opaque where painted (keep), transparent where not (edit)
+  const maskRgba = Buffer.alloc(snapW * snapH * 4);
   for (let i = 0; i < snapW * snapH; i++) {
-    const maskVal = maskResized[i];
-    if (maskVal < 128) {
-      snapRaw[i * 4 + 3] = 0; // set alpha to 0
-    }
+    const keep = maskResized[i] >= 128;
+    maskRgba[i * 4]     = 255;  // R
+    maskRgba[i * 4 + 1] = 255;  // G
+    maskRgba[i * 4 + 2] = 255;  // B
+    maskRgba[i * 4 + 3] = keep ? 255 : 0;  // alpha: opaque=keep, transparent=edit
   }
 
-  // Reconstruct PNG and trim to bounding box of painted area
-  const maskedPng = await sharp(snapRaw, { raw: { width: snapW, height: snapH, channels: 4 } })
+  const maskPng = await sharp(maskRgba, { raw: { width: snapW, height: snapH, channels: 4 } })
     .png()
     .toBuffer();
-  const processedSnapshot = await sharp(maskedPng).trim().toBuffer();
-  const trimMeta = await sharp(processedSnapshot).metadata();
-  console.log(`[ThumbnailGen] Mask-cropped snapshot: ${trimMeta.width}x${trimMeta.height}`);
+  console.log(`[ThumbnailGen] Built OpenAI mask PNG: ${maskPng.length} bytes (${snapW}x${snapH})`);
 
-  const snapshotPng = await sharp(processedSnapshot).png().toBuffer();
+  // Convert full snapshot to PNG for the API
+  const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
   console.log(`[ThumbnailGen] Converted snapshot PNG: ${snapshotPng.length} bytes`);
 
-  // Single OpenAI images.edit() call — GPT handles bg removal, new background, and title
+  // Send full snapshot + mask to OpenAI images.edit()
   const { prompt, combo } = buildPastorTitlePrompt(title);
   console.log(`[ThumbnailGen] === PASTOR-TITLE REQUEST ===`);
   console.log(`[ThumbnailGen] Title: "${title}"`);
   console.log(`[ThumbnailGen] Combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, treatment=${combo.treatment}`);
   console.log(`[ThumbnailGen] FULL PROMPT:\n${prompt}`);
-  console.log(`[ThumbnailGen] Calling openai.images.edit() with model=gpt-image-1, size=1536x1024`);
+  console.log(`[ThumbnailGen] Calling openai.images.edit() with model=gpt-image-1, size=1536x1024, mask=true`);
 
   const snapshotFile = new File([snapshotPng], "snapshot.png", { type: "image/png" });
+  const maskFile = new File([maskPng], "mask.png", { type: "image/png" });
 
   const startTime = Date.now();
   const response = await openai.images.edit({
     model: "gpt-image-1",
-    image: [snapshotFile] as any,
+    image: snapshotFile,
+    mask: maskFile,
     prompt,
     size: "1536x1024",
   } as any);
