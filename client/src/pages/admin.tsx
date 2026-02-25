@@ -423,7 +423,10 @@ function RecordingsAdmin() {
             <Film className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-lg">Recording Management</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-lg">Recording Management</CardTitle>
+              <span className="text-[10px] text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">v1.1</span>
+            </div>
             <p className="text-xs text-muted-foreground mt-0.5">Manage thumbnails, titles, and metadata</p>
           </div>
           {recordings && (

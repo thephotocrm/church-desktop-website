@@ -7,6 +7,7 @@ import { Readable } from "stream";
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { uploadBuffer } from "../r2";
+import sharp from "sharp";
 import { generatePastorTitle, generateServiceOverlay, generateTitleColoredBg } from "../thumbnailGenerator";
 
 const router = Router();
@@ -151,6 +152,12 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
         if (snapshotBuffer.length === 0) {
           return res.status(400).json({ error: "Downloaded snapshot is empty (0 bytes)" });
         }
+        try {
+          const meta = await sharp(snapshotBuffer).metadata();
+          console.log(`[Admin] Snapshot image: ${meta.width}x${meta.height}, format=${meta.format}, channels=${meta.channels}`);
+        } catch (e: any) {
+          console.log(`[Admin] WARNING: Could not read snapshot metadata: ${e.message}`);
+        }
         console.log(`[Admin] Generating pastor-title thumbnail for: "${title}"`);
         thumbnailBuffer = await generatePastorTitle(snapshotBuffer, title);
         break;
@@ -164,6 +171,13 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
           return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
         }
         const snapshotBuffer = Buffer.from(await response.arrayBuffer());
+        console.log(`[Admin] Service-overlay snapshot downloaded: ${snapshotBuffer.length} bytes`);
+        try {
+          const meta = await sharp(snapshotBuffer).metadata();
+          console.log(`[Admin] Snapshot image: ${meta.width}x${meta.height}, format=${meta.format}, channels=${meta.channels}`);
+        } catch (e: any) {
+          console.log(`[Admin] WARNING: Could not read snapshot metadata: ${e.message}`);
+        }
         console.log(`[Admin] Generating service-overlay thumbnail for: "${title}"`);
         thumbnailBuffer = await generateServiceOverlay(snapshotBuffer, title);
         break;

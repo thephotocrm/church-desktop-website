@@ -323,9 +323,14 @@ export async function generatePastorTitle(
   const snapshotFile = new File([snapshotPng], "snapshot.png", { type: "image/png" });
 
   const { prompt, combo } = buildPastorTitlePrompt(title);
-  console.log(`[ThumbnailGen] pastor-title combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, treatment=${combo.treatment}`);
-  console.log(`[ThumbnailGen] Sending 1 images to OpenAI (snapshot + 0 refs)`);
+  console.log(`[ThumbnailGen] === PASTOR-TITLE REQUEST ===`);
+  console.log(`[ThumbnailGen] Title: "${title}"`);
+  console.log(`[ThumbnailGen] Combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, treatment=${combo.treatment}`);
+  console.log(`[ThumbnailGen] Snapshot file: name=${snapshotFile.name}, size=${snapshotFile.size} bytes, type=${snapshotFile.type}`);
+  console.log(`[ThumbnailGen] FULL PROMPT:\n${prompt}`);
+  console.log(`[ThumbnailGen] Calling openai.images.edit() with model=gpt-image-1, size=1536x1024, input_fidelity=high`);
 
+  const startTime = Date.now();
   const response = await openai.images.edit({
     model: "gpt-image-1",
     image: snapshotFile,
@@ -333,6 +338,15 @@ export async function generatePastorTitle(
     size: "1536x1024",
     input_fidelity: "high",
   } as any);
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  console.log(`[ThumbnailGen] === PASTOR-TITLE RESPONSE (${elapsed}s) ===`);
+  console.log(`[ThumbnailGen] Response data items: ${response.data?.length ?? 0}`);
+  if (response.data?.[0]) {
+    const d: any = response.data[0];
+    console.log(`[ThumbnailGen] Has b64_json: ${!!d.b64_json} (${d.b64_json ? d.b64_json.length : 0} chars)`);
+    console.log(`[ThumbnailGen] Has url: ${!!d.url}`);
+  }
 
   return decodeAndResize(response);
 }
@@ -352,15 +366,34 @@ export async function generateServiceOverlay(
 
   const openai = new OpenAI({ apiKey });
 
+  console.log(`[ThumbnailGen] === SERVICE-OVERLAY REQUEST ===`);
+  console.log(`[ThumbnailGen] Title: "${title}"`);
+  console.log(`[ThumbnailGen] Input snapshot buffer: ${snapshotBuffer.length} bytes`);
   const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
+  console.log(`[ThumbnailGen] Converted snapshot PNG: ${snapshotPng.length} bytes`);
   const snapshotFile = new File([snapshotPng], "snapshot.png", { type: "image/png" });
+  console.log(`[ThumbnailGen] Snapshot file: name=${snapshotFile.name}, size=${snapshotFile.size} bytes, type=${snapshotFile.type}`);
 
+  const prompt = buildServiceOverlayPrompt(title);
+  console.log(`[ThumbnailGen] FULL PROMPT:\n${prompt}`);
+  console.log(`[ThumbnailGen] Calling openai.images.edit() with model=gpt-image-1, size=1536x1024`);
+
+  const startTime = Date.now();
   const response = await openai.images.edit({
     model: "gpt-image-1",
     image: [snapshotFile] as any,
-    prompt: buildServiceOverlayPrompt(title),
+    prompt,
     size: "1536x1024",
   } as any);
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  console.log(`[ThumbnailGen] === SERVICE-OVERLAY RESPONSE (${elapsed}s) ===`);
+  console.log(`[ThumbnailGen] Response data items: ${response.data?.length ?? 0}`);
+  if (response.data?.[0]) {
+    const d: any = response.data[0];
+    console.log(`[ThumbnailGen] Has b64_json: ${!!d.b64_json} (${d.b64_json ? d.b64_json.length : 0} chars)`);
+    console.log(`[ThumbnailGen] Has url: ${!!d.url}`);
+  }
 
   return decodeAndResize(response);
 }
@@ -381,13 +414,27 @@ export async function generateTitleColoredBg(
   const openai = new OpenAI({ apiKey });
 
   const { prompt, combo } = buildTitleColoredBgPrompt(title, subtitle);
-  console.log(`[ThumbnailGen] title-background combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, font=${combo.font}`);
+  console.log("[ThumbnailGen] === TITLE-COLORED-BG REQUEST ===");
+  console.log("[ThumbnailGen] Title:", title, "Subtitle:", subtitle || "(none)");
+  console.log("[ThumbnailGen] Combo:", JSON.stringify(combo));
+  console.log("[ThumbnailGen] FULL PROMPT:\n" + prompt);
+  console.log("[ThumbnailGen] Calling openai.images.generate() with model=gpt-image-1, size=1536x1024");
 
+  const startTime = Date.now();
   const response = await openai.images.generate({
     model: "gpt-image-1",
     prompt,
     size: "1536x1024",
   });
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+  console.log(`[ThumbnailGen] === TITLE-COLORED-BG RESPONSE (${elapsed}s) ===`);
+  console.log(`[ThumbnailGen] Response data items: ${response.data?.length ?? 0}`);
+  if (response.data?.[0]) {
+    const d: any = response.data[0];
+    console.log(`[ThumbnailGen] Has b64_json: ${!!d.b64_json} (${d.b64_json ? d.b64_json.length : 0} chars)`);
+    console.log(`[ThumbnailGen] Has url: ${!!d.url}`);
+  }
 
   return decodeAndResize(response);
 }
