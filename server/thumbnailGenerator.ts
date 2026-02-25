@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import sharp from "sharp";
+import { removeBackground } from "@imgly/background-removal-node";
 import { storage } from "./storage";
 
 const THUMB_WIDTH = 1280;
@@ -190,7 +191,7 @@ function buildPastorTitlePrompt(title: string): { prompt: string; combo: { palet
   const treatment = TITLE_TREATMENTS[combo.treatment];
 
   const sections = [
-    `Extract the person from this photograph and place them onto a vibrant new background for a YouTube thumbnail.`,
+    `Place this person onto a vibrant new background for a YouTube thumbnail. The person's background has already been removed.`,
     ``,
     `Keep the person EXACTLY as they appear — same face, skin, hair, clothes, expression. Do not redraw or alter the person in any way.`,
     ``,
@@ -301,13 +302,38 @@ export async function generatePastorTitle(
   console.log(`[ThumbnailGen] Input snapshot buffer: ${snapshotBuffer.length} bytes`);
   const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
   console.log(`[ThumbnailGen] Converted snapshot PNG: ${snapshotPng.length} bytes`);
-  const snapshotFile = new File([snapshotPng], "snapshot.png", { type: "image/png" });
+
+  // Remove background to isolate the person
+  console.log(`[ThumbnailGen] Removing background from snapshot...`);
+  const bgRemoveStart = Date.now();
+  const foregroundBlob = await removeBackground(snapshotPng, {
+    output: { format: "image/png", quality: 1 },
+  });
+  const foregroundBuffer = Buffer.from(await foregroundBlob.arrayBuffer());
+  console.log(`[ThumbnailGen] Background removed in ${((Date.now() - bgRemoveStart) / 1000).toFixed(1)}s — ${foregroundBuffer.length} bytes`);
+
+  // Build mask from alpha channel: person=opaque (keep), background=transparent (edit)
+  // OpenAI mask convention: transparent areas = where to generate new content
+  // The foreground alpha already matches: person is opaque, background is transparent
+  const { width, height } = await sharp(foregroundBuffer).metadata() as { width: number; height: number };
+  const alpha = await sharp(foregroundBuffer).extractChannel(3).toBuffer();
+  const white = Buffer.alloc(width * height, 255);
+  const maskPng = await sharp(white, { raw: { width, height, channels: 1 } })
+    .joinChannel(alpha)
+    .toColourspace("greyalpha")
+    .png()
+    .toBuffer();
+  console.log(`[ThumbnailGen] Generated mask PNG: ${maskPng.length} bytes (${width}x${height})`);
+
+  const snapshotFile = new File([foregroundBuffer], "snapshot.png", { type: "image/png" });
+  const maskFile = new File([maskPng], "mask.png", { type: "image/png" });
 
   const { prompt, combo } = buildPastorTitlePrompt(title);
   console.log(`[ThumbnailGen] === PASTOR-TITLE REQUEST ===`);
   console.log(`[ThumbnailGen] Title: "${title}"`);
   console.log(`[ThumbnailGen] Combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, treatment=${combo.treatment}`);
   console.log(`[ThumbnailGen] Snapshot file: name=${snapshotFile.name}, size=${snapshotFile.size} bytes, type=${snapshotFile.type}`);
+  console.log(`[ThumbnailGen] Mask file: name=${maskFile.name}, size=${maskFile.size} bytes, type=${maskFile.type}`);
   console.log(`[ThumbnailGen] FULL PROMPT:\n${prompt}`);
   console.log(`[ThumbnailGen] Calling openai.images.edit() with model=gpt-image-1, size=1536x1024, input_fidelity=high`);
 
@@ -315,6 +341,7 @@ export async function generatePastorTitle(
   const response = await openai.images.edit({
     model: "gpt-image-1",
     image: [snapshotFile] as any,
+    mask: maskFile as any,
     prompt,
     size: "1536x1024",
     input_fidelity: "high",
