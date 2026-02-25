@@ -31,10 +31,12 @@ export function BrushMaskEditor({ imageUrl, onConfirm, onCancel }: BrushMaskEdit
     if (!ctx) return;
 
     const img = new Image();
-    img.crossOrigin = "anonymous";
     img.onload = () => {
       ctx.drawImage(img, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       setImageLoaded(true);
+    };
+    img.onerror = () => {
+      console.error("Failed to load snapshot image:", imageUrl);
     };
     img.src = imageUrl;
   }, [imageUrl]);
