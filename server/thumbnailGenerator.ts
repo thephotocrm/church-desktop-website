@@ -333,7 +333,7 @@ export async function generatePastorTitle(
   const startTime = Date.now();
   const response = await openai.images.edit({
     model: "gpt-image-1",
-    image: snapshotFile,
+    image: [snapshotFile] as any,
     prompt,
     size: "1536x1024",
     input_fidelity: "high",
