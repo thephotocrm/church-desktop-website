@@ -3,9 +3,12 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import crypto from "crypto";
-import { execFile } from "child_process";
+import { spawn } from "child_process";
+import { createWriteStream } from "fs";
 import { readFile, unlink } from "fs/promises";
 import os from "os";
+import { pipeline } from "stream/promises";
+import { Readable } from "stream";
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { uploadBuffer } from "../r2";
@@ -384,27 +387,45 @@ router.post("/admin/:id/capture-frame", requireAuth, async (req, res) => {
     }
 
     const { timestamp } = parsed.data;
-    const outPath = path.join(os.tmpdir(), `frame-${crypto.randomBytes(8).toString("hex")}.jpg`);
+    const tmpBase = path.join(os.tmpdir(), `frame-${crypto.randomBytes(8).toString("hex")}`);
+    const videoPath = `${tmpBase}.mp4`;
+    const outPath = `${tmpBase}.jpg`;
 
+    console.log(`[CaptureFrame] Downloading video from ${recording.r2Url}`);
+    const videoRes = await fetch(recording.r2Url);
+    if (!videoRes.ok || !videoRes.body) {
+      throw new Error(`Failed to download video: ${videoRes.status}`);
+    }
+    await pipeline(
+      Readable.fromWeb(videoRes.body as any),
+      createWriteStream(videoPath),
+    );
+
+    console.log(`[CaptureFrame] Extracting frame at ${timestamp}s`);
     await new Promise<void>((resolve, reject) => {
-      execFile("ffmpeg", [
+      const proc = spawn("ffmpeg", [
         "-ss", String(timestamp),
-        "-i", recording.r2Url,
+        "-i", videoPath,
         "-frames:v", "1",
         "-q:v", "2",
         "-y",
         outPath,
-      ], { timeout: 30000 }, (err, _stdout, stderr) => {
-        if (err) {
-          console.error("[CaptureFrame] ffmpeg error:", stderr);
-          reject(new Error("Failed to extract frame"));
+      ]);
+      let stderr = "";
+      proc.stderr.on("data", (d) => { stderr += d.toString(); });
+      proc.on("close", (code) => {
+        if (code !== 0) {
+          console.error("[CaptureFrame] ffmpeg stderr:", stderr);
+          reject(new Error(stderr?.split("\n").filter(l => l).pop() || "ffmpeg failed"));
         } else {
           resolve();
         }
       });
+      proc.on("error", reject);
     });
 
     const imgBuffer = await readFile(outPath);
+    await unlink(videoPath).catch(() => {});
     await unlink(outPath).catch(() => {});
 
     const r2Key = `thumbnails/custom/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
