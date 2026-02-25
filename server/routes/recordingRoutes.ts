@@ -3,12 +3,9 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import crypto from "crypto";
-import { spawn, execSync } from "child_process";
-import { createWriteStream } from "fs";
-import { readFile, unlink } from "fs/promises";
+import { execSync, execFileSync } from "child_process";
+import { readFile, unlink, writeFile } from "fs/promises";
 import os from "os";
-import { pipeline } from "stream/promises";
-import { Readable } from "stream";
 
 // Resolve ffmpeg path at startup to avoid PATH issues in child processes
 let FFMPEG_BIN = "ffmpeg";
@@ -400,38 +397,32 @@ router.post("/admin/:id/capture-frame", requireAuth, async (req, res) => {
     const videoPath = `${tmpBase}.mp4`;
     const outPath = `${tmpBase}.jpg`;
 
+    // Download video to temp file
     console.log(`[CaptureFrame] Downloading video from ${recording.r2Url}`);
     const videoRes = await fetch(recording.r2Url);
-    if (!videoRes.ok || !videoRes.body) {
+    if (!videoRes.ok) {
       throw new Error(`Failed to download video: ${videoRes.status}`);
     }
-    await pipeline(
-      Readable.fromWeb(videoRes.body as any),
-      createWriteStream(videoPath),
-    );
+    const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
+    await writeFile(videoPath, videoBuffer);
+    console.log(`[CaptureFrame] Downloaded ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB to ${videoPath}`);
 
-    console.log(`[CaptureFrame] Extracting frame at ${timestamp}s`);
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn(FFMPEG_BIN, [
+    // Extract frame with ffmpeg
+    console.log(`[CaptureFrame] Extracting frame at ${timestamp}s using ${FFMPEG_BIN}`);
+    try {
+      execFileSync(FFMPEG_BIN, [
         "-ss", String(timestamp),
         "-i", videoPath,
         "-frames:v", "1",
         "-q:v", "2",
         "-y",
         outPath,
-      ]);
-      let stderr = "";
-      proc.stderr.on("data", (d) => { stderr += d.toString(); });
-      proc.on("close", (code) => {
-        if (code !== 0) {
-          console.error("[CaptureFrame] ffmpeg stderr:", stderr);
-          reject(new Error(stderr?.split("\n").filter(l => l).pop() || "ffmpeg failed"));
-        } else {
-          resolve();
-        }
-      });
-      proc.on("error", reject);
-    });
+      ], { timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
+    } catch (ffErr: any) {
+      const stderr = ffErr.stderr?.toString() || "";
+      console.error("[CaptureFrame] ffmpeg failed:", stderr);
+      throw new Error("ffmpeg frame extraction failed");
+    }
 
     const imgBuffer = await readFile(outPath);
     await unlink(videoPath).catch(() => {});
