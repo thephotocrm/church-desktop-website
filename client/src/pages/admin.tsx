@@ -620,6 +620,7 @@ function RecordingEditRow({
   const [frameTimestamp, setFrameTimestamp] = useState(0);
   const [capturingFrame, setCapturingFrame] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const candidates = recording.thumbnailCandidates || [];
   const currentThumb = customThumbUrl || selectedThumb || null;
@@ -760,18 +761,31 @@ function RecordingEditRow({
   };
 
   const handleCaptureFrame = async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
     setCapturingFrame(true);
     try {
-      const res = await fetch(`/api/recordings/admin/${recording.id}/capture-frame`, {
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 720;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas context unavailable");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.9)
+      );
+      if (!blob) throw new Error("Failed to capture frame");
+
+      const formData = new FormData();
+      formData.append("file", blob, `frame-${frameTimestamp}s.jpg`);
+      const res = await fetch("/api/recordings/admin/upload-thumbnail", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ timestamp: frameTimestamp }),
+        body: formData,
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to capture frame");
-      }
+      if (!res.ok) throw new Error("Upload failed");
       const { url } = await res.json();
 
       setAiSnapshotUrl(url);
@@ -1107,7 +1121,7 @@ function RecordingEditRow({
                 <div className="rounded overflow-hidden border bg-black">
                   <video
                     ref={videoRef}
-                    src={recording.r2Url}
+                    src={`/api/recordings/${recording.id}/video`}
                     controls
                     preload="auto"
                     playsInline
@@ -1115,6 +1129,7 @@ function RecordingEditRow({
                     onLoadedMetadata={handleSeekVideo}
                   />
                 </div>
+                <canvas ref={canvasRef} className="hidden" />
 
                 <Button
                   type="button"
@@ -1265,7 +1280,7 @@ function RecordingEditRow({
                 <div className="rounded overflow-hidden border bg-black">
                   <video
                     ref={videoRef}
-                    src={recording.r2Url}
+                    src={`/api/recordings/${recording.id}/video`}
                     controls
                     preload="auto"
                     playsInline
@@ -1273,6 +1288,7 @@ function RecordingEditRow({
                     onLoadedMetadata={handleSeekVideo}
                   />
                 </div>
+                <canvas ref={canvasRef} className="hidden" />
 
                 <Button
                   type="button"

@@ -3,18 +3,7 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import crypto from "crypto";
-import { execSync, execFileSync } from "child_process";
-import { readFile, unlink, writeFile } from "fs/promises";
-import os from "os";
-
-// Resolve ffmpeg path at startup to avoid PATH issues in child processes
-let FFMPEG_BIN = "ffmpeg";
-try {
-  FFMPEG_BIN = execSync("which ffmpeg", { encoding: "utf-8" }).trim();
-  console.log(`[CaptureFrame] Found ffmpeg at: ${FFMPEG_BIN}`);
-} catch {
-  console.warn("[CaptureFrame] ffmpeg not found in PATH, frame capture will fail");
-}
+import { Readable } from "stream";
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { uploadBuffer } from "../r2";
@@ -313,6 +302,36 @@ router.get("/admin/all", requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/recordings/:id/video — proxy R2 video as same-origin (enables canvas capture)
+router.get("/:id/video", async (req, res) => {
+  try {
+    const recording = await storage.getRecording(req.params.id);
+    if (!recording) return res.status(404).json({ error: "Not found" });
+
+    // Forward Range header for seeking support
+    const headers: Record<string, string> = {};
+    if (req.headers.range) headers["Range"] = req.headers.range;
+
+    const r2Res = await fetch(recording.r2Url, { headers });
+    if (!r2Res.ok && r2Res.status !== 206) {
+      return res.status(r2Res.status).end();
+    }
+
+    // Forward critical headers
+    res.status(r2Res.status);
+    for (const h of ["content-type", "content-length", "content-range", "accept-ranges"]) {
+      const v = r2Res.headers.get(h);
+      if (v) res.setHeader(h, v);
+    }
+
+    // Pipe the body without buffering
+    Readable.fromWeb(r2Res.body as any).pipe(res);
+  } catch (err) {
+    console.error("[VideoProxy] Error:", err);
+    res.status(500).json({ error: "Failed to proxy video" });
+  }
+});
+
 // GET /api/recordings/:id — single recording
 router.get("/:id", async (req, res) => {
   try {
@@ -372,70 +391,6 @@ router.delete("/admin/:id", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[Admin] Error deleting recording:", err);
     res.status(500).json({ error: "Failed to delete recording" });
-  }
-});
-
-// POST /api/recordings/admin/:id/capture-frame — extract a frame server-side via ffmpeg
-const captureFrameSchema = z.object({
-  timestamp: z.number().min(0),
-});
-
-router.post("/admin/:id/capture-frame", requireAuth, async (req, res) => {
-  const parsed = captureFrameSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.message });
-  }
-
-  try {
-    const recording = await storage.getRecording(req.params.id as string);
-    if (!recording) {
-      return res.status(404).json({ error: "Recording not found" });
-    }
-
-    const { timestamp } = parsed.data;
-    const tmpBase = path.join(os.tmpdir(), `frame-${crypto.randomBytes(8).toString("hex")}`);
-    const videoPath = `${tmpBase}.mp4`;
-    const outPath = `${tmpBase}.jpg`;
-
-    // Download video to temp file
-    console.log(`[CaptureFrame] Downloading video from ${recording.r2Url}`);
-    const videoRes = await fetch(recording.r2Url);
-    if (!videoRes.ok) {
-      throw new Error(`Failed to download video: ${videoRes.status}`);
-    }
-    const videoBuffer = Buffer.from(await videoRes.arrayBuffer());
-    await writeFile(videoPath, videoBuffer);
-    console.log(`[CaptureFrame] Downloaded ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB to ${videoPath}`);
-
-    // Extract frame with ffmpeg
-    console.log(`[CaptureFrame] Extracting frame at ${timestamp}s using ${FFMPEG_BIN}`);
-    try {
-      execFileSync(FFMPEG_BIN, [
-        "-ss", String(timestamp),
-        "-i", videoPath,
-        "-frames:v", "1",
-        "-q:v", "2",
-        "-y",
-        outPath,
-      ], { timeout: 30000, stdio: ["pipe", "pipe", "pipe"] });
-    } catch (ffErr: any) {
-      const stderr = ffErr.stderr?.toString() || "";
-      console.error("[CaptureFrame] ffmpeg failed:", stderr);
-      throw new Error("ffmpeg frame extraction failed");
-    }
-
-    const imgBuffer = await readFile(outPath);
-    await unlink(videoPath).catch(() => {});
-    await unlink(outPath).catch(() => {});
-
-    const r2Key = `thumbnails/custom/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
-    const url = await uploadBuffer(imgBuffer, r2Key, "image/jpeg");
-
-    console.log(`[CaptureFrame] Extracted frame at ${timestamp}s from ${recording.id}, uploaded ${r2Key}`);
-    res.json({ url });
-  } catch (err: any) {
-    console.error("[CaptureFrame] Error:", err);
-    res.status(500).json({ error: err.message || "Failed to capture frame" });
   }
 });
 
