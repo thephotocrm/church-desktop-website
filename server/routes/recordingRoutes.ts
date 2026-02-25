@@ -3,12 +3,21 @@ import { z } from "zod";
 import multer from "multer";
 import path from "path";
 import crypto from "crypto";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { createWriteStream } from "fs";
 import { readFile, unlink } from "fs/promises";
 import os from "os";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
+
+// Resolve ffmpeg path at startup to avoid PATH issues in child processes
+let FFMPEG_BIN = "ffmpeg";
+try {
+  FFMPEG_BIN = execSync("which ffmpeg", { encoding: "utf-8" }).trim();
+  console.log(`[CaptureFrame] Found ffmpeg at: ${FFMPEG_BIN}`);
+} catch {
+  console.warn("[CaptureFrame] ffmpeg not found in PATH, frame capture will fail");
+}
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { uploadBuffer } from "../r2";
@@ -403,7 +412,7 @@ router.post("/admin/:id/capture-frame", requireAuth, async (req, res) => {
 
     console.log(`[CaptureFrame] Extracting frame at ${timestamp}s`);
     await new Promise<void>((resolve, reject) => {
-      const proc = spawn("ffmpeg", [
+      const proc = spawn(FFMPEG_BIN, [
         "-ss", String(timestamp),
         "-i", videoPath,
         "-frames:v", "1",
