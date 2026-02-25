@@ -191,15 +191,21 @@ function buildPastorTitlePrompt(title: string): { prompt: string; combo: { palet
   const treatment = TITLE_TREATMENTS[combo.treatment];
 
   const sections = [
-    `Place this person onto a vibrant new background for a YouTube thumbnail. The person's background has already been removed.`,
+    `Create a vibrant YouTube thumbnail background for a church sermon.`,
     ``,
-    `Keep the person EXACTLY as they appear — same face, skin, hair, clothes, expression. Do not redraw or alter the person in any way.`,
+    `BACKGROUND DESIGN:`,
+    `Color palette: ${palette}. Effect: ${element}. Layout: ${composition}.`,
     ``,
-    `Background: ${palette}. Effect: ${element}. Layout: ${composition}.`,
-    `Position the person on the right ~40% of the frame.`,
+    `TEXT PLACEMENT:`,
+    `Place large bold text "${title}" on the LEFT ~55% of the frame. Style: ${treatment}. Text must be clearly readable.`,
     ``,
-    `Add large bold text "${title}" on the left ~55% of the frame. Style: ${treatment}. Text must be readable.`,
-    `Professional church YouTube thumbnail, 16:9 aspect ratio.`,
+    `RIGHT SIDE (CRITICAL):`,
+    `Keep the RIGHT ~40% of the frame visually simple — no text, no focal elements, no busy patterns.`,
+    `This area should have a clean continuation of the background colors/gradients, suitable for a person to be composited on top later.`,
+    ``,
+    `CONSTRAINTS:`,
+    `Do NOT include any people, human figures, silhouettes, or faces anywhere in the image.`,
+    `Professional church media style. 16:9 aspect ratio.`,
   ];
 
   return { prompt: sections.join("\n"), combo };
@@ -284,9 +290,9 @@ async function decodeAndResize(response: { data?: Array<{ b64_json?: string; url
 }
 
 /**
- * Mode 1: Pastor + Title — snapshot of pastor → colorful background with title.
- * Uses images.edit() with snapshot + style refs (category "pastor-title").
- * Only mode that uses style references.
+ * Mode 1: Pastor + Title — generate background+title, composite real pastor on top.
+ * Uses images.generate() for background, then sharp.composite() to overlay the
+ * background-removed pastor photo. This guarantees the pastor's face is pixel-perfect.
  */
 export async function generatePastorTitle(
   snapshotBuffer: Buffer,
@@ -303,7 +309,7 @@ export async function generatePastorTitle(
   const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
   console.log(`[ThumbnailGen] Converted snapshot PNG: ${snapshotPng.length} bytes`);
 
-  // Remove background to isolate the person
+  // Step 1: Remove background to isolate the person
   console.log(`[ThumbnailGen] Removing background from snapshot...`);
   const bgRemoveStart = Date.now();
   const snapshotBlob = new Blob([snapshotPng], { type: "image/png" });
@@ -313,40 +319,20 @@ export async function generatePastorTitle(
   const foregroundBuffer = Buffer.from(await foregroundBlob.arrayBuffer());
   console.log(`[ThumbnailGen] Background removed in ${((Date.now() - bgRemoveStart) / 1000).toFixed(1)}s — ${foregroundBuffer.length} bytes`);
 
-  // Build mask from alpha channel: person=opaque (keep), background=transparent (edit)
-  // OpenAI mask convention: transparent areas = where to generate new content
-  // The foreground alpha already matches: person is opaque, background is transparent
-  const { width, height } = await sharp(foregroundBuffer).metadata() as { width: number; height: number };
-  const alpha = await sharp(foregroundBuffer).extractChannel(3).toBuffer();
-  const white = Buffer.alloc(width * height, 255);
-  const maskPng = await sharp(white, { raw: { width, height, channels: 1 } })
-    .joinChannel(alpha)
-    .toColourspace("greyalpha")
-    .png()
-    .toBuffer();
-  console.log(`[ThumbnailGen] Generated mask PNG: ${maskPng.length} bytes (${width}x${height})`);
-
-  const snapshotFile = new File([foregroundBuffer], "snapshot.png", { type: "image/png" });
-  const maskFile = new File([maskPng], "mask.png", { type: "image/png" });
-
+  // Step 2: Generate background + title via images.generate() (no person)
   const { prompt, combo } = buildPastorTitlePrompt(title);
   console.log(`[ThumbnailGen] === PASTOR-TITLE REQUEST ===`);
   console.log(`[ThumbnailGen] Title: "${title}"`);
   console.log(`[ThumbnailGen] Combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, treatment=${combo.treatment}`);
-  console.log(`[ThumbnailGen] Snapshot file: name=${snapshotFile.name}, size=${snapshotFile.size} bytes, type=${snapshotFile.type}`);
-  console.log(`[ThumbnailGen] Mask file: name=${maskFile.name}, size=${maskFile.size} bytes, type=${maskFile.type}`);
   console.log(`[ThumbnailGen] FULL PROMPT:\n${prompt}`);
-  console.log(`[ThumbnailGen] Calling openai.images.edit() with model=gpt-image-1, size=1536x1024, input_fidelity=high`);
+  console.log(`[ThumbnailGen] Calling openai.images.generate() with model=gpt-image-1, size=1536x1024`);
 
   const startTime = Date.now();
-  const response = await openai.images.edit({
+  const response = await openai.images.generate({
     model: "gpt-image-1",
-    image: [snapshotFile] as any,
-    mask: maskFile as any,
     prompt,
     size: "1536x1024",
-    input_fidelity: "high",
-  } as any);
+  });
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
   console.log(`[ThumbnailGen] === PASTOR-TITLE RESPONSE (${elapsed}s) ===`);
@@ -357,7 +343,32 @@ export async function generatePastorTitle(
     console.log(`[ThumbnailGen] Has url: ${!!d.url}`);
   }
 
-  return decodeAndResize(response);
+  // Step 3: Decode & resize background to 1280x720
+  const bgBuffer = await decodeAndResize(response);
+  console.log(`[ThumbnailGen] Background resized to ${THUMB_WIDTH}x${THUMB_HEIGHT}: ${bgBuffer.length} bytes`);
+
+  // Step 4: Trim transparent padding from foreground, resize to fit right portion
+  const trimmed = await sharp(foregroundBuffer)
+    .trim()
+    .toBuffer();
+  const trimmedMeta = await sharp(trimmed).metadata();
+  console.log(`[ThumbnailGen] Trimmed foreground: ${trimmedMeta.width}x${trimmedMeta.height}`);
+
+  const fgResized = await sharp(trimmed)
+    .resize({ height: THUMB_HEIGHT, withoutEnlargement: false })
+    .png()
+    .toBuffer();
+  const fgMeta = await sharp(fgResized).metadata();
+  console.log(`[ThumbnailGen] Resized foreground: ${fgMeta.width}x${fgMeta.height}`);
+
+  // Step 5: Composite foreground onto background, positioned on the right
+  const result = await sharp(bgBuffer)
+    .composite([{ input: fgResized, gravity: "east" }])
+    .jpeg({ quality: 90 })
+    .toBuffer();
+  console.log(`[ThumbnailGen] Final composite: ${result.length} bytes`);
+
+  return result;
 }
 
 /**
