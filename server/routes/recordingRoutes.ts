@@ -140,11 +140,17 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
         if (!snapshotUrl) {
           return res.status(400).json({ error: "Snapshot URL is required for pastor-title mode" });
         }
+        console.log(`[Admin] Fetching snapshot from: ${snapshotUrl}`);
         const response = await fetch(snapshotUrl);
         if (!response.ok) {
           return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
         }
+        const contentType = response.headers.get("content-type");
         const snapshotBuffer = Buffer.from(await response.arrayBuffer());
+        console.log(`[Admin] Snapshot downloaded: ${snapshotBuffer.length} bytes, content-type: ${contentType}`);
+        if (snapshotBuffer.length === 0) {
+          return res.status(400).json({ error: "Downloaded snapshot is empty (0 bytes)" });
+        }
         console.log(`[Admin] Generating pastor-title thumbnail for: "${title}"`);
         thumbnailBuffer = await generatePastorTitle(snapshotBuffer, title);
         break;

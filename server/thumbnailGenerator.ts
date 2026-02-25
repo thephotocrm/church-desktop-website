@@ -192,14 +192,17 @@ function buildPastorTitlePrompt(title: string, hasStyleReferences: boolean): { p
   const treatment = TITLE_TREATMENTS[combo.treatment];
 
   const sections = [
-    `Transform this into a professional YouTube thumbnail for a church sermon titled "${title}".`,
+    `Edit this photograph to create a professional YouTube thumbnail for a church sermon titled "${title}".`,
+    `The first image is a photograph of a real person — this is the SOURCE image you are editing.`,
     ``,
-    `PERSON PRESERVATION (CRITICAL):`,
-    `The input image contains a real person. You MUST preserve them EXACTLY as they appear.`,
-    `Do NOT change, replace, regenerate, or alter the person in ANY way.`,
-    `Keep their exact face, skin tone, hair, clothing, expression, pose, and body.`,
-    `The person must remain photorealistic — do NOT stylize, cartoonify, or paint them.`,
-    `Place the person prominently on the right ~40% of the frame.`,
+    `PERSON PRESERVATION — THIS IS THE #1 PRIORITY:`,
+    `You are performing a background replacement edit on a real photograph.`,
+    `The person visible in the input photograph MUST remain EXACTLY as they are — same face, same skin tone, same hair, same clothing, same expression, same pose, same body proportions.`,
+    `Do NOT regenerate, redraw, replace, or hallucinate a different person.`,
+    `Do NOT change any aspect of the person's appearance — not even subtle changes.`,
+    `Do NOT stylize, cartoonify, illustrate, or paint the person — they must remain a photorealistic photograph.`,
+    `Think of this as cutting the person out of the photo and pasting them onto a new background — the person pixels should be identical.`,
+    `Position the preserved person prominently on the right ~40% of the frame.`,
     ``,
     `BACKGROUND REPLACEMENT:`,
     `COMPLETELY remove the original background behind the person.`,
@@ -214,8 +217,8 @@ function buildPastorTitlePrompt(title: string, hasStyleReferences: boolean): { p
     `Text must be highly readable against the background.`,
     ``,
     `CONSTRAINTS:`,
-    `Do NOT generate, add, or alter any human features.`,
-    `The person from the input image must be pixel-accurate — treat as sacred.`,
+    `NEVER generate a new person — only use the exact person from the input photograph.`,
+    `If you cannot preserve the person exactly, leave them completely unmodified rather than generating someone new.`,
     `Professional church YouTube thumbnail style, 16:9 aspect ratio.`,
   ];
 
@@ -348,23 +351,27 @@ export async function generatePastorTitle(
 
   const openai = new OpenAI({ apiKey });
 
+  console.log(`[ThumbnailGen] Input snapshot buffer: ${snapshotBuffer.length} bytes`);
   const snapshotPng = await sharp(snapshotBuffer).png().toBuffer();
+  console.log(`[ThumbnailGen] Converted snapshot PNG: ${snapshotPng.length} bytes`);
   const snapshotFile = new File([snapshotPng], "snapshot.png", { type: "image/png" });
 
   const refFiles = await getStyleReferenceFiles("pastor-title", 4);
   const hasRefs = refFiles.length > 0;
+  console.log(`[ThumbnailGen] Style references: ${refFiles.length} files`);
 
   const { prompt, combo } = buildPastorTitlePrompt(title, hasRefs);
   console.log(`[ThumbnailGen] pastor-title combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, treatment=${combo.treatment}`);
 
   const imageInput: File[] = [snapshotFile, ...refFiles];
+  console.log(`[ThumbnailGen] Sending ${imageInput.length} images to OpenAI (snapshot + ${refFiles.length} refs)`);
 
   const response = await openai.images.edit({
     model: "gpt-image-1",
     image: imageInput as any,
     prompt,
     size: "1536x1024",
-    ...(hasRefs ? { input_fidelity: "high" } : {}),
+    input_fidelity: "high",
   } as any);
 
   return decodeAndResize(response);
