@@ -617,7 +617,7 @@ function RecordingEditRow({
 
   // Frame capture state
   const [showFrameCapture, setShowFrameCapture] = useState(false);
-  const [frameTimestamp, setFrameTimestamp] = useState(3000);
+  const [frameTimestamp, setFrameTimestamp] = useState(30);
   const [capturingFrame, setCapturingFrame] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1089,7 +1089,11 @@ function RecordingEditRow({
                     min={0}
                     max={recording.duration || 7200}
                     value={frameTimestamp}
-                    onChange={(e) => setFrameTimestamp(Number(e.target.value))}
+                    onChange={(e) => {
+                      const t = Number(e.target.value);
+                      setFrameTimestamp(t);
+                      if (videoRef.current) videoRef.current.currentTime = t;
+                    }}
                     className="w-28"
                   />
                   <span className="text-xs text-muted-foreground">
@@ -1105,9 +1109,11 @@ function RecordingEditRow({
                   min={0}
                   max={recording.duration || 7200}
                   value={frameTimestamp}
-                  onChange={(e) => setFrameTimestamp(Number(e.target.value))}
-                  onMouseUp={handleSeekVideo}
-                  onTouchEnd={handleSeekVideo}
+                  onChange={(e) => {
+                    const t = Number(e.target.value);
+                    setFrameTimestamp(t);
+                    if (videoRef.current) videoRef.current.currentTime = t;
+                  }}
                   className="w-full"
                 />
 
@@ -1116,6 +1122,7 @@ function RecordingEditRow({
                     ref={videoRef}
                     src={recording.r2Url}
                     crossOrigin="anonymous"
+                    controls
                     preload="metadata"
                     className="w-full"
                     onLoadedMetadata={handleSeekVideo}
@@ -1241,7 +1248,11 @@ function RecordingEditRow({
                     min={0}
                     max={recording.duration || 7200}
                     value={frameTimestamp}
-                    onChange={(e) => setFrameTimestamp(Number(e.target.value))}
+                    onChange={(e) => {
+                      const t = Number(e.target.value);
+                      setFrameTimestamp(t);
+                      if (videoRef.current) videoRef.current.currentTime = t;
+                    }}
                     className="w-28"
                   />
                   <span className="text-xs text-muted-foreground">
@@ -1257,9 +1268,11 @@ function RecordingEditRow({
                   min={0}
                   max={recording.duration || 7200}
                   value={frameTimestamp}
-                  onChange={(e) => setFrameTimestamp(Number(e.target.value))}
-                  onMouseUp={handleSeekVideo}
-                  onTouchEnd={handleSeekVideo}
+                  onChange={(e) => {
+                    const t = Number(e.target.value);
+                    setFrameTimestamp(t);
+                    if (videoRef.current) videoRef.current.currentTime = t;
+                  }}
                   className="w-full"
                 />
 
@@ -1268,6 +1281,7 @@ function RecordingEditRow({
                     ref={videoRef}
                     src={recording.r2Url}
                     crossOrigin="anonymous"
+                    controls
                     preload="metadata"
                     className="w-full"
                     onLoadedMetadata={handleSeekVideo}
