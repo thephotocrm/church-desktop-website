@@ -5,8 +5,6 @@ import { storage } from "./storage";
 const THUMB_WIDTH = 1280;
 const THUMB_HEIGHT = 720;
 
-const STYLE_REF_INSTRUCTION = `The additional images are style reference thumbnails from a professional church. Match their visual style closely — color grading, text treatment, layout, lighting, cinematic feel. Do NOT copy their text or subjects.`;
-
 // --- Variety pools for Title + Colored Background mode ---
 
 const COLOR_PALETTES = [
@@ -184,7 +182,7 @@ function pickDiverseCombo(): { palette: number; element: number; composition: nu
   return f;
 }
 
-function buildPastorTitlePrompt(title: string, hasStyleReferences: boolean): { prompt: string; combo: { palette: number; element: number; composition: number; treatment: number } } {
+function buildPastorTitlePrompt(title: string): { prompt: string; combo: { palette: number; element: number; composition: number; treatment: number } } {
   const combo = pickDiversePastorCombo();
   const palette = BG_COLOR_PALETTES[combo.palette];
   const element = BG_DESIGN_ELEMENTS[combo.element];
@@ -221,10 +219,6 @@ function buildPastorTitlePrompt(title: string, hasStyleReferences: boolean): { p
     `If you cannot preserve the person exactly, leave them completely unmodified rather than generating someone new.`,
     `Professional church YouTube thumbnail style, 16:9 aspect ratio.`,
   ];
-
-  if (hasStyleReferences) {
-    sections.push(``, STYLE_REF_INSTRUCTION);
-  }
 
   return { prompt: sections.join("\n"), combo };
 }
@@ -281,34 +275,6 @@ function buildTitleColoredBgPrompt(title: string, subtitle?: string): { prompt: 
   return { prompt, combo };
 }
 
-/** Fetch up to `maxCount` random active style reference images as File objects */
-async function getStyleReferenceFiles(category = "pastor-title", maxCount = 4): Promise<File[]> {
-  try {
-    const refs = await storage.getActiveStyleReferences(category);
-    if (refs.length === 0) return [];
-
-    // Randomly select up to maxCount
-    const shuffled = refs.sort(() => Math.random() - 0.5).slice(0, maxCount);
-
-    const files: File[] = [];
-    for (const ref of shuffled) {
-      try {
-        const response = await fetch(ref.r2Url);
-        if (!response.ok) continue;
-        const arrayBuf = await response.arrayBuffer();
-        const pngBuffer = await sharp(Buffer.from(arrayBuf)).png().toBuffer();
-        files.push(new File([pngBuffer], `ref-${ref.sourceVideoId}.png`, { type: "image/png" }));
-      } catch (err) {
-        console.warn(`[ThumbnailGen] Failed to load style reference ${ref.sourceVideoId}:`, err);
-      }
-    }
-    return files;
-  } catch (err) {
-    console.warn("[ThumbnailGen] Failed to load style references:", err);
-    return [];
-  }
-}
-
 /** Decode an OpenAI image response and resize to 1280x720 JPEG */
 async function decodeAndResize(response: { data?: Array<{ b64_json?: string; url?: string }> }): Promise<Buffer> {
   const imageData = response.data?.[0];
@@ -356,19 +322,13 @@ export async function generatePastorTitle(
   console.log(`[ThumbnailGen] Converted snapshot PNG: ${snapshotPng.length} bytes`);
   const snapshotFile = new File([snapshotPng], "snapshot.png", { type: "image/png" });
 
-  const refFiles = await getStyleReferenceFiles("pastor-title", 4);
-  const hasRefs = refFiles.length > 0;
-  console.log(`[ThumbnailGen] Style references: ${refFiles.length} files`);
-
-  const { prompt, combo } = buildPastorTitlePrompt(title, hasRefs);
+  const { prompt, combo } = buildPastorTitlePrompt(title);
   console.log(`[ThumbnailGen] pastor-title combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, treatment=${combo.treatment}`);
-
-  const imageInput: File[] = [snapshotFile, ...refFiles];
-  console.log(`[ThumbnailGen] Sending ${imageInput.length} images to OpenAI (snapshot + ${refFiles.length} refs)`);
+  console.log(`[ThumbnailGen] Sending 1 images to OpenAI (snapshot + 0 refs)`);
 
   const response = await openai.images.edit({
     model: "gpt-image-1",
-    image: imageInput as any,
+    image: snapshotFile,
     prompt,
     size: "1536x1024",
     input_fidelity: "high",
