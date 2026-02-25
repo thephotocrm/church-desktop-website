@@ -61,7 +61,92 @@ const FONT_STYLES = [
   "geometric sans-serif font with clean precise letterforms, like Futura or Century Gothic",
 ];
 
-// Anti-repeat ring buffer: stores last 12 combo indices to avoid near-duplicates
+// --- Variety pools for Pastor + Title mode ---
+
+const BG_COLOR_PALETTES = [
+  "deep royal blue and electric teal with bright cyan accents",
+  "rich purple and vibrant magenta with soft violet highlights",
+  "warm burnt orange and golden amber with fiery red-orange accents",
+  "bold crimson red and deep maroon with warm gold highlights",
+  "vivid emerald green and bright lime with teal undertones",
+  "deep indigo and bright cobalt blue with electric purple accents",
+  "rich sunset orange, hot pink, and warm coral gradient",
+  "saturated teal and bright turquoise with deep navy anchoring",
+  "bold magenta and electric pink with deep plum shadows",
+  "warm gold and rich bronze with deep amber undertones",
+];
+
+const BG_DESIGN_ELEMENTS = [
+  "dramatic light rays radiating outward from behind the person, volumetric and glowing",
+  "soft bokeh circles of varying sizes, gently glowing and layered at different depths",
+  "smooth sweeping gradient swooshes and curved bands of color flowing across the frame",
+  "subtle geometric accent shapes — triangles, hexagons — scattered and semi-transparent",
+  "atmospheric smoke and mist drifting gently, adding depth and mystery",
+  "particle dust and tiny light specks floating in the air, like golden dust motes",
+  "abstract paint splashes and bold brush strokes behind the person, artistic and energetic",
+  "concentric circular ripples of light emanating from behind the person, subtle and layered",
+  "diagonal streaks of light and color, dynamic and modern with motion blur",
+  "soft cloud-like shapes and ethereal wisps of color blending organically",
+];
+
+const BG_COMPOSITIONS = [
+  "radial glow centered behind the person, brightest near their silhouette and fading outward",
+  "diagonal gradient sweeping from bottom-left to top-right with bold color transitions",
+  "split-tone background — darker on one side, brighter on the other, creating contrast",
+  "vignette with vivid color in the center fading to deep dark edges",
+  "horizontal layered bands of color with soft blending between them",
+  "asymmetric color blocks with organic flowing boundaries between zones",
+];
+
+const TITLE_TREATMENTS = [
+  "white bold text with a strong dark drop shadow for maximum contrast",
+  "bright white outlined text with thick stroke and subtle inner glow",
+  "gradient-filled text shifting from white to light gold, bold and luminous",
+  "white text with a bold colored outline matching the background palette accent color",
+  "bright yellow-white text with a soft outer glow halo effect",
+  "clean white text with a subtle 3D extrusion shadow giving depth",
+  "bold white text with each word slightly staggered in size for emphasis hierarchy",
+  "crisp white condensed uppercase text with generous letter spacing and drop shadow",
+];
+
+// Anti-repeat ring buffer for pastor-title combos
+const recentPastorCombos: Array<[number, number, number, number]> = [];
+const PASTOR_HISTORY_SIZE = 12;
+
+function pickDiversePastorCombo(): { palette: number; element: number; composition: number; treatment: number } {
+  for (let i = 0; i < 20; i++) {
+    const c = {
+      palette: Math.floor(Math.random() * BG_COLOR_PALETTES.length),
+      element: Math.floor(Math.random() * BG_DESIGN_ELEMENTS.length),
+      composition: Math.floor(Math.random() * BG_COMPOSITIONS.length),
+      treatment: Math.floor(Math.random() * TITLE_TREATMENTS.length),
+    };
+    const tooSimilar = recentPastorCombos.some(([p, e, co, t]) => {
+      let m = 0;
+      if (p === c.palette) m++;
+      if (e === c.element) m++;
+      if (co === c.composition) m++;
+      if (t === c.treatment) m++;
+      return m >= 2;
+    });
+    if (!tooSimilar) {
+      recentPastorCombos.push([c.palette, c.element, c.composition, c.treatment]);
+      if (recentPastorCombos.length > PASTOR_HISTORY_SIZE) recentPastorCombos.shift();
+      return c;
+    }
+  }
+  const f = {
+    palette: Math.floor(Math.random() * BG_COLOR_PALETTES.length),
+    element: Math.floor(Math.random() * BG_DESIGN_ELEMENTS.length),
+    composition: Math.floor(Math.random() * BG_COMPOSITIONS.length),
+    treatment: Math.floor(Math.random() * TITLE_TREATMENTS.length),
+  };
+  recentPastorCombos.push([f.palette, f.element, f.composition, f.treatment]);
+  if (recentPastorCombos.length > PASTOR_HISTORY_SIZE) recentPastorCombos.shift();
+  return f;
+}
+
+// Anti-repeat ring buffer for title-background combos: stores last 12 combo indices
 const recentCombos: Array<[number, number, number, number]> = [];
 const HISTORY_SIZE = 12;
 
@@ -99,12 +184,46 @@ function pickDiverseCombo(): { palette: number; element: number; composition: nu
   return f;
 }
 
-function buildPastorTitlePrompt(title: string, hasStyleReferences: boolean): string {
-  let prompt = `Transform this into a professional YouTube thumbnail for a church sermon titled "${title}". The image contains a person (pastor/speaker) — keep them clearly visible and prominent on the right side. Do NOT alter their face or appearance. COMPLETELY REPLACE the background — remove the original background entirely and replace it with a vibrant, colorful, eye-catching design. Use bold saturated colors (deep blues, rich purples, warm oranges, electric teals) with abstract shapes, gradients, light rays, or bokeh effects. The background should be visually striking and modern — NOT dark or muted. Add large bold text "${title}" on the left side in a clean, modern sans-serif font. The text should be white or bright and highly readable against the colorful background. Professional church media / YouTube thumbnail style, 16:9 aspect ratio.`;
+function buildPastorTitlePrompt(title: string, hasStyleReferences: boolean): { prompt: string; combo: { palette: number; element: number; composition: number; treatment: number } } {
+  const combo = pickDiversePastorCombo();
+  const palette = BG_COLOR_PALETTES[combo.palette];
+  const element = BG_DESIGN_ELEMENTS[combo.element];
+  const composition = BG_COMPOSITIONS[combo.composition];
+  const treatment = TITLE_TREATMENTS[combo.treatment];
+
+  const sections = [
+    `Transform this into a professional YouTube thumbnail for a church sermon titled "${title}".`,
+    ``,
+    `PERSON PRESERVATION (CRITICAL):`,
+    `The input image contains a real person. You MUST preserve them EXACTLY as they appear.`,
+    `Do NOT change, replace, regenerate, or alter the person in ANY way.`,
+    `Keep their exact face, skin tone, hair, clothing, expression, pose, and body.`,
+    `The person must remain photorealistic — do NOT stylize, cartoonify, or paint them.`,
+    `Place the person prominently on the right ~40% of the frame.`,
+    ``,
+    `BACKGROUND REPLACEMENT:`,
+    `COMPLETELY remove the original background behind the person.`,
+    `Replace with a vibrant, eye-catching background using these colors: ${palette}.`,
+    `Background effect: ${element}.`,
+    `Background layout: ${composition}.`,
+    `The background should be vivid and attention-grabbing but NOT compete with the person.`,
+    ``,
+    `TEXT PLACEMENT:`,
+    `Add large bold text "${title}" on the left ~55% of the frame.`,
+    `Text style: ${treatment}.`,
+    `Text must be highly readable against the background.`,
+    ``,
+    `CONSTRAINTS:`,
+    `Do NOT generate, add, or alter any human features.`,
+    `The person from the input image must be pixel-accurate — treat as sacred.`,
+    `Professional church YouTube thumbnail style, 16:9 aspect ratio.`,
+  ];
+
   if (hasStyleReferences) {
-    prompt += ` ${STYLE_REF_INSTRUCTION}`;
+    sections.push(``, STYLE_REF_INSTRUCTION);
   }
-  return prompt;
+
+  return { prompt: sections.join("\n"), combo };
 }
 
 function buildServiceOverlayPrompt(title: string): string {
@@ -235,12 +354,15 @@ export async function generatePastorTitle(
   const refFiles = await getStyleReferenceFiles("pastor-title", 4);
   const hasRefs = refFiles.length > 0;
 
+  const { prompt, combo } = buildPastorTitlePrompt(title, hasRefs);
+  console.log(`[ThumbnailGen] pastor-title combo: palette=${combo.palette}, element=${combo.element}, composition=${combo.composition}, treatment=${combo.treatment}`);
+
   const imageInput: File[] = [snapshotFile, ...refFiles];
 
   const response = await openai.images.edit({
     model: "gpt-image-1",
     image: imageInput as any,
-    prompt: buildPastorTitlePrompt(title, hasRefs),
+    prompt,
     size: "1536x1024",
     ...(hasRefs ? { input_fidelity: "high" } : {}),
   } as any);
