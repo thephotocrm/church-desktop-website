@@ -8,7 +8,7 @@ import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { uploadBuffer } from "../r2";
 import sharp from "sharp";
-import { generatePastorTitleProgrammatic, generateServiceOverlay, generateTitleColoredBg } from "../thumbnailGenerator";
+import { generatePastorTitleProgrammatic, generateServiceOverlay, generateTitleColoredBg, TEXT_STYLES } from "../thumbnailGenerator";
 
 const router = Router();
 
@@ -194,6 +194,7 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
 // --- Temporary test endpoints (no auth) for thumbnail preview ---
 // In-memory store so we skip R2 entirely for this test page
 const testPastorImages = new Map<string, { buffer: Buffer; mime: string }>();
+const testSnapshotImages = new Map<string, { buffer: Buffer; mime: string }>();
 
 router.post("/test/upload-pastor", (req, res, next) => {
   upload.single("file")(req, res, (err: any) => {
@@ -231,12 +232,58 @@ router.get("/test/pastor-image/:id", (req, res) => {
   res.send(entry.buffer);
 });
 
+router.post("/test/upload-snapshot", (req, res, next) => {
+  upload.single("file")(req, res, (err: any) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: "File too large (max 5 MB)" });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed" });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file provided" });
+    }
+    const id = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
+    testSnapshotImages.set(id, { buffer: req.file.buffer, mime: req.file.mimetype });
+    const url = `/api/recordings/test/snapshot-image/${id}`;
+    console.log(`[Test] Snapshot image stored in-memory: ${id} (${req.file.buffer.length} bytes)`);
+    res.json({ url, id });
+  } catch (err) {
+    console.error("[Test] Error uploading snapshot image:", err);
+    res.status(500).json({ error: "Failed to upload" });
+  }
+});
+
+router.get("/test/snapshot-image/:id", (req, res) => {
+  const entry = testSnapshotImages.get(req.params.id);
+  if (!entry) {
+    return res.status(404).json({ error: "Image not found" });
+  }
+  res.setHeader("Content-Type", entry.mime);
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(entry.buffer);
+});
+
+// GET /api/recordings/test/styles — list all available text styles
+router.get("/test/styles", (_req, res) => {
+  res.json({
+    count: TEXT_STYLES.length,
+    styles: TEXT_STYLES.map((s, i) => ({ index: i, name: s.name, fontFamily: s.fontFamily, subtitleFontFamily: s.subtitleFontFamily })),
+  });
+});
+
 const testGenerateSchema = z.object({
-  mode: z.enum(["pastor-title"]),
-  pastorImageId: z.string().min(1),
+  mode: z.enum(["pastor-title", "title-background", "service-overlay"]),
+  pastorImageId: z.string().optional(),
+  snapshotImageId: z.string().optional(),
   title: z.string().min(1),
   subtitle: z.string().optional(),
-  layout: z.enum(["left", "right"]),
+  layout: z.enum(["left", "right"]).optional(),
+  styleIndex: z.number().int().min(0).optional(),
 });
 
 router.post("/test/generate-thumbnail", async (req, res) => {
@@ -245,15 +292,47 @@ router.post("/test/generate-thumbnail", async (req, res) => {
     return res.status(400).json({ error: parsed.error.message });
   }
   try {
-    const { pastorImageId, title, subtitle, layout } = parsed.data;
-    const entry = testPastorImages.get(pastorImageId);
-    if (!entry) {
-      return res.status(400).json({ error: "Pastor image not found — re-upload it" });
+    const { mode, title, subtitle, styleIndex } = parsed.data;
+    let thumbnailBuffer: Buffer;
+
+    switch (mode) {
+      case "pastor-title": {
+        const { pastorImageId, layout } = parsed.data;
+        if (!pastorImageId) {
+          return res.status(400).json({ error: "Pastor image is required for pastor-title mode" });
+        }
+        if (!layout) {
+          return res.status(400).json({ error: "Layout is required for pastor-title mode" });
+        }
+        const entry = testPastorImages.get(pastorImageId);
+        if (!entry) {
+          return res.status(400).json({ error: "Pastor image not found — re-upload it" });
+        }
+        const dataUrl = `data:${entry.mime};base64,${entry.buffer.toString("base64")}`;
+        console.log(`[Test] Generating pastor-title thumbnail for: "${title}" (style: ${styleIndex ?? "random"})`);
+        thumbnailBuffer = await generatePastorTitleProgrammatic(dataUrl, title, layout, subtitle, styleIndex);
+        break;
+      }
+      case "title-background": {
+        console.log(`[Test] Generating title-background thumbnail for: "${title}" (style: ${styleIndex ?? "random"})`);
+        thumbnailBuffer = await generateTitleColoredBg(title, subtitle, styleIndex);
+        break;
+      }
+      case "service-overlay": {
+        const { snapshotImageId } = parsed.data;
+        if (!snapshotImageId) {
+          return res.status(400).json({ error: "Snapshot image is required for service-overlay mode" });
+        }
+        const entry = testSnapshotImages.get(snapshotImageId);
+        if (!entry) {
+          return res.status(400).json({ error: "Snapshot image not found — re-upload it" });
+        }
+        console.log(`[Test] Generating service-overlay thumbnail for: "${title}" (style: ${styleIndex ?? "random"})`);
+        thumbnailBuffer = await generateServiceOverlay(entry.buffer, title, subtitle, styleIndex);
+        break;
+      }
     }
-    // Convert buffer to data URL so the generator's fetch() can read it
-    const dataUrl = `data:${entry.mime};base64,${entry.buffer.toString("base64")}`;
-    console.log(`[Test] Generating pastor-title thumbnail for: "${title}"`);
-    const thumbnailBuffer = await generatePastorTitleProgrammatic(dataUrl, title, layout, subtitle);
+
     const url = `data:image/jpeg;base64,${thumbnailBuffer.toString("base64")}`;
     console.log(`[Test] Thumbnail generated (${thumbnailBuffer.length} bytes)`);
     res.json({ url });
