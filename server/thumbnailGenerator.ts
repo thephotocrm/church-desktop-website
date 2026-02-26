@@ -1311,17 +1311,26 @@ export async function generateServiceOverlay(
 
   const startTime = Date.now();
 
-  // Resize snapshot to canvas dimensions
+  // Validate + resize snapshot to canvas dimensions
+  const inputMeta = await sharp(snapshotBuffer).metadata();
+  console.log(`[ThumbnailGen] Snapshot input: ${inputMeta.width}x${inputMeta.height}, format=${inputMeta.format}, channels=${inputMeta.channels}, size=${snapshotBuffer.length}`);
+
   const resizedSnapshot = await sharp(snapshotBuffer)
     .resize(width, height, { fit: "cover" })
+    .ensureAlpha()
     .png()
     .toBuffer();
 
-  // Create dark overlay
+  const resizedMeta = await sharp(resizedSnapshot).metadata();
+  console.log(`[ThumbnailGen] Snapshot resized: ${resizedMeta.width}x${resizedMeta.height}, channels=${resizedMeta.channels}, size=${resizedSnapshot.length}`);
+
+  // Create dark overlay using raw RGBA buffer (sharp.create alpha is unreliable)
   const overlayAlpha = Math.round(overlayOpacity * 255);
-  const darkOverlay = await sharp({
-    create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: overlayAlpha } },
-  }).png().toBuffer();
+  const darkBuf = Buffer.alloc(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    darkBuf[i * 4 + 3] = overlayAlpha; // R=G=B=0 (black), A=overlayAlpha
+  }
+  const darkOverlay = await sharp(darkBuf, { raw: { width, height, channels: 4 } }).png().toBuffer();
 
   // Create centered title layer
   const titleLayer = await createCenteredTitleLayer(width, height, title, textStyle, subtitle, use3D);

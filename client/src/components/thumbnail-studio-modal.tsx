@@ -402,7 +402,7 @@ export function ThumbnailStudioModal({
                       src={`/api/recordings/${recording.id}/video`}
                       crossOrigin="anonymous"
                       controls
-                      preload="auto"
+                      preload="metadata"
                       playsInline
                       className="w-full"
                       onLoadedMetadata={handleSeekVideo}

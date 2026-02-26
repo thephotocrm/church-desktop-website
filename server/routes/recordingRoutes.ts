@@ -163,15 +163,7 @@ router.post("/admin/generate-thumbnail-batch", requireAuth, async (req, res) => 
     if (pastorImageUrl) modes.push("pastor-title");
     if (snapshotUrl) modes.push("service-overlay");
 
-    // Distribute count evenly across modes
-    const perMode = Math.floor(count / modes.length);
-    const remainder = count % modes.length;
-    const distribution: { mode: string; count: number }[] = modes.map((mode, i) => ({
-      mode,
-      count: perMode + (i < remainder ? 1 : 0),
-    }));
-
-    // Pre-process snapshot once if needed
+    // Pre-process snapshot once if needed (may remove service-overlay from modes if invalid)
     let snapshotBuffer: Buffer | undefined;
     if (snapshotUrl && modes.includes("service-overlay")) {
       if (snapshotUrl.startsWith("data:")) {
@@ -180,25 +172,61 @@ router.post("/admin/generate-thumbnail-batch", requireAuth, async (req, res) => 
           return res.status(400).json({ error: "Invalid snapshot data URL" });
         }
         snapshotBuffer = Buffer.from(base64Match[1], "base64");
+        console.log(`[Admin] Snapshot from data URL: ${snapshotBuffer.length} bytes`);
       } else {
+        console.log(`[Admin] Fetching snapshot from URL: ${snapshotUrl.slice(0, 120)}...`);
         const response = await fetch(snapshotUrl);
         if (!response.ok) {
+          console.error(`[Admin] Snapshot fetch failed: ${response.status} ${response.statusText}`);
           return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
         }
+        const contentType = response.headers.get("content-type") || "";
         snapshotBuffer = Buffer.from(await response.arrayBuffer());
+        console.log(`[Admin] Snapshot downloaded: ${snapshotBuffer.length} bytes, content-type: ${contentType}`);
+        // If R2 returned an HTML error page or non-image, skip service-overlay
+        if (!contentType.startsWith("image/") && snapshotBuffer.length < 1000) {
+          console.error(`[Admin] Snapshot is not an image (content-type: ${contentType}), disabling service-overlay`);
+          snapshotBuffer = undefined;
+          // Remove service-overlay from modes
+          const idx = modes.indexOf("service-overlay");
+          if (idx >= 0) modes.splice(idx, 1);
+        }
       }
-      console.log(`[Admin] Snapshot buffer: ${snapshotBuffer.length} bytes`);
+      // Validate the buffer is a real image
+      if (snapshotBuffer) {
+        try {
+          const meta = await sharp(snapshotBuffer).metadata();
+          console.log(`[Admin] Snapshot validated: ${meta.width}x${meta.height}, format=${meta.format}`);
+        } catch (e: any) {
+          console.error(`[Admin] Snapshot buffer is not a valid image: ${e.message}`);
+          snapshotBuffer = undefined;
+          const idx = modes.indexOf("service-overlay");
+          if (idx >= 0) modes.splice(idx, 1);
+        }
+      }
     }
 
-    // Pre-assign unique style indices (shuffled) so every thumbnail gets a different font
+    // Distribute count evenly across (validated) modes
+    const perMode = Math.floor(count / modes.length);
+    const remainder = count % modes.length;
+    const distribution: { mode: string; count: number }[] = modes.map((mode, i) => ({
+      mode,
+      count: perMode + (i < remainder ? 1 : 0),
+    }));
+
+    // Pre-assign unique style indices — shuffle ALL styles then pick `count`,
+    // so we sample from the full range (not just indices 0..count-1 which
+    // cluster in the same font families like Oswald/Playfair/Montserrat).
     const styleCount = TEXT_STYLES.length;
-    const styleIndices: number[] = [];
-    for (let i = 0; i < count; i++) styleIndices.push(i % styleCount);
-    // Fisher-Yates shuffle
-    for (let i = styleIndices.length - 1; i > 0; i--) {
+    const allStyleIndices = Array.from({ length: styleCount }, (_, i) => i);
+    // Fisher-Yates shuffle the full array
+    for (let i = allStyleIndices.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [styleIndices[i], styleIndices[j]] = [styleIndices[j], styleIndices[i]];
+      [allStyleIndices[i], allStyleIndices[j]] = [allStyleIndices[j], allStyleIndices[i]];
     }
+    // Take first `count` (or wrap if count > styleCount)
+    const styleIndices: number[] = [];
+    for (let i = 0; i < count; i++) styleIndices.push(allStyleIndices[i % styleCount]);
 
     // Build task list — interleave modes for a mixed grid
     type TaskDef = { mode: string; styleIdx: number; layout: "left" | "right" };
