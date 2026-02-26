@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
-import { encrypt, mask, isEncrypted } from "../encryption";
+import { encrypt, decrypt, mask, isEncrypted } from "../encryption";
 
 const router = Router();
 
@@ -75,6 +75,96 @@ router.get("/restream-status", requireAuth, async (_req, res) => {
   } catch (err) {
     console.error("Error fetching restream status:", err);
     res.status(500).json({ error: "Failed to fetch restream status" });
+  }
+});
+
+// ===================== VPS Restream Endpoints =====================
+
+// GET /api/restream/vps-config — returns decrypted restream config for the VPS
+// Mounted separately at /api/restream in routes.ts
+export const vpsRestreamRouter = Router();
+
+vpsRestreamRouter.get("/vps-config", async (req, res) => {
+  const secret = req.headers["x-vps-secret"] as string | undefined;
+  const expectedSecret = process.env.RESTREAM_VPS_SECRET;
+
+  if (!expectedSecret || secret !== expectedSecret) {
+    return res.status(403).json({ error: "Invalid VPS secret" });
+  }
+
+  try {
+    const configs = await storage.getPlatformConfigs();
+    const result: Record<string, { enabled: boolean; rtmpUrl?: string }> = {};
+
+    for (const config of configs) {
+      if (config.enabled && config.streamKey && config.rtmpUrl) {
+        try {
+          const decryptedKey = decrypt(config.streamKey);
+          result[config.platform] = {
+            enabled: true,
+            rtmpUrl: `${config.rtmpUrl}/${decryptedKey}`,
+          };
+        } catch {
+          result[config.platform] = { enabled: false };
+        }
+      } else {
+        result[config.platform] = { enabled: false };
+      }
+    }
+
+    // Ensure both platforms are always present in the response
+    if (!result.youtube) result.youtube = { enabled: false };
+    if (!result.facebook) result.facebook = { enabled: false };
+
+    res.json(result);
+  } catch (err) {
+    console.error("Error fetching VPS restream config:", err);
+    res.status(500).json({ error: "Failed to fetch restream config" });
+  }
+});
+
+// POST /api/restream/vps-status — VPS reports restream status changes
+vpsRestreamRouter.post("/vps-status", async (req, res) => {
+  const secret = req.headers["x-vps-secret"] as string | undefined;
+  const expectedSecret = process.env.RESTREAM_VPS_SECRET;
+
+  if (!expectedSecret || secret !== expectedSecret) {
+    return res.status(403).json({ error: "Invalid VPS secret" });
+  }
+
+  const { platform, status, errorMessage } = req.body;
+
+  if (!platform || !status) {
+    return res.status(400).json({ error: "platform and status are required" });
+  }
+
+  if (platform !== "youtube" && platform !== "facebook") {
+    return res.status(400).json({ error: "Invalid platform" });
+  }
+
+  if (!["idle", "active", "error"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status. Must be 'idle', 'active', or 'error'" });
+  }
+
+  try {
+    const data: Record<string, unknown> = {
+      platform,
+      status,
+      errorMessage: errorMessage || null,
+    };
+
+    if (status === "active") {
+      data.startedAt = new Date();
+      data.stoppedAt = null;
+    } else if (status === "idle") {
+      data.stoppedAt = new Date();
+    }
+
+    const result = await storage.upsertRestreamStatus(platform, data);
+    res.json(result);
+  } catch (err) {
+    console.error("Error updating VPS restream status:", err);
+    res.status(500).json({ error: "Failed to update restream status" });
   }
 });
 

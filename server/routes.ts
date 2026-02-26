@@ -8,6 +8,7 @@ import groupRoutes from "./routes/groupRoutes";
 import prayerRoutes from "./routes/prayerRoutes";
 import givingRoutes from "./routes/givingRoutes";
 import platformRoutes from "./routes/platformRoutes";
+import { vpsRestreamRouter } from "./routes/platformRoutes";
 import youtubeRoutes from "./routes/youtubeRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import { startRestreaming, stopRestreaming } from "./restreamManager";
@@ -180,6 +181,7 @@ export async function registerRoutes(
   app.use("/api/prayer-requests", prayerRoutes);
   app.use("/api/giving", givingRoutes);
   app.use("/api/admin", platformRoutes);
+  app.use("/api/restream", vpsRestreamRouter);
   app.use("/api/youtube", youtubeRoutes);
   app.use("/api/recordings", recordingRoutes);
 
