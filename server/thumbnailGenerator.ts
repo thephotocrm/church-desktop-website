@@ -30,6 +30,17 @@ const GRADIENT_PALETTES: GradientPalette[] = [
   { name: "deep-teal-turquoise",  dark: { r: 5,   g: 25,  b: 40  }, mid: { r: 15,  g: 80,  b: 110 }, light: { r: 40,  g: 190, b: 200 }, accent: { r: 120, g: 255, b: 240 } },
   { name: "bronze-amber",         dark: { r: 30,  g: 18,  b: 8   }, mid: { r: 140, g: 90,  b: 30  }, light: { r: 220, g: 170, b: 60  }, accent: { r: 255, g: 230, b: 130 } },
   { name: "midnight-silver",      dark: { r: 12,  g: 12,  b: 25  }, mid: { r: 50,  g: 55,  b: 80  }, light: { r: 120, g: 130, b: 160 }, accent: { r: 200, g: 210, b: 240 } },
+  // 10 new visually distinct palettes
+  { name: "warm-peach-salmon",    dark: { r: 45,  g: 20,  b: 15  }, mid: { r: 200, g: 110, b: 80  }, light: { r: 255, g: 180, b: 140 }, accent: { r: 255, g: 220, b: 200 } },
+  { name: "bright-fuchsia",       dark: { r: 40,  g: 5,   b: 35  }, mid: { r: 160, g: 20,  b: 120 }, light: { r: 240, g: 60,  b: 180 }, accent: { r: 255, g: 150, b: 220 } },
+  { name: "forest-olive",         dark: { r: 15,  g: 25,  b: 10  }, mid: { r: 50,  g: 80,  b: 30  }, light: { r: 100, g: 140, b: 50  }, accent: { r: 180, g: 220, b: 100 } },
+  { name: "dusty-rose-mauve",     dark: { r: 35,  g: 15,  b: 25  }, mid: { r: 140, g: 70,  b: 100 }, light: { r: 200, g: 130, b: 160 }, accent: { r: 240, g: 190, b: 210 } },
+  { name: "charcoal-slate",       dark: { r: 15,  g: 18,  b: 20  }, mid: { r: 55,  g: 65,  b: 75  }, light: { r: 110, g: 125, b: 140 }, accent: { r: 180, g: 195, b: 210 } },
+  { name: "deep-burgundy-wine",   dark: { r: 30,  g: 5,   b: 10  }, mid: { r: 100, g: 15,  b: 30  }, light: { r: 160, g: 40,  b: 60  }, accent: { r: 220, g: 120, b: 140 } },
+  { name: "tropical-teal-yellow", dark: { r: 5,   g: 30,  b: 30  }, mid: { r: 20,  g: 120, b: 110 }, light: { r: 80,  g: 200, b: 170 }, accent: { r: 240, g: 230, b: 100 } },
+  { name: "lavender-violet",      dark: { r: 20,  g: 12,  b: 40  }, mid: { r: 100, g: 70,  b: 160 }, light: { r: 170, g: 140, b: 220 }, accent: { r: 220, g: 200, b: 255 } },
+  { name: "rust-terracotta",      dark: { r: 35,  g: 15,  b: 8   }, mid: { r: 160, g: 70,  b: 30  }, light: { r: 210, g: 120, b: 60  }, accent: { r: 240, g: 180, b: 120 } },
+  { name: "ice-blue-arctic",      dark: { r: 10,  g: 20,  b: 35  }, mid: { r: 60,  g: 120, b: 180 }, light: { r: 150, g: 200, b: 240 }, accent: { r: 220, g: 240, b: 255 } },
 ];
 
 type TextureType = "grain" | "waves" | "checkers" | "diagonal-lines" | "dots";
@@ -39,16 +50,20 @@ const TEXTURE_TYPES: TextureType[] = ["grain", "waves", "checkers", "diagonal-li
 interface TextStyle {
   name: string;
   color: string;        // Pango foreground color
-  shadowBlur: number;   // Shadow blur sigma
-  shadowOffset: number; // Shadow x/y offset
+  fontFamily: string;   // Pango font family
 }
 
 const TEXT_STYLES: TextStyle[] = [
-  { name: "classic-white",  color: "white",   shadowBlur: 3, shadowOffset: 3 },
-  { name: "warm-gold",      color: "#FFD700", shadowBlur: 3, shadowOffset: 3 },
-  { name: "cool-ice",       color: "#E0F0FF", shadowBlur: 3, shadowOffset: 3 },
-  { name: "soft-cream",     color: "#FFF8E7", shadowBlur: 3, shadowOffset: 3 },
-  { name: "bright-yellow",  color: "#FFEB3B", shadowBlur: 3, shadowOffset: 3 },
+  { name: "bold-white",       color: "white",   fontFamily: "DejaVu Sans Bold" },
+  { name: "warm-gold",        color: "#FFD700", fontFamily: "DejaVu Sans Bold" },
+  { name: "bright-cyan",      color: "#00FFFF", fontFamily: "DejaVu Sans Bold" },
+  { name: "hot-pink",         color: "#FF69B4", fontFamily: "DejaVu Sans Bold" },
+  { name: "lime-green",       color: "#7FFF00", fontFamily: "DejaVu Sans Bold" },
+  { name: "serif-white",      color: "white",   fontFamily: "DejaVu Serif Bold" },
+  { name: "serif-gold",       color: "#FFD700", fontFamily: "DejaVu Serif Bold" },
+  { name: "serif-cyan",       color: "#00FFFF", fontFamily: "DejaVu Serif Bold" },
+  { name: "bright-orange",    color: "#FF8C00", fontFamily: "DejaVu Sans Bold" },
+  { name: "electric-blue",    color: "#00BFFF", fontFamily: "DejaVu Serif Bold" },
 ];
 
 // Anti-repeat for programmatic pastor-title
@@ -63,7 +78,13 @@ function pickProgrammaticCombo(): { paletteIdx: number; textureIdx: number; styl
       styleIdx: Math.floor(Math.random() * TEXT_STYLES.length),
     };
     const tooSimilar = recentProgrammaticCombos.some(
-      ([p, t, s]) => p === c.paletteIdx && t === c.textureIdx && s === c.styleIdx
+      ([p, t, s]) => {
+        let m = 0;
+        if (p === c.paletteIdx) m++;
+        if (t === c.textureIdx) m++;
+        if (s === c.styleIdx) m++;
+        return m >= 2;
+      }
     );
     if (!tooSimilar) {
       recentProgrammaticCombos.push([c.paletteIdx, c.textureIdx, c.styleIdx]);
@@ -146,6 +167,10 @@ async function createTextureLayer(
   // Hoist any per-call randomness outside the loop
   const waveFreq = 0.015 + Math.random() * 0.015;
   const wavePhase = Math.random() * Math.PI * 2;
+  const checkerSize = 30 + Math.floor(Math.random() * 31);   // 30-60
+  const lineSpacing = 20 + Math.floor(Math.random() * 21);   // 20-40
+  const dotSpacing = 35 + Math.floor(Math.random() * 31);    // 35-65
+  const dotHalf = Math.floor(dotSpacing / 2);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -162,19 +187,19 @@ async function createTextureLayer(
           break;
         }
         case "checkers": {
-          const cx = Math.floor(x / 40);
-          const cy = Math.floor(y / 40);
+          const cx = Math.floor(x / checkerSize);
+          const cy = Math.floor(y / checkerSize);
           v = (cx + cy) % 2 === 0 ? 200 : 60;
           break;
         }
         case "diagonal-lines": {
-          const diag = (x + y) % 30;
+          const diag = (x + y) % lineSpacing;
           v = diag < 4 ? 220 : 40;
           break;
         }
         case "dots": {
-          const dx = (x % 50) - 25;
-          const dy = (y % 50) - 25;
+          const dx = (x % dotSpacing) - dotHalf;
+          const dy = (y % dotSpacing) - dotHalf;
           const d = Math.sqrt(dx * dx + dy * dy);
           v = d < 8 ? 200 : 30;
           break;
@@ -205,7 +230,7 @@ async function createTitleLayer(
   else fontSize = Math.round(height * 0.08);
 
   const escaped = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").toUpperCase();
-  const pangoMarkup = `<span foreground="${style.color}" font_desc="DejaVu Sans Bold ${fontSize}px">${escaped}</span>`;
+  const pangoMarkup = `<span foreground="${style.color}" font_desc="${style.fontFamily} ${fontSize}px">${escaped}</span>`;
 
   const textImage = await sharp({
     text: {
@@ -254,15 +279,15 @@ async function createTitleLayer(
   const left = Math.round(textZoneX + (textZoneWidth - textW) / 2);
   const top = Math.round((height - totalTextH) / 2);
 
-  // Create drop shadow for title
+  // Create hard drop shadow for title (no blur)
+  const shadowOffset = 5;
   const shadowImage = await sharp(textImage)
     .ensureAlpha()
     .tint({ r: 0, g: 0, b: 0 })
-    .blur(Math.max(1, style.shadowBlur))
     .toBuffer();
 
   const composites: sharp.OverlayOptions[] = [
-    { input: shadowImage, left: Math.max(0, left + style.shadowOffset), top: Math.max(0, top + style.shadowOffset), blend: "over" },
+    { input: shadowImage, left: Math.max(0, left + shadowOffset), top: Math.max(0, top + shadowOffset), blend: "over" },
     { input: textImage, left: Math.max(0, left), top: Math.max(0, top), blend: "over" },
   ];
 
@@ -274,11 +299,10 @@ async function createTitleLayer(
     const subShadow = await sharp(subtitleImage)
       .ensureAlpha()
       .tint({ r: 0, g: 0, b: 0 })
-      .blur(Math.max(1, style.shadowBlur))
       .toBuffer();
 
     composites.push(
-      { input: subShadow, left: Math.max(0, subLeft + style.shadowOffset), top: Math.max(0, subTop + style.shadowOffset), blend: "over" },
+      { input: subShadow, left: Math.max(0, subLeft + shadowOffset), top: Math.max(0, subTop + shadowOffset), blend: "over" },
       { input: subtitleImage, left: Math.max(0, subLeft), top: Math.max(0, subTop), blend: "over" },
     );
   }
@@ -515,7 +539,7 @@ export async function generatePastorTitleProgrammatic(
   const palette = GRADIENT_PALETTES[paletteIdx];
   const textureType = TEXTURE_TYPES[textureIdx];
   const textStyle = TEXT_STYLES[styleIdx];
-  const textureOpacity = 0.10 + Math.random() * 0.10;
+  const textureOpacity = 0.15 + Math.random() * 0.15;
 
   console.log(`[ThumbnailGen] === PASTOR-TITLE-PROGRAMMATIC ===`);
   console.log(`[ThumbnailGen] Title: "${title}" | Subtitle: "${subtitle || "(none)"}" | Layout: ${layout}`);
@@ -534,7 +558,7 @@ export async function generatePastorTitleProgrammatic(
   // Composite: gradient (base) + texture (soft-light) + title (over) + pastor (over)
   const result = await sharp(gradientLayer)
     .composite([
-      { input: textureLayer, blend: "soft-light" as any },
+      { input: textureLayer, blend: "overlay" as any },
       { input: titleLayer, blend: "over" },
       { input: pastorLayer, blend: "over" },
     ])
