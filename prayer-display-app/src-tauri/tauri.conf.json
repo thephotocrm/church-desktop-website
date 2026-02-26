@@ -5,8 +5,7 @@
   "identifier": "app.church.prayer-display",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "https://fpcd.life/prayer-display",
-    "withGlobalTauri": false
+    "devUrl": "https://fpcd.life/prayer-display"
   },
   "app": {
     "windows": [
