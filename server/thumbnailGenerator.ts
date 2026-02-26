@@ -147,7 +147,7 @@ export const TEXT_STYLES: TextStyle[] = [
 
 // Anti-repeat for programmatic pastor-title
 const recentProgrammaticCombos: Array<[number, number, number, number]> = [];
-const PROGRAMMATIC_HISTORY_SIZE = 12;
+const PROGRAMMATIC_HISTORY_SIZE = 30;
 
 function pickProgrammaticCombo(): { paletteIdx: number; textureIdx: number; styleIdx: number; strategyIdx: number } {
   for (let i = 0; i < 20; i++) {

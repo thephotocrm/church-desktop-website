@@ -156,7 +156,7 @@ router.post("/admin/generate-thumbnail-batch", requireAuth, async (req, res) => 
   }
 
   try {
-    const { title, subtitle, pastorImageUrl, pastorLayout, snapshotUrl, count } = parsed.data;
+    const { title, subtitle, pastorImageUrl, snapshotUrl, count } = parsed.data;
 
     // Determine available modes
     const modes: string[] = ["title-background"]; // always available
@@ -187,41 +187,74 @@ router.post("/admin/generate-thumbnail-batch", requireAuth, async (req, res) => 
         }
         snapshotBuffer = Buffer.from(await response.arrayBuffer());
       }
+      console.log(`[Admin] Snapshot buffer: ${snapshotBuffer.length} bytes`);
     }
 
-    // Build task list
-    const tasks: (() => Promise<{ url: string; mode: string }>)[] = [];
-    for (const { mode, count: modeCount } of distribution) {
-      for (let i = 0; i < modeCount; i++) {
-        tasks.push(async () => {
-          let thumbnailBuffer: Buffer;
-          switch (mode) {
-            case "pastor-title":
-              thumbnailBuffer = await generatePastorTitleProgrammatic(
-                pastorImageUrl!,
-                title,
-                pastorLayout || "right",
-                subtitle
-              );
-              break;
-            case "service-overlay":
-              thumbnailBuffer = await generateServiceOverlay(
-                snapshotBuffer!,
-                title,
-                subtitle
-              );
-              break;
-            case "title-background":
-            default:
-              thumbnailBuffer = await generateTitleColoredBg(title, subtitle);
-              break;
-          }
-          const key = `thumbnails/ai/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
-          const url = await uploadBuffer(thumbnailBuffer, key, "image/jpeg");
-          return { url, mode };
-        });
+    // Pre-assign unique style indices (shuffled) so every thumbnail gets a different font
+    const styleCount = TEXT_STYLES.length;
+    const styleIndices: number[] = [];
+    for (let i = 0; i < count; i++) styleIndices.push(i % styleCount);
+    // Fisher-Yates shuffle
+    for (let i = styleIndices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [styleIndices[i], styleIndices[j]] = [styleIndices[j], styleIndices[i]];
+    }
+
+    // Build task list — interleave modes for a mixed grid
+    type TaskDef = { mode: string; styleIdx: number; layout: "left" | "right" };
+    const taskDefs: TaskDef[] = [];
+    const modeCounts = new Map(distribution.map(d => [d.mode, d.count]));
+    let totalAssigned = 0;
+    // Round-robin across modes for interleaving
+    let assigned = true;
+    while (assigned) {
+      assigned = false;
+      for (const mode of modes) {
+        const remaining = modeCounts.get(mode)!;
+        if (remaining > 0) {
+          modeCounts.set(mode, remaining - 1);
+          const layout: "left" | "right" = mode === "pastor-title"
+            ? (Math.random() < 0.5 ? "left" : "right")
+            : "right";
+          taskDefs.push({ mode, styleIdx: styleIndices[totalAssigned], layout });
+          totalAssigned++;
+          assigned = true;
+        }
       }
     }
+
+    const tasks: (() => Promise<{ url: string; mode: string }>)[] = taskDefs.map((def) => {
+      return async () => {
+        let thumbnailBuffer: Buffer;
+        switch (def.mode) {
+          case "pastor-title":
+            thumbnailBuffer = await generatePastorTitleProgrammatic(
+              pastorImageUrl!,
+              title,
+              def.layout,
+              subtitle,
+              def.styleIdx
+            );
+            break;
+          case "service-overlay":
+            // Copy buffer for each concurrent call to be safe
+            thumbnailBuffer = await generateServiceOverlay(
+              Buffer.from(snapshotBuffer!),
+              title,
+              subtitle,
+              def.styleIdx
+            );
+            break;
+          case "title-background":
+          default:
+            thumbnailBuffer = await generateTitleColoredBg(title, subtitle, def.styleIdx);
+            break;
+        }
+        const key = `thumbnails/ai/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
+        const url = await uploadBuffer(thumbnailBuffer, key, "image/jpeg");
+        return { url, mode: def.mode };
+      };
+    });
 
     console.log(`[Admin] Batch generating ${tasks.length} thumbnails across modes: ${modes.join(", ")}`);
     const results = await parallelWithLimit(tasks, 5);
