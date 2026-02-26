@@ -708,7 +708,7 @@ function RecordingEditRow({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: 'pastor-title', pastorImageUrl, layout: pastorLayout, title: aiTitle }),
+        body: JSON.stringify({ mode: 'pastor-title', pastorImageUrl, layout: pastorLayout, title: aiTitle, subtitle: aiSubtitle || undefined }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
@@ -1150,6 +1150,16 @@ function RecordingEditRow({
                 value={aiTitle}
                 onChange={(e) => setAiTitle(e.target.value)}
                 placeholder="e.g. God Is Good"
+              />
+            </div>
+
+            {/* Subtitle input */}
+            <div className="space-y-1">
+              <Label className="text-xs">Subtitle (optional, smaller text below title)</Label>
+              <Input
+                value={aiSubtitle}
+                onChange={(e) => setAiSubtitle(e.target.value)}
+                placeholder="e.g. A Series on Grace"
               />
             </div>
 

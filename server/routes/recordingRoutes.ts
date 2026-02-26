@@ -147,8 +147,8 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
         if (!parsed.data.layout) {
           return res.status(400).json({ error: "Layout (left/right) is required for pastor-title mode" });
         }
-        console.log(`[Admin] Generating programmatic pastor-title thumbnail for: "${title}" (layout=${parsed.data.layout})`);
-        thumbnailBuffer = await generatePastorTitleProgrammatic(parsed.data.pastorImageUrl, title, parsed.data.layout);
+        console.log(`[Admin] Generating programmatic pastor-title thumbnail for: "${title}"${subtitle ? ` / "${subtitle}"` : ""} (layout=${parsed.data.layout})`);
+        thumbnailBuffer = await generatePastorTitleProgrammatic(parsed.data.pastorImageUrl, title, parsed.data.layout, subtitle);
         break;
       }
       case "service-overlay": {

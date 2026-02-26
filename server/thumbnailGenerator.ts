@@ -35,21 +35,38 @@ const GRADIENT_PALETTES: GradientPalette[] = [
 type TextureType = "grain" | "waves" | "checkers" | "diagonal-lines" | "dots";
 const TEXTURE_TYPES: TextureType[] = ["grain", "waves", "checkers", "diagonal-lines", "dots"];
 
+// Text style variations for programmatic pastor-title thumbnails
+interface TextStyle {
+  name: string;
+  color: string;        // Pango foreground color
+  shadowBlur: number;   // Shadow blur sigma
+  shadowOffset: number; // Shadow x/y offset
+}
+
+const TEXT_STYLES: TextStyle[] = [
+  { name: "classic-white",  color: "white",   shadowBlur: 3, shadowOffset: 3 },
+  { name: "warm-gold",      color: "#FFD700", shadowBlur: 3, shadowOffset: 3 },
+  { name: "cool-ice",       color: "#E0F0FF", shadowBlur: 3, shadowOffset: 3 },
+  { name: "soft-cream",     color: "#FFF8E7", shadowBlur: 3, shadowOffset: 3 },
+  { name: "bright-yellow",  color: "#FFEB3B", shadowBlur: 3, shadowOffset: 3 },
+];
+
 // Anti-repeat for programmatic pastor-title
-const recentProgrammaticCombos: Array<[number, number]> = [];
+const recentProgrammaticCombos: Array<[number, number, number]> = [];
 const PROGRAMMATIC_HISTORY_SIZE = 8;
 
-function pickProgrammaticCombo(): { paletteIdx: number; textureIdx: number } {
+function pickProgrammaticCombo(): { paletteIdx: number; textureIdx: number; styleIdx: number } {
   for (let i = 0; i < 20; i++) {
     const c = {
       paletteIdx: Math.floor(Math.random() * GRADIENT_PALETTES.length),
       textureIdx: Math.floor(Math.random() * TEXTURE_TYPES.length),
+      styleIdx: Math.floor(Math.random() * TEXT_STYLES.length),
     };
     const tooSimilar = recentProgrammaticCombos.some(
-      ([p, t]) => p === c.paletteIdx && t === c.textureIdx
+      ([p, t, s]) => p === c.paletteIdx && t === c.textureIdx && s === c.styleIdx
     );
     if (!tooSimilar) {
-      recentProgrammaticCombos.push([c.paletteIdx, c.textureIdx]);
+      recentProgrammaticCombos.push([c.paletteIdx, c.textureIdx, c.styleIdx]);
       if (recentProgrammaticCombos.length > PROGRAMMATIC_HISTORY_SIZE) recentProgrammaticCombos.shift();
       return c;
     }
@@ -57,8 +74,9 @@ function pickProgrammaticCombo(): { paletteIdx: number; textureIdx: number } {
   const f = {
     paletteIdx: Math.floor(Math.random() * GRADIENT_PALETTES.length),
     textureIdx: Math.floor(Math.random() * TEXTURE_TYPES.length),
+    styleIdx: Math.floor(Math.random() * TEXT_STYLES.length),
   };
-  recentProgrammaticCombos.push([f.paletteIdx, f.textureIdx]);
+  recentProgrammaticCombos.push([f.paletteIdx, f.textureIdx, f.styleIdx]);
   if (recentProgrammaticCombos.length > PROGRAMMATIC_HISTORY_SIZE) recentProgrammaticCombos.shift();
   return f;
 }
@@ -176,7 +194,8 @@ async function createTextureLayer(
 }
 
 async function createTitleLayer(
-  width: number, height: number, title: string, layout: PastorLayout
+  width: number, height: number, title: string, layout: PastorLayout,
+  style: TextStyle, subtitle?: string
 ): Promise<Buffer> {
   const textZoneWidth = Math.round(width * 0.40);
   const wordCount = title.trim().split(/\s+/).length;
@@ -186,7 +205,7 @@ async function createTitleLayer(
   else fontSize = Math.round(height * 0.08);
 
   const escaped = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").toUpperCase();
-  const pangoMarkup = `<span foreground="white" font_desc="DejaVu Sans Bold ${fontSize}px">${escaped}</span>`;
+  const pangoMarkup = `<span foreground="${style.color}" font_desc="DejaVu Sans Bold ${fontSize}px">${escaped}</span>`;
 
   const textImage = await sharp({
     text: {
@@ -203,25 +222,71 @@ async function createTitleLayer(
   const textW = textMeta.width!;
   const textH = textMeta.height!;
 
-  // Center text in the text zone (opposite side from pastor)
+  // Build subtitle image if provided
+  let subtitleImage: Buffer | null = null;
+  let subtitleW = 0;
+  let subtitleH = 0;
+  if (subtitle && subtitle.trim()) {
+    const subFontSize = Math.round(fontSize * 0.4);
+    const escapedSub = subtitle.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const subMarkup = `<span foreground="${style.color}" font_desc="DejaVu Sans ${subFontSize}px">${escapedSub}</span>`;
+    subtitleImage = await sharp({
+      text: {
+        text: subMarkup,
+        rgba: true,
+        width: textZoneWidth,
+        align: "centre",
+        justify: false,
+        dpi: 72,
+      },
+    }).png().toBuffer();
+    const subMeta = await sharp(subtitleImage).metadata();
+    subtitleW = subMeta.width!;
+    subtitleH = subMeta.height!;
+  }
+
+  // Total height of title + gap + subtitle
+  const gap = subtitle ? Math.round(fontSize * 0.25) : 0;
+  const totalTextH = textH + gap + subtitleH;
+
+  // Center text block in the text zone (opposite side from pastor)
   const textZoneX = layout === "right" ? width * 0.05 : width * 0.55;
   const left = Math.round(textZoneX + (textZoneWidth - textW) / 2);
-  const top = Math.round((height - textH) / 2);
+  const top = Math.round((height - totalTextH) / 2);
 
-  // Create drop shadow
+  // Create drop shadow for title
   const shadowImage = await sharp(textImage)
     .ensureAlpha()
     .tint({ r: 0, g: 0, b: 0 })
-    .blur(8)
+    .blur(Math.max(1, style.shadowBlur))
     .toBuffer();
+
+  const composites: sharp.OverlayOptions[] = [
+    { input: shadowImage, left: Math.max(0, left + style.shadowOffset), top: Math.max(0, top + style.shadowOffset), blend: "over" },
+    { input: textImage, left: Math.max(0, left), top: Math.max(0, top), blend: "over" },
+  ];
+
+  // Add subtitle and its shadow if present
+  if (subtitleImage) {
+    const subLeft = Math.round(textZoneX + (textZoneWidth - subtitleW) / 2);
+    const subTop = top + textH + gap;
+
+    const subShadow = await sharp(subtitleImage)
+      .ensureAlpha()
+      .tint({ r: 0, g: 0, b: 0 })
+      .blur(Math.max(1, style.shadowBlur))
+      .toBuffer();
+
+    composites.push(
+      { input: subShadow, left: Math.max(0, subLeft + style.shadowOffset), top: Math.max(0, subTop + style.shadowOffset), blend: "over" },
+      { input: subtitleImage, left: Math.max(0, subLeft), top: Math.max(0, subTop), blend: "over" },
+    );
+  }
 
   return sharp({
     create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
   })
-    .composite([
-      { input: shadowImage, left: Math.max(0, left + 4), top: Math.max(0, top + 4), blend: "over" },
-      { input: textImage, left: Math.max(0, left), top: Math.max(0, top), blend: "over" },
-    ])
+    .composite(composites)
     .png()
     .toBuffer();
 }
@@ -440,19 +505,21 @@ async function decodeAndResize(response: { data?: Array<{ b64_json?: string; url
 export async function generatePastorTitleProgrammatic(
   pastorImageUrl: string,
   title: string,
-  layout: PastorLayout
+  layout: PastorLayout,
+  subtitle?: string
 ): Promise<Buffer> {
   const width = THUMB_WIDTH;
   const height = THUMB_HEIGHT;
 
-  const { paletteIdx, textureIdx } = pickProgrammaticCombo();
+  const { paletteIdx, textureIdx, styleIdx } = pickProgrammaticCombo();
   const palette = GRADIENT_PALETTES[paletteIdx];
   const textureType = TEXTURE_TYPES[textureIdx];
+  const textStyle = TEXT_STYLES[styleIdx];
   const textureOpacity = 0.10 + Math.random() * 0.10;
 
   console.log(`[ThumbnailGen] === PASTOR-TITLE-PROGRAMMATIC ===`);
-  console.log(`[ThumbnailGen] Title: "${title}" | Layout: ${layout}`);
-  console.log(`[ThumbnailGen] Palette: ${palette.name} | Texture: ${textureType} (${(textureOpacity * 100).toFixed(0)}%)`);
+  console.log(`[ThumbnailGen] Title: "${title}" | Subtitle: "${subtitle || "(none)"}" | Layout: ${layout}`);
+  console.log(`[ThumbnailGen] Palette: ${palette.name} | Texture: ${textureType} (${(textureOpacity * 100).toFixed(0)}%) | Text style: ${textStyle.name}`);
 
   const startTime = Date.now();
 
@@ -460,7 +527,7 @@ export async function generatePastorTitleProgrammatic(
   const [gradientLayer, textureLayer, titleLayer, pastorLayer] = await Promise.all([
     createGradientLayer(width, height, palette, layout),
     createTextureLayer(width, height, textureType, textureOpacity),
-    createTitleLayer(width, height, title, layout),
+    createTitleLayer(width, height, title, layout, textStyle, subtitle),
     fetchAndPrepPastor(pastorImageUrl, width, height, layout),
   ]);
 
