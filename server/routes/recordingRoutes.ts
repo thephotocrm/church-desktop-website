@@ -117,6 +117,134 @@ router.post("/admin/upload-thumbnail", requireAuth, (req, res, next) => {
   }
 });
 
+// Helper: run tasks with concurrency limit
+async function parallelWithLimit<T>(tasks: (() => Promise<T>)[], limit: number): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
+  let nextIdx = 0;
+
+  async function worker() {
+    while (nextIdx < tasks.length) {
+      const idx = nextIdx++;
+      try {
+        const value = await tasks[idx]();
+        results[idx] = { status: "fulfilled", value };
+      } catch (reason: any) {
+        results[idx] = { status: "rejected", reason };
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+// POST /api/recordings/admin/generate-thumbnail-batch — admin: batch generate thumbnails across all modes
+const batchGenerateSchema = z.object({
+  title: z.string().min(1),
+  subtitle: z.string().optional(),
+  pastorImageUrl: z.string().optional(),
+  pastorLayout: z.enum(["left", "right"]).optional(),
+  snapshotUrl: z.string().optional(),
+  count: z.number().int().min(1).max(50).optional().default(25),
+});
+
+router.post("/admin/generate-thumbnail-batch", requireAuth, async (req, res) => {
+  const parsed = batchGenerateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.message });
+  }
+
+  try {
+    const { title, subtitle, pastorImageUrl, pastorLayout, snapshotUrl, count } = parsed.data;
+
+    // Determine available modes
+    const modes: string[] = ["title-background"]; // always available
+    if (pastorImageUrl) modes.push("pastor-title");
+    if (snapshotUrl) modes.push("service-overlay");
+
+    // Distribute count evenly across modes
+    const perMode = Math.floor(count / modes.length);
+    const remainder = count % modes.length;
+    const distribution: { mode: string; count: number }[] = modes.map((mode, i) => ({
+      mode,
+      count: perMode + (i < remainder ? 1 : 0),
+    }));
+
+    // Pre-process snapshot once if needed
+    let snapshotBuffer: Buffer | undefined;
+    if (snapshotUrl && modes.includes("service-overlay")) {
+      if (snapshotUrl.startsWith("data:")) {
+        const base64Match = snapshotUrl.match(/^data:[^;]+;base64,(.+)$/);
+        if (!base64Match) {
+          return res.status(400).json({ error: "Invalid snapshot data URL" });
+        }
+        snapshotBuffer = Buffer.from(base64Match[1], "base64");
+      } else {
+        const response = await fetch(snapshotUrl);
+        if (!response.ok) {
+          return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
+        }
+        snapshotBuffer = Buffer.from(await response.arrayBuffer());
+      }
+    }
+
+    // Build task list
+    const tasks: (() => Promise<{ url: string; mode: string }>)[] = [];
+    for (const { mode, count: modeCount } of distribution) {
+      for (let i = 0; i < modeCount; i++) {
+        tasks.push(async () => {
+          let thumbnailBuffer: Buffer;
+          switch (mode) {
+            case "pastor-title":
+              thumbnailBuffer = await generatePastorTitleProgrammatic(
+                pastorImageUrl!,
+                title,
+                pastorLayout || "right",
+                subtitle
+              );
+              break;
+            case "service-overlay":
+              thumbnailBuffer = await generateServiceOverlay(
+                snapshotBuffer!,
+                title,
+                subtitle
+              );
+              break;
+            case "title-background":
+            default:
+              thumbnailBuffer = await generateTitleColoredBg(title, subtitle);
+              break;
+          }
+          const key = `thumbnails/ai/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
+          const url = await uploadBuffer(thumbnailBuffer, key, "image/jpeg");
+          return { url, mode };
+        });
+      }
+    }
+
+    console.log(`[Admin] Batch generating ${tasks.length} thumbnails across modes: ${modes.join(", ")}`);
+    const results = await parallelWithLimit(tasks, 5);
+
+    const thumbnails: { url: string; mode: string }[] = [];
+    let errors = 0;
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        thumbnails.push(result.value);
+      } else {
+        errors++;
+        console.error("[Admin] Batch thumbnail error:", result.reason?.message || result.reason);
+      }
+    }
+
+    console.log(`[Admin] Batch complete: ${thumbnails.length} succeeded, ${errors} errors`);
+    res.json({ thumbnails, errors });
+  } catch (err: any) {
+    console.error("[Admin] Error in batch generation:", err);
+    res.status(500).json({ error: err.message || "Failed to generate thumbnails" });
+  }
+});
+
 // POST /api/recordings/admin/generate-thumbnail — admin: AI-generated YouTube-style thumbnail
 const generateThumbnailSchema = z.object({
   mode: z.enum(["pastor-title", "service-overlay", "title-background"]),

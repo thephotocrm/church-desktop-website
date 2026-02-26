@@ -31,6 +31,7 @@ import {
   Type, RefreshCw, MousePointer, Download, Palette
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ThumbnailStudioModal } from "@/components/thumbnail-studio-modal";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -618,35 +619,11 @@ function RecordingEditRow({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Thumbnail Studio state
-  const [thumbnailMode, setThumbnailMode] = useState<'pastor-title' | 'service-overlay' | 'title-background' | 'manual' | null>(null);
-  const [generatedPreview, setGeneratedPreview] = useState("");
-  const [aiSnapshotUrl, setAiSnapshotUrl] = useState("");
-  const [aiTitle, setAiTitle] = useState(recording.title);
-  const [aiSubtitle, setAiSubtitle] = useState("");
-  const [aiGenerating, setAiGenerating] = useState(false);
-
-  // Pastor upload state
-  const [pastorImageUrl, setPastorImageUrl] = useState("");
-  const [pastorLayout, setPastorLayout] = useState<"left" | "right">("right");
-  const [uploadingPastor, setUploadingPastor] = useState(false);
-  const pastorFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Frame capture state
-  const [showFrameCapture, setShowFrameCapture] = useState(false);
-  const [frameTimestamp, setFrameTimestamp] = useState(0);
-  const [capturingFrame, setCapturingFrame] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Thumbnail Studio modal state
+  const [studioOpen, setStudioOpen] = useState(false);
 
   const candidates = recording.thumbnailCandidates || [];
   const currentThumb = customThumbUrl || selectedThumb || null;
-
-  const handleModeChange = (mode: 'pastor-title' | 'service-overlay' | 'title-background' | 'manual') => {
-    setThumbnailMode(thumbnailMode === mode ? null : mode);
-    setGeneratedPreview("");
-    setShowFrameCapture(false);
-  };
 
   const handleThumbnailUpload = async (file: File) => {
     setUploading(true);
@@ -673,171 +650,6 @@ function RecordingEditRow({
     }
   };
 
-  const handlePastorImageUpload = async (file: File) => {
-    setUploadingPastor(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/recordings/admin/upload-thumbnail", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Upload failed" }));
-        throw new Error(err.error || "Upload failed");
-      }
-      const { url } = await res.json();
-      setPastorImageUrl(url);
-      toast({ title: "Pastor image uploaded" });
-    } catch (err: any) {
-      toast({ title: err.message || "Upload failed", variant: "destructive" });
-    } finally {
-      setUploadingPastor(false);
-    }
-  };
-
-  const handleGeneratePastorTitle = async () => {
-    if (!pastorImageUrl || !aiTitle) {
-      toast({ title: "Upload a pastor image and enter a title", variant: "destructive" });
-      return;
-    }
-    setAiGenerating(true);
-    try {
-      const res = await fetch("/api/recordings/admin/generate-thumbnail", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: 'pastor-title', pastorImageUrl, layout: pastorLayout, title: aiTitle, subtitle: aiSubtitle || undefined }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Generation failed" }));
-        throw new Error(err.error || "Generation failed");
-      }
-      const { url } = await res.json();
-      setGeneratedPreview(url);
-      toast({ title: "Thumbnail generated! Review below." });
-    } catch (err: any) {
-      toast({ title: err.message || "Generation failed", variant: "destructive" });
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
-  const handleGenerateServiceOverlay = async () => {
-    if (!aiSnapshotUrl || !aiTitle) {
-      toast({ title: "Select a snapshot and enter a title", variant: "destructive" });
-      return;
-    }
-    setAiGenerating(true);
-    try {
-      const res = await fetch("/api/recordings/admin/generate-thumbnail", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: 'service-overlay', snapshotUrl: aiSnapshotUrl, title: aiTitle, subtitle: aiSubtitle || undefined }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Generation failed" }));
-        throw new Error(err.error || "Generation failed");
-      }
-      const { url } = await res.json();
-      setGeneratedPreview(url);
-      toast({ title: "AI thumbnail generated! Review below." });
-    } catch (err: any) {
-      toast({ title: err.message || "Generation failed", variant: "destructive" });
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
-  const handleGenerateTitleBackground = async () => {
-    if (!aiTitle) {
-      toast({ title: "Enter a title", variant: "destructive" });
-      return;
-    }
-    setAiGenerating(true);
-    try {
-      const res = await fetch("/api/recordings/admin/generate-thumbnail", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: 'title-background', snapshotUrl: null, title: aiTitle, subtitle: aiSubtitle || undefined }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Generation failed" }));
-        throw new Error(err.error || "Generation failed");
-      }
-      const { url } = await res.json();
-      setGeneratedPreview(url);
-      toast({ title: "AI thumbnail generated! Review below." });
-    } catch (err: any) {
-      toast({ title: err.message || "Generation failed", variant: "destructive" });
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
-  const handleAcceptGenerated = () => {
-    setCustomThumbUrl(generatedPreview);
-    setGeneratedPreview("");
-  };
-
-  const handleRegenerate = () => {
-    setGeneratedPreview("");
-    if (thumbnailMode === 'pastor-title') {
-      handleGeneratePastorTitle();
-    } else if (thumbnailMode === 'service-overlay') {
-      handleGenerateServiceOverlay();
-    } else if (thumbnailMode === 'title-background') {
-      handleGenerateTitleBackground();
-    }
-  };
-
-  const handleSeekVideo = () => {
-    if (videoRef.current) {
-      const dur = videoRef.current.duration || Infinity;
-      videoRef.current.currentTime = Math.min(frameTimestamp, dur);
-    }
-  };
-
-  const handleCaptureFrame = async () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-
-    setCapturingFrame(true);
-    try {
-      // Wait for the video to finish seeking so we capture the actual frame
-      if (video.seeking) {
-        await new Promise<void>((resolve) => {
-          video.addEventListener("seeked", () => resolve(), { once: true });
-        });
-      }
-
-      const w = video.videoWidth;
-      const h = video.videoHeight;
-      if (!w || !h) throw new Error("Video not loaded yet — try again in a moment");
-
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas context unavailable");
-      ctx.drawImage(video, 0, 0, w, h);
-
-      // Use data URL directly — avoids R2 round-trip that can fail server-side
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-      if (!dataUrl || dataUrl === "data:,") throw new Error("Failed to capture frame");
-
-      setAiSnapshotUrl(dataUrl);
-      setShowFrameCapture(false);
-      toast({ title: "Frame captured! Now generate your thumbnail." });
-    } catch (err: any) {
-      toast({ title: err.message || "Frame capture failed", variant: "destructive" });
-    } finally {
-      setCapturingFrame(false);
-    }
-  };
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -859,112 +671,6 @@ function RecordingEditRow({
     },
   });
 
-  const formatTimestamp = (secs: number) => {
-    const h = Math.floor(secs / 3600);
-    const m = Math.floor((secs % 3600) / 60);
-    const s = Math.floor(secs % 60);
-    if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const modeCards: Array<{
-    mode: 'pastor-title' | 'service-overlay' | 'title-background' | 'manual';
-    icon: typeof Wand2;
-    label: string;
-    desc: string;
-    accent: string;
-    borderActive: string;
-    bgActive: string;
-    ringActive: string;
-    iconBg: string;
-    iconColor: string;
-  }> = [
-    {
-      mode: 'pastor-title',
-      icon: Wand2,
-      label: 'Pastor + Title',
-      desc: 'Upload a pastor PNG (transparent bg) — generates a colorful gradient background with title',
-      accent: 'purple',
-      borderActive: 'border-purple-500',
-      bgActive: 'bg-purple-500/[0.05]',
-      ringActive: 'ring-purple-500/20',
-      iconBg: 'bg-purple-500/10',
-      iconColor: 'text-purple-500',
-    },
-    {
-      mode: 'service-overlay',
-      icon: Film,
-      label: 'Title + Service Overlay',
-      desc: 'Pick a snapshot of the service — it becomes the backdrop behind big bold centered title text',
-      accent: 'amber',
-      borderActive: 'border-amber-500',
-      bgActive: 'bg-amber-500/[0.05]',
-      ringActive: 'ring-amber-500/20',
-      iconBg: 'bg-amber-500/10',
-      iconColor: 'text-amber-500',
-    },
-    {
-      mode: 'title-background',
-      icon: Palette,
-      label: 'Title + Colored Background',
-      desc: 'AI generates a vibrant colorful background with your title centered — no snapshot needed',
-      accent: 'emerald',
-      borderActive: 'border-emerald-500',
-      bgActive: 'bg-emerald-500/[0.05]',
-      ringActive: 'ring-emerald-500/20',
-      iconBg: 'bg-emerald-500/10',
-      iconColor: 'text-emerald-500',
-    },
-    {
-      mode: 'manual',
-      icon: MousePointer,
-      label: 'Manual Select',
-      desc: 'Pick from auto-captures or upload your own image',
-      accent: 'blue',
-      borderActive: 'border-blue-500',
-      bgActive: 'bg-blue-500/[0.05]',
-      ringActive: 'ring-blue-500/20',
-      iconBg: 'bg-blue-500/10',
-      iconColor: 'text-blue-500',
-    },
-  ];
-
-  // AI result preview (shared between ai-pastor and ai-title)
-  const renderAiPreview = () => {
-    if (!generatedPreview) return null;
-    return (
-      <div className="space-y-3 mt-4">
-        <Label className="text-sm font-medium">Generated Preview</Label>
-        <div className="rounded-xl border-2 border-green-500/30 ring-2 ring-green-500/10 overflow-hidden">
-          <img src={generatedPreview} alt="AI generated thumbnail" className="w-full aspect-video object-cover" />
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            className="bg-green-600 text-white hover:bg-green-700"
-            size="sm"
-            onClick={handleAcceptGenerated}
-          >
-            <Check className="w-4 h-4 mr-1" />
-            Use This Thumbnail
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleRegenerate}
-            disabled={aiGenerating}
-          >
-            {aiGenerating ? (
-              <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Regenerating...</>
-            ) : (
-              <><RefreshCw className="w-4 h-4 mr-1" /> Regenerate</>
-            )}
-          </Button>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="p-5 border-2 border-amber-500/30 bg-amber-500/[0.02] rounded-xl space-y-5">
@@ -975,7 +681,7 @@ function RecordingEditRow({
           <Input
             id={`rec-title-${recording.id}`}
             value={title}
-            onChange={(e) => { setTitle(e.target.value); setAiTitle(e.target.value); }}
+            onChange={(e) => setTitle(e.target.value)}
             className="h-10"
           />
         </div>
@@ -1005,488 +711,76 @@ function RecordingEditRow({
         />
       </div>
 
-      {/* Thumbnail Studio */}
-      <div className="space-y-4">
+      {/* Thumbnail */}
+      <div className="space-y-3">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center">
             <Image className="w-3.5 h-3.5 text-primary" />
           </div>
-          <span className="text-sm font-semibold">Thumbnail Studio</span>
+          <span className="text-sm font-semibold">Thumbnail</span>
         </div>
 
         {/* Current thumbnail preview */}
         {currentThumb && (
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Current Thumbnail</Label>
-            <div className="flex items-center gap-3">
-              <img
-                src={currentThumb}
-                alt="Current thumbnail"
-                className="h-20 aspect-video object-cover rounded-lg border ring-1 ring-border/50"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-                onClick={() => { setCustomThumbUrl(""); setSelectedThumb(""); }}
-              >
-                <X className="w-3.5 h-3.5 mr-1" /> Clear
-              </Button>
-            </div>
+          <div className="flex items-center gap-3">
+            <img
+              src={currentThumb}
+              alt="Current thumbnail"
+              className="h-20 aspect-video object-cover rounded-lg border ring-1 ring-border/50"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => { setCustomThumbUrl(""); setSelectedThumb(""); }}
+            >
+              <X className="w-3.5 h-3.5 mr-1" /> Clear
+            </Button>
           </div>
         )}
 
-        {/* 3-column mode selector cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {modeCards.map((card) => {
-            const isActive = thumbnailMode === card.mode;
-            const Icon = card.icon;
-            return (
-              <div
-                key={card.mode}
-                onClick={() => handleModeChange(card.mode)}
-                className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  isActive
-                    ? `${card.borderActive} ${card.bgActive} ring-2 ${card.ringActive}`
-                    : 'border-border/50 hover:border-border'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 mb-1.5">
-                  <div className={`w-7 h-7 rounded-lg ${card.iconBg} flex items-center justify-center`}>
-                    <Icon className={`w-4 h-4 ${card.iconColor}`} />
-                  </div>
-                  <span className="text-sm font-semibold">{card.label}</span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{card.desc}</p>
-                {isActive && (
-                  <div className={`absolute top-2.5 right-2.5 w-5 h-5 rounded-full ${card.iconBg} flex items-center justify-center`}>
-                    <Check className={`w-3 h-3 ${card.iconColor}`} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        {/* Manual upload + Thumbnail Studio button */}
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            onClick={() => setStudioOpen(true)}
+            className="bg-gradient-to-r from-purple-600 to-amber-600 text-white hover:from-purple-700 hover:to-amber-700"
+            size="sm"
+          >
+            <Wand2 className="w-4 h-4 mr-1" /> Thumbnail Studio
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleThumbnailUpload(file);
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploading ? (
+              <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Uploading...</>
+            ) : (
+              <><Upload className="w-4 h-4 mr-1" /> Upload Image</>
+            )}
+          </Button>
         </div>
 
-        {/* Mode content panels */}
-
-        {/* Mode 1: Pastor + Title (Programmatic) */}
-        {thumbnailMode === 'pastor-title' && (
-          <div className="p-4 border border-purple-500/20 rounded-xl bg-purple-500/[0.03] space-y-3">
-            <p className="text-sm font-semibold flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-purple-500/10 flex items-center justify-center">
-                <Wand2 className="w-3.5 h-3.5 text-purple-500" />
-              </span>
-              Pastor + Title Thumbnail
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Upload a pre-edited pastor PNG (transparent background), pick a layout, and enter a title.
-            </p>
-
-            {/* Upload pastor image */}
-            <div className="space-y-1">
-              <Label className="text-xs">Upload Pastor PNG</Label>
-              {!pastorImageUrl ? (
-                <div
-                  onClick={() => pastorFileInputRef.current?.click()}
-                  className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-purple-500/50 transition-colors"
-                >
-                  <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">Click to upload pastor PNG (transparent background)</p>
-                  <input
-                    ref={pastorFileInputRef}
-                    type="file"
-                    accept="image/png"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handlePastorImageUpload(file);
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 p-2 rounded-lg bg-purple-500/[0.05] border border-purple-500/20">
-                  <div className="h-16 w-16 rounded border bg-[repeating-conic-gradient(#e5e7eb_0%_25%,transparent_0%_50%)] bg-[length:16px_16px]">
-                    <img src={pastorImageUrl} alt="Pastor" className="h-full w-full object-contain" />
-                  </div>
-                  <span className="text-xs text-purple-600 flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Pastor image uploaded
-                  </span>
-                  <Button type="button" variant="ghost" size="sm" className="ml-auto h-7 w-7 p-0" onClick={() => setPastorImageUrl("")}>
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              )}
-              {uploadingPastor && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Uploading...
-                </div>
-              )}
-            </div>
-
-            {/* Layout picker */}
-            <div className="space-y-1">
-              <Label className="text-xs">Layout</Label>
-              <ToggleGroup
-                type="single"
-                value={pastorLayout}
-                onValueChange={(val) => { if (val) setPastorLayout(val as "left" | "right"); }}
-                className="justify-start"
-              >
-                <ToggleGroupItem value="left" className="gap-1.5 data-[state=on]:bg-purple-500/10 data-[state=on]:text-purple-600">
-                  <span className="text-xs">Pastor Left / Text Right</span>
-                </ToggleGroupItem>
-                <ToggleGroupItem value="right" className="gap-1.5 data-[state=on]:bg-purple-500/10 data-[state=on]:text-purple-600">
-                  <span className="text-xs">Pastor Right / Text Left</span>
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-
-            {/* Title input */}
-            <div className="space-y-1">
-              <Label className="text-xs">Sermon Title (appears on thumbnail)</Label>
-              <Input
-                value={aiTitle}
-                onChange={(e) => setAiTitle(e.target.value)}
-                placeholder="e.g. God Is Good"
-              />
-            </div>
-
-            {/* Subtitle input */}
-            <div className="space-y-1">
-              <Label className="text-xs">Subtitle (optional, smaller text below title)</Label>
-              <Input
-                value={aiSubtitle}
-                onChange={(e) => setAiSubtitle(e.target.value)}
-                placeholder="e.g. A Series on Grace"
-              />
-            </div>
-
-            {/* Generate button OR result preview */}
-            {!generatedPreview ? (
-              <Button
-                type="button"
-                className="bg-purple-600 text-white hover:bg-purple-700"
-                size="sm"
-                disabled={aiGenerating || !pastorImageUrl || !aiTitle}
-                onClick={handleGeneratePastorTitle}
-              >
-                {aiGenerating ? (
-                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating...</>
-                ) : (
-                  <><Wand2 className="w-4 h-4 mr-1" /> Generate Thumbnail</>
-                )}
-              </Button>
-            ) : (
-              renderAiPreview()
-            )}
-          </div>
-        )}
-
-        {/* Mode 2: Title + Service Overlay */}
-        {thumbnailMode === 'service-overlay' && (
-          <div className="p-4 border border-amber-500/20 rounded-xl bg-amber-500/[0.03] space-y-3">
-            <p className="text-sm font-semibold flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center">
-                <Film className="w-3.5 h-3.5 text-amber-500" />
-              </span>
-              Title + Service Overlay
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Pick a snapshot of the service — it becomes the backdrop behind big bold centered title text.
-            </p>
-
-            {/* Snapshot grid + Capture Frame card */}
-            <div className="space-y-1">
-              <Label className="text-xs">Select Service Snapshot</Label>
-              <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-                {candidates.map((url, i) => (
-                  <div
-                    key={i}
-                    onClick={() => setAiSnapshotUrl(url)}
-                    className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
-                      aiSnapshotUrl === url
-                        ? "border-amber-500 ring-2 ring-amber-500/30"
-                        : "border-transparent hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    <img src={url} alt={`Snapshot ${i + 1}`} className="w-full h-full object-cover" />
-                    {aiSnapshotUrl === url && (
-                      <div className="absolute top-1 right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {/* + Capture Frame card */}
-                <div
-                  onClick={() => setShowFrameCapture(!showFrameCapture)}
-                  className={`aspect-video rounded border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-1 ${
-                    showFrameCapture
-                      ? "border-amber-500 bg-amber-500/[0.05]"
-                      : "border-muted-foreground/30 hover:border-amber-500/50 hover:bg-amber-500/[0.02]"
-                  }`}
-                >
-                  <Camera className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground font-medium">Capture Frame</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Inline frame capture (expands below grid) */}
-            {showFrameCapture && (
-              <div className="p-3 border border-amber-500/10 rounded-lg bg-background/50 space-y-2">
-                <div className="flex items-center gap-3">
-                  <Label className="text-xs whitespace-nowrap">Timestamp (seconds)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={recording.duration || 7200}
-                    value={frameTimestamp}
-                    onChange={(e) => {
-                      const t = Number(e.target.value);
-                      setFrameTimestamp(t);
-                      if (videoRef.current) videoRef.current.currentTime = t;
-                    }}
-                    className="w-28"
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {formatTimestamp(frameTimestamp)}
-                  </span>
-                  <Button type="button" variant="outline" size="sm" onClick={handleSeekVideo}>
-                    <Play className="w-3 h-3 mr-1" /> Seek
-                  </Button>
-                </div>
-
-                <input
-                  type="range"
-                  min={0}
-                  max={recording.duration || 7200}
-                  value={frameTimestamp}
-                  onChange={(e) => {
-                    const t = Number(e.target.value);
-                    setFrameTimestamp(t);
-                    if (videoRef.current) videoRef.current.currentTime = t;
-                  }}
-                  className="w-full"
-                />
-
-                <div className="rounded overflow-hidden border bg-black">
-                  <video
-                    ref={videoRef}
-                    src={`/api/recordings/${recording.id}/video`}
-                    crossOrigin="anonymous"
-                    controls
-                    preload="auto"
-                    playsInline
-                    className="w-full"
-                    onLoadedMetadata={handleSeekVideo}
-                  />
-                </div>
-                <canvas ref={canvasRef} className="hidden" />
-
-                <Button
-                  type="button"
-                  className="bg-amber-600 text-white hover:bg-amber-700"
-                  size="sm"
-                  disabled={capturingFrame}
-                  onClick={handleCaptureFrame}
-                >
-                  {capturingFrame ? (
-                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Capturing...</>
-                  ) : (
-                    <><Camera className="w-4 h-4 mr-1" /> Capture Frame</>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {/* Captured frame chip (if custom frame selected) */}
-            {aiSnapshotUrl && !candidates.includes(aiSnapshotUrl) && (
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/[0.05] border border-amber-500/20">
-                <img src={aiSnapshotUrl} alt="Custom snapshot" className="h-12 aspect-video object-cover rounded border" />
-                <span className="text-xs text-muted-foreground">Custom captured frame</span>
-                <Button type="button" variant="ghost" size="sm" className="ml-auto h-7 w-7 p-0" onClick={() => setAiSnapshotUrl("")}>
-                  <X className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            )}
-
-            {/* Title input */}
-            <div className="space-y-1">
-              <Label className="text-xs">Sermon Title (appears on thumbnail)</Label>
-              <Input
-                value={aiTitle}
-                onChange={(e) => setAiTitle(e.target.value)}
-                placeholder="e.g. God Is Good"
-              />
-            </div>
-
-            {/* Generate button OR result preview */}
-            {!generatedPreview ? (
-              <Button
-                type="button"
-                className="bg-amber-600 text-white hover:bg-amber-700"
-                size="sm"
-                disabled={aiGenerating || !aiSnapshotUrl || !aiTitle}
-                onClick={handleGenerateServiceOverlay}
-              >
-                {aiGenerating ? (
-                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~30s)...</>
-                ) : (
-                  <><Wand2 className="w-4 h-4 mr-1" /> Generate Thumbnail</>
-                )}
-              </Button>
-            ) : (
-              renderAiPreview()
-            )}
-          </div>
-        )}
-
-        {/* Mode 3: Title + Colored Background */}
-        {thumbnailMode === 'title-background' && (
-          <div className="p-4 border border-emerald-500/20 rounded-xl bg-emerald-500/[0.03] space-y-3">
-            <p className="text-sm font-semibold flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center">
-                <Palette className="w-3.5 h-3.5 text-emerald-500" />
-              </span>
-              Title + Colored Background
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Generate a warm, painterly background with your title centered — no snapshot needed.
-            </p>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Title (appears on thumbnail)</Label>
-              <Input
-                value={aiTitle}
-                onChange={(e) => setAiTitle(e.target.value)}
-                placeholder="e.g. God Is Good"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">Subtitle (optional, smaller text below title)</Label>
-              <Input
-                value={aiSubtitle}
-                onChange={(e) => setAiSubtitle(e.target.value)}
-                placeholder="e.g. A Series on Grace"
-              />
-            </div>
-
-            {!generatedPreview ? (
-              <Button
-                type="button"
-                className="bg-emerald-600 text-white hover:bg-emerald-700"
-                size="sm"
-                disabled={aiGenerating || !aiTitle}
-                onClick={handleGenerateTitleBackground}
-              >
-                {aiGenerating ? (
-                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~30s)...</>
-                ) : (
-                  <><Palette className="w-4 h-4 mr-1" /> Generate Thumbnail</>
-                )}
-              </Button>
-            ) : (
-              renderAiPreview()
-            )}
-          </div>
-        )}
-
-        {/* Mode 4: Manual Select */}
-        {thumbnailMode === 'manual' && (
-          <div className="p-4 border border-blue-500/20 rounded-xl bg-blue-500/[0.03] space-y-3">
-            <p className="text-sm font-semibold flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-blue-500/10 flex items-center justify-center">
-                <MousePointer className="w-3.5 h-3.5 text-blue-500" />
-              </span>
-              Manual Select
-            </p>
-
-            {/* Candidates grid */}
-            {candidates.length > 0 && (
-              <div className="space-y-1">
-                <Label className="text-xs">Auto-Captured Thumbnails</Label>
-                <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-                  {candidates.map((url, i) => (
-                    <div
-                      key={i}
-                      onClick={() => { setSelectedThumb(url); setCustomThumbUrl(""); }}
-                      className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
-                        selectedThumb === url && !customThumbUrl
-                          ? "border-blue-500 ring-2 ring-blue-500/30"
-                          : "border-transparent hover:border-muted-foreground/30"
-                      }`}
-                    >
-                      <img src={url} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-cover" />
-                      {selectedThumb === url && !customThumbUrl && (
-                        <div className="absolute top-1 right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
-                          <Check className="w-3 h-3 text-white" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Upload + URL */}
-            <div className="space-y-2">
-              <Label className="text-xs">Upload or Paste URL</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleThumbnailUpload(file);
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={uploading}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {uploading ? (
-                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Uploading...</>
-                  ) : (
-                    <><Upload className="w-4 h-4 mr-1" /> Upload Image</>
-                  )}
-                </Button>
-                <span className="text-xs text-muted-foreground">or</span>
-                <Input
-                  value={customThumbUrl}
-                  onChange={(e) => setCustomThumbUrl(e.target.value)}
-                  placeholder="Paste URL"
-                  className="flex-1"
-                />
-              </div>
-              {customThumbUrl && (
-                <div className="flex items-center gap-2 mt-1">
-                  <img
-                    src={customThumbUrl}
-                    alt="Custom thumbnail preview"
-                    className="h-16 aspect-video object-cover rounded border"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setCustomThumbUrl("")}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <ThumbnailStudioModal
+          open={studioOpen}
+          onOpenChange={setStudioOpen}
+          recording={recording}
+          onSelect={(url) => setCustomThumbUrl(url)}
+        />
       </div>
 
       {/* Save / Cancel */}
