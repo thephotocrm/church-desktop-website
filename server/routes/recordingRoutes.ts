@@ -120,7 +120,7 @@ router.post("/admin/upload-thumbnail", requireAuth, (req, res, next) => {
 // POST /api/recordings/admin/generate-thumbnail — admin: AI-generated YouTube-style thumbnail
 const generateThumbnailSchema = z.object({
   mode: z.enum(["pastor-title", "service-overlay", "title-background"]),
-  snapshotUrl: z.string().url().nullable().optional(),
+  snapshotUrl: z.string().nullable().optional(),
   title: z.string().min(1),
   subtitle: z.string().optional(),
   maskDataUrl: z.string().optional(),
@@ -155,20 +155,31 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
         if (!snapshotUrl) {
           return res.status(400).json({ error: "Snapshot URL is required for service-overlay mode" });
         }
-        const response = await fetch(snapshotUrl);
-        if (!response.ok) {
-          return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
+        let snapshotBuffer: Buffer;
+        if (snapshotUrl.startsWith("data:")) {
+          // Data URL from canvas capture — decode directly (no R2 round-trip)
+          const base64Match = snapshotUrl.match(/^data:[^;]+;base64,(.+)$/);
+          if (!base64Match) {
+            return res.status(400).json({ error: "Invalid snapshot data URL" });
+          }
+          snapshotBuffer = Buffer.from(base64Match[1], "base64");
+          console.log(`[Admin] Service-overlay snapshot from data URL: ${snapshotBuffer.length} bytes`);
+        } else {
+          const response = await fetch(snapshotUrl);
+          if (!response.ok) {
+            return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
+          }
+          snapshotBuffer = Buffer.from(await response.arrayBuffer());
+          console.log(`[Admin] Service-overlay snapshot downloaded: ${snapshotBuffer.length} bytes`);
         }
-        const snapshotBuffer = Buffer.from(await response.arrayBuffer());
-        console.log(`[Admin] Service-overlay snapshot downloaded: ${snapshotBuffer.length} bytes`);
         try {
           const meta = await sharp(snapshotBuffer).metadata();
           console.log(`[Admin] Snapshot image: ${meta.width}x${meta.height}, format=${meta.format}, channels=${meta.channels}`);
         } catch (e: any) {
           console.log(`[Admin] WARNING: Could not read snapshot metadata: ${e.message}`);
         }
-        console.log(`[Admin] Generating service-overlay thumbnail for: "${title}"`);
-        thumbnailBuffer = await generateServiceOverlay(snapshotBuffer, title);
+        console.log(`[Admin] Generating service-overlay thumbnail for: "${title}"${subtitle ? ` / "${subtitle}"` : ""}`);
+        thumbnailBuffer = await generateServiceOverlay(snapshotBuffer, title, subtitle);
         break;
       }
       case "title-background": {

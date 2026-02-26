@@ -735,7 +735,7 @@ function RecordingEditRow({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: 'service-overlay', snapshotUrl: aiSnapshotUrl, title: aiTitle }),
+        body: JSON.stringify({ mode: 'service-overlay', snapshotUrl: aiSnapshotUrl, title: aiTitle, subtitle: aiSubtitle || undefined }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
@@ -808,28 +808,28 @@ function RecordingEditRow({
 
     setCapturingFrame(true);
     try {
-      canvas.width = video.videoWidth || 1280;
-      canvas.height = video.videoHeight || 720;
+      // Wait for the video to finish seeking so we capture the actual frame
+      if (video.seeking) {
+        await new Promise<void>((resolve) => {
+          video.addEventListener("seeked", () => resolve(), { once: true });
+        });
+      }
+
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      if (!w || !h) throw new Error("Video not loaded yet — try again in a moment");
+
+      canvas.width = w;
+      canvas.height = h;
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("Canvas context unavailable");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, w, h);
 
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.9)
-      );
-      if (!blob) throw new Error("Failed to capture frame");
+      // Use data URL directly — avoids R2 round-trip that can fail server-side
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      if (!dataUrl || dataUrl === "data:,") throw new Error("Failed to capture frame");
 
-      const formData = new FormData();
-      formData.append("file", blob, `frame-${frameTimestamp}s.jpg`);
-      const res = await fetch("/api/recordings/admin/upload-thumbnail", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("Upload failed");
-      const { url } = await res.json();
-
-      setAiSnapshotUrl(url);
+      setAiSnapshotUrl(dataUrl);
       setShowFrameCapture(false);
       toast({ title: "Frame captured! Now generate your thumbnail." });
     } catch (err: any) {
@@ -1276,6 +1276,7 @@ function RecordingEditRow({
                   <video
                     ref={videoRef}
                     src={`/api/recordings/${recording.id}/video`}
+                    crossOrigin="anonymous"
                     controls
                     preload="auto"
                     playsInline
