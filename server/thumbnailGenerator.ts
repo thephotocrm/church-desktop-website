@@ -54,16 +54,8 @@ interface TextStyle {
 }
 
 const TEXT_STYLES: TextStyle[] = [
-  { name: "bold-white",       color: "white",   fontFamily: "DejaVu Sans Bold" },
-  { name: "warm-gold",        color: "#FFD700", fontFamily: "DejaVu Sans Bold" },
-  { name: "bright-cyan",      color: "#00FFFF", fontFamily: "DejaVu Sans Bold" },
-  { name: "hot-pink",         color: "#FF69B4", fontFamily: "DejaVu Sans Bold" },
-  { name: "lime-green",       color: "#7FFF00", fontFamily: "DejaVu Sans Bold" },
-  { name: "serif-white",      color: "white",   fontFamily: "DejaVu Serif Bold" },
-  { name: "serif-gold",       color: "#FFD700", fontFamily: "DejaVu Serif Bold" },
-  { name: "serif-cyan",       color: "#00FFFF", fontFamily: "DejaVu Serif Bold" },
-  { name: "bright-orange",    color: "#FF8C00", fontFamily: "DejaVu Sans Bold" },
-  { name: "electric-blue",    color: "#00BFFF", fontFamily: "DejaVu Serif Bold" },
+  { name: "sans-white",  color: "white", fontFamily: "DejaVu Sans Bold" },
+  { name: "serif-white", color: "white", fontFamily: "DejaVu Serif Bold" },
 ];
 
 // Anti-repeat for programmatic pastor-title
@@ -280,7 +272,7 @@ async function createTitleLayer(
   const top = Math.round((height - totalTextH) / 2);
 
   // Create hard drop shadow for title (no blur)
-  const shadowOffset = 5;
+  const shadowOffset = 2;
   const shadowImage = await sharp(textImage)
     .ensureAlpha()
     .tint({ r: 0, g: 0, b: 0 })
@@ -316,7 +308,8 @@ async function createTitleLayer(
 }
 
 async function fetchAndPrepPastor(
-  pastorImageUrl: string, width: number, height: number, layout: PastorLayout
+  pastorImageUrl: string, width: number, height: number,
+  layout: PastorLayout, palette: GradientPalette
 ): Promise<Buffer> {
   const response = await fetch(pastorImageUrl);
   if (!response.ok) throw new Error(`Failed to fetch pastor image: ${response.status}`);
@@ -344,10 +337,29 @@ async function fetchAndPrepPastor(
   const left = Math.max(0, Math.round(zoneCenterX - scaledW / 2));
   const top = Math.max(0, height - scaledH);
 
+  // Shadow: black tinted copy, blurred, offset down-right
+  const shadowLayer = await sharp(scaledPastor)
+    .ensureAlpha()
+    .tint({ r: 0, g: 0, b: 0 })
+    .blur(8)
+    .toBuffer();
+
+  // Glow: accent-colored copy, blurred wider, for subtle rim light
+  const glowLayer = await sharp(scaledPastor)
+    .ensureAlpha()
+    .tint(palette.accent)
+    .blur(12)
+    .toBuffer();
+
+  // Composite onto full-size canvas: glow → shadow → pastor
   return sharp({
     create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
   })
-    .composite([{ input: scaledPastor, left, top, blend: "over" }])
+    .composite([
+      { input: glowLayer, left: Math.max(0, left), top: Math.max(0, top), blend: "over" },
+      { input: shadowLayer, left: Math.max(0, left + 6), top: Math.max(0, top + 6), blend: "over" },
+      { input: scaledPastor, left: Math.max(0, left), top: Math.max(0, top), blend: "over" },
+    ])
     .png()
     .toBuffer();
 }
@@ -552,7 +564,7 @@ export async function generatePastorTitleProgrammatic(
     createGradientLayer(width, height, palette, layout),
     createTextureLayer(width, height, textureType, textureOpacity),
     createTitleLayer(width, height, title, layout, textStyle, subtitle),
-    fetchAndPrepPastor(pastorImageUrl, width, height, layout),
+    fetchAndPrepPastor(pastorImageUrl, width, height, layout, palette),
   ]);
 
   // Composite: gradient (base) + texture (soft-light) + title (over) + pastor (over)
