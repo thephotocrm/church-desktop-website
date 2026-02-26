@@ -191,6 +191,54 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
   }
 });
 
+// --- Temporary test endpoints (no auth) for thumbnail preview ---
+router.post("/test/upload-pastor", (req, res, next) => {
+  upload.single("file")(req, res, (err: any) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: "File too large (max 5 MB)" });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed" });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file provided" });
+    }
+    const ext = path.extname(req.file.originalname).toLowerCase() || ".png";
+    const key = `thumbnails/test/${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
+    const url = await uploadBuffer(req.file.buffer, key, req.file.mimetype);
+    res.json({ url });
+  } catch (err) {
+    console.error("[Test] Error uploading pastor image:", err);
+    res.status(500).json({ error: "Failed to upload" });
+  }
+});
+
+router.post("/test/generate-thumbnail", async (req, res) => {
+  const parsed = generateThumbnailSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.message });
+  }
+  try {
+    const { title, subtitle } = parsed.data;
+    if (!parsed.data.pastorImageUrl || !parsed.data.layout) {
+      return res.status(400).json({ error: "pastorImageUrl and layout required" });
+    }
+    console.log(`[Test] Generating pastor-title thumbnail for: "${title}"`);
+    const thumbnailBuffer = await generatePastorTitleProgrammatic(parsed.data.pastorImageUrl, title, parsed.data.layout, subtitle);
+    const key = `thumbnails/test/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
+    const url = await uploadBuffer(thumbnailBuffer, key, "image/jpeg");
+    console.log(`[Test] Thumbnail generated: ${key}`);
+    res.json({ url });
+  } catch (err: any) {
+    console.error("[Test] Error generating thumbnail:", err);
+    res.status(500).json({ error: err.message || "Failed to generate thumbnail" });
+  }
+});
+
 // POST /api/recordings/admin/import-style-references — one-time import of Elevation Church thumbnails
 router.post("/admin/import-style-references", requireAuth, async (req, res) => {
   const VIDEO_IDS = [

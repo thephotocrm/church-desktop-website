@@ -94,6 +94,12 @@ function pickProgrammaticCombo(): { paletteIdx: number; textureIdx: number; styl
   return f;
 }
 
+interface ColorBlob {
+  cx: number; cy: number;  // 0-1 normalized
+  radius: number;          // 0.3-0.7
+  color: RGBColor;
+}
+
 async function createGradientLayer(
   width: number, height: number, palette: GradientPalette, layout: PastorLayout
 ): Promise<Buffer> {
@@ -101,45 +107,63 @@ async function createGradientLayer(
   const qh = Math.max(1, Math.round(height / 4));
   const buf = Buffer.alloc(qw * qh * 3);
 
-  const glowCx = layout === "right" ? 0.75 : 0.25;
-  const glowCy = 0.50;
-  const glowRadius = 0.5;
+  // --- Pass 1: Painterly multi-blob base ---
+  const colors = [palette.dark, palette.mid, palette.light, palette.accent];
+  const blobs: ColorBlob[] = [];
+  for (let i = 0; i < 6; i++) {
+    blobs.push({
+      cx: Math.random(),
+      cy: Math.random(),
+      radius: 0.3 + Math.random() * 0.4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+    });
+  }
+
+  // Text side darkening direction
+  const darkSide = layout === "right" ? 0.0 : 1.0;
 
   for (let y = 0; y < qh; y++) {
     for (let x = 0; x < qw; x++) {
       const nx = x / qw;
       const ny = y / qh;
 
-      // Horizontal gradient: dark → light toward pastor side
-      const t = layout === "right" ? nx : 1 - nx;
-      let baseR: number, baseG: number, baseB: number;
-      if (t < 0.5) {
-        const s = t / 0.5;
-        baseR = palette.dark.r + (palette.mid.r - palette.dark.r) * s;
-        baseG = palette.dark.g + (palette.mid.g - palette.dark.g) * s;
-        baseB = palette.dark.b + (palette.mid.b - palette.dark.b) * s;
-      } else {
-        const s = (t - 0.5) / 0.5;
-        baseR = palette.mid.r + (palette.light.r - palette.mid.r) * s;
-        baseG = palette.mid.g + (palette.light.g - palette.mid.g) * s;
-        baseB = palette.mid.b + (palette.light.b - palette.mid.b) * s;
+      // Weighted blend of all blobs by gaussian falloff
+      let totalWeight = 0;
+      let r = 0, g = 0, b = 0;
+      for (const blob of blobs) {
+        const dx = nx - blob.cx;
+        const dy = ny - blob.cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const weight = Math.exp(-(dist * dist) / (2 * blob.radius * blob.radius));
+        r += blob.color.r * weight;
+        g += blob.color.g * weight;
+        b += blob.color.b * weight;
+        totalWeight += weight;
       }
+      r /= totalWeight;
+      g /= totalWeight;
+      b /= totalWeight;
 
-      // Radial glow behind pastor
-      const dx = nx - glowCx;
-      const dy = (ny - glowCy) * 1.3;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const glowStrength = Math.max(0, 1 - dist / glowRadius);
-      const glowFactor = glowStrength * glowStrength * 0.6;
+      // --- Pass 2: Directional light/dark overlay ---
+      // Darken text side (0.5), brighten pastor side (1.0)
+      const brightnessFactor = 0.5 + 0.5 * (darkSide === 0.0 ? nx : 1 - nx);
+      r *= brightnessFactor;
+      g *= brightnessFactor;
+      b *= brightnessFactor;
 
-      const r = Math.round(Math.min(255, baseR + (palette.accent.r - baseR) * glowFactor));
-      const g = Math.round(Math.min(255, baseG + (palette.accent.g - baseG) * glowFactor));
-      const b = Math.round(Math.min(255, baseB + (palette.accent.b - baseB) * glowFactor));
+      // Vignette — subtle edge darkening for cinematic feel
+      const vdx = nx - 0.5;
+      const vdy = (ny - 0.5) * 0.75;
+      const vDist = Math.sqrt(vdx * vdx + vdy * vdy);
+      const vignette = Math.max(0.3, 1.0 - vDist * 1.0);
+      r *= vignette;
+      g *= vignette;
+      b *= vignette;
 
       const idx = (y * qw + x) * 3;
-      buf[idx] = r;
-      buf[idx + 1] = g;
-      buf[idx + 2] = b;
+      buf[idx] = Math.round(Math.min(255, Math.max(0, r)));
+      buf[idx + 1] = Math.round(Math.min(255, Math.max(0, g)));
+      buf[idx + 2] = Math.round(Math.min(255, Math.max(0, b)));
     }
   }
 
@@ -154,7 +178,10 @@ async function createTextureLayer(
   width: number, height: number, textureType: TextureType, opacity: number
 ): Promise<Buffer> {
   const buf = Buffer.alloc(width * height * 4);
-  const alpha = Math.round(opacity * 255);
+  const opacityScale = (textureType === "checkers" || textureType === "diagonal-lines" || textureType === "dots")
+    ? 0.4
+    : 1.0;
+  const alpha = Math.round(opacity * opacityScale * 255);
 
   // Hoist any per-call randomness outside the loop
   const waveFreq = 0.015 + Math.random() * 0.015;

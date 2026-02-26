@@ -31,6 +31,7 @@ import Groups from "@/pages/groups";
 import PastStreams from "@/pages/past-streams";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsOfService from "@/pages/terms-of-service";
+import ThumbnailTest from "@/pages/thumbnail-test";
 import NotFound from "@/pages/not-found";
 
 function ScrollToTop() {
@@ -66,6 +67,7 @@ function Router() {
       <Route path="/terms-of-service" component={TermsOfService} />
       <Route path="/login" component={Login} />
       <Route path="/admin" component={Admin} />
+      <Route path="/thumbnail" component={ThumbnailTest} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -73,7 +75,7 @@ function Router() {
 
 function AppLayout() {
   const [location] = useLocation();
-  const isAdminRoute = location === "/login" || location === "/admin";
+  const isAdminRoute = location === "/login" || location === "/admin" || location === "/thumbnail";
   const isMemberAuthRoute = location === "/member-login" || location === "/register";
   const isGiveConfirm = location === "/give/confirm";
 
