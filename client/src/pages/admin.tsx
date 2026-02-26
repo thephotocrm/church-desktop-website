@@ -28,7 +28,7 @@ import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
   HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield,
   Edit2, MapPin, Clock, Film, Image, Upload, Loader2, Wand2, Camera, Play,
-  Type, RefreshCw, MousePointer, Download, Palette
+  Type, RefreshCw, MousePointer, Download, Palette, Trophy
 } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ThumbnailStudioModal } from "@/components/thumbnail-studio-modal";
@@ -66,6 +66,16 @@ interface PrayerRequest {
   authorName: string | null;
   isAnonymous: boolean | null;
   prayerCount: number | null;
+  status: string;
+  createdAt: string;
+}
+
+interface VictoryReport {
+  id: string;
+  title: string;
+  body: string;
+  authorName: string | null;
+  isAnonymous: boolean | null;
   status: string;
   createdAt: string;
 }
@@ -232,6 +242,7 @@ export default function Admin() {
             <TabsTrigger value="members" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Users className="w-4 h-4" />Members</TabsTrigger>
             <TabsTrigger value="events" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Calendar className="w-4 h-4" />Events</TabsTrigger>
             <TabsTrigger value="prayer" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><HandHeart className="w-4 h-4" />Prayer</TabsTrigger>
+            <TabsTrigger value="victories" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Trophy className="w-4 h-4" />Victories</TabsTrigger>
             <TabsTrigger value="giving" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><DollarSign className="w-4 h-4" />Giving</TabsTrigger>
             <TabsTrigger value="groups" className="flex-1 min-w-fit gap-1.5 rounded-lg data-[state=active]:shadow-md"><Church className="w-4 h-4" />Groups</TabsTrigger>
           </TabsList>
@@ -313,6 +324,11 @@ export default function Admin() {
           {/* Prayer Tab */}
           <TabsContent value="prayer">
             <PrayerAdmin />
+          </TabsContent>
+
+          {/* Victory Reports Tab */}
+          <TabsContent value="victories">
+            <VictoryAdmin />
           </TabsContent>
 
           {/* Giving Tab */}
@@ -1248,6 +1264,108 @@ function PrayerAdmin() {
   );
 }
 
+// ========== Victory Admin ==========
+function VictoryAdmin() {
+  const { toast } = useToast();
+  const [filter, setFilter] = useState("active");
+
+  const { data: reports, isLoading } = useQuery<VictoryReport[]>({
+    queryKey: ["/api/victory-reports/admin/all", filter],
+    queryFn: async () => {
+      const res = await fetch(`/api/victory-reports/admin/all?status=${filter}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      await apiRequest("PATCH", `/api/victory-reports/admin/${id}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/victory-reports/admin/all"] });
+      toast({ title: "Status updated" });
+    },
+  });
+
+  return (
+    <Card className="shadow-md border-0 ring-1 ring-border/50">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Victory Reports</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">Manage victory reports and testimonies</p>
+            </div>
+          </div>
+          <div className="flex gap-1 bg-muted/50 p-1 rounded-lg">
+            {["active", "archived"].map((s) => (
+              <Button
+                key={s}
+                size="sm"
+                variant={filter === s ? "default" : "ghost"}
+                className={filter === s ? "shadow-sm h-8" : "h-8 text-muted-foreground"}
+                onClick={() => setFilter(s)}
+              >
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 bg-muted animate-pulse rounded-lg" />
+            ))}
+          </div>
+        ) : reports && reports.length > 0 ? (
+          <div className="space-y-2">
+            {reports.map((r) => (
+              <div key={r.id} className="p-4 border rounded-lg hover:bg-muted/30 transition-colors">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="font-semibold">{r.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      By {r.authorName || "Anonymous"} {r.isAnonymous ? "(anonymous)" : ""}
+                      &middot; {new Date(r.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="capitalize">{r.status}</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">{r.body}</p>
+                <div className="flex gap-2">
+                  {r.status !== "archived" && (
+                    <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: r.id, status: "archived" })}>
+                      Archive
+                    </Button>
+                  )}
+                  {r.status !== "active" && (
+                    <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: r.id, status: "active" })}>
+                      Reactivate
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-10">
+            <Trophy className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground font-medium">No {filter} victory reports</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ========== Giving Admin ==========
 function GivingAdmin() {
   const { toast } = useToast();
@@ -1477,6 +1595,16 @@ function RestreamAdmin() {
       <div className="mb-4 p-3 rounded-lg bg-muted/50 border border-border/50 text-sm text-muted-foreground flex items-start gap-2">
         <Cast className="w-4 h-4 text-muted-foreground/60 flex-shrink-0 mt-0.5" />
         Configure YouTube and Facebook restreaming. When OBS starts streaming, the server automatically forwards to enabled platforms.
+      </div>
+      <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+        <div className="flex items-center gap-2 mb-2">
+          <Cast className="w-4 h-4 text-blue-500" />
+          <span className="font-medium text-sm">OBS Settings</span>
+        </div>
+        <div className="space-y-1 text-sm font-mono">
+          <div><span className="text-muted-foreground">Server:</span> rtmp://129.212.184.68/live</div>
+          <div><span className="text-muted-foreground">Stream Key:</span> live</div>
+        </div>
       </div>
       {configsLoading ? (
         <div className="space-y-4">

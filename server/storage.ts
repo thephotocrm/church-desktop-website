@@ -18,10 +18,13 @@ import {
   type AuthCode,
   type Recording, type InsertRecording,
   type StyleReference, type InsertStyleReference,
+  type VictoryReport, type InsertVictoryReport,
+  type PrayerLog,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
   members, groups, groupMembers, messages, prayerRequests, fundCategories, donations,
   platformConfig, youtubeStreamCache, restreamStatus,
   eventGroups, eventRsvps, authCodes, recordings, styleReferences,
+  victoryReports, prayerLogs,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, and, gte, lte, lt, desc, sql, inArray } from "drizzle-orm";
@@ -32,6 +35,14 @@ export interface PrayerRequestFilter {
   status?: string;
   isPublic?: boolean;
   memberId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface VictoryReportFilter {
+  since?: string;
+  status?: string;
+  isPublic?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -176,6 +187,17 @@ export interface IStorage {
   getAllStyleReferences(): Promise<StyleReference[]>;
   createStyleReference(data: InsertStyleReference): Promise<StyleReference>;
   deleteStyleReference(id: string): Promise<void>;
+
+  // Victory Reports
+  getVictoryReports(filter: VictoryReportFilter): Promise<VictoryReport[]>;
+  getVictoryReport(id: string): Promise<VictoryReport | undefined>;
+  createVictoryReport(report: InsertVictoryReport): Promise<VictoryReport>;
+  updateVictoryReport(id: string, data: Partial<InsertVictoryReport>): Promise<VictoryReport>;
+  deleteVictoryReport(id: string): Promise<void>;
+
+  // Prayer Logs
+  getPrayerLogs(since: Date): Promise<(PrayerLog & { member: { firstName: string; lastName: string } })[]>;
+  createPrayerLog(memberId: string): Promise<PrayerLog>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -925,6 +947,92 @@ export class DatabaseStorage implements IStorage {
 
   async deleteStyleReference(id: string): Promise<void> {
     await db.delete(styleReferences).where(eq(styleReferences.id, id));
+  }
+
+  // ========== Victory Reports ==========
+  async getVictoryReports(filter: VictoryReportFilter): Promise<VictoryReport[]> {
+    const conditions = [];
+
+    if (filter.since) {
+      let sinceDate: Date;
+      const match = filter.since.match(/^(\d+)d$/);
+      if (match) {
+        sinceDate = new Date(Date.now() - parseInt(match[1]) * 24 * 60 * 60 * 1000);
+      } else {
+        sinceDate = new Date(filter.since);
+      }
+      if (!isNaN(sinceDate.getTime())) {
+        conditions.push(gte(victoryReports.createdAt, sinceDate));
+      }
+    }
+
+    if (filter.status) {
+      conditions.push(eq(victoryReports.status, filter.status));
+    }
+
+    if (filter.isPublic !== undefined) {
+      conditions.push(eq(victoryReports.isPublic, filter.isPublic));
+    }
+
+    let query = db.select().from(victoryReports)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(victoryReports.createdAt));
+
+    if (filter.limit) {
+      query = query.limit(filter.limit) as typeof query;
+    }
+
+    if (filter.offset) {
+      query = query.offset(filter.offset) as typeof query;
+    }
+
+    return query;
+  }
+
+  async getVictoryReport(id: string): Promise<VictoryReport | undefined> {
+    const [result] = await db.select().from(victoryReports).where(eq(victoryReports.id, id));
+    return result;
+  }
+
+  async createVictoryReport(report: InsertVictoryReport): Promise<VictoryReport> {
+    const [result] = await db.insert(victoryReports).values(report).returning();
+    return result;
+  }
+
+  async updateVictoryReport(id: string, data: Partial<InsertVictoryReport>): Promise<VictoryReport> {
+    const [result] = await db.update(victoryReports)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(victoryReports.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteVictoryReport(id: string): Promise<void> {
+    await db.delete(victoryReports).where(eq(victoryReports.id, id));
+  }
+
+  // ========== Prayer Logs ==========
+  async getPrayerLogs(since: Date): Promise<(PrayerLog & { member: { firstName: string; lastName: string } })[]> {
+    const rows = await db.select().from(prayerLogs)
+      .where(gte(prayerLogs.loggedAt, since))
+      .orderBy(desc(prayerLogs.loggedAt));
+
+    const result = [];
+    for (const row of rows) {
+      const [member] = await db.select({
+        firstName: members.firstName,
+        lastName: members.lastName,
+      }).from(members).where(eq(members.id, row.memberId));
+      if (member) {
+        result.push({ ...row, member });
+      }
+    }
+    return result;
+  }
+
+  async createPrayerLog(memberId: string): Promise<PrayerLog> {
+    const [result] = await db.insert(prayerLogs).values({ memberId }).returning();
+    return result;
   }
 }
 

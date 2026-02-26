@@ -13,6 +13,8 @@ import youtubeRoutes from "./routes/youtubeRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import { startRestreaming, stopRestreaming } from "./restreamManager";
 import recordingRoutes from "./routes/recordingRoutes";
+import victoryRoutes from "./routes/victoryRoutes";
+import prayerLogRoutes from "./routes/prayerLogRoutes";
 import { setupWebSocket } from "./websocket";
 import { startEventReminders } from "./eventReminders";
 
@@ -184,6 +186,8 @@ export async function registerRoutes(
   app.use("/api/restream", vpsRestreamRouter);
   app.use("/api/youtube", youtubeRoutes);
   app.use("/api/recordings", recordingRoutes);
+  app.use("/api/victory-reports", victoryRoutes);
+  app.use("/api/prayer-logs", prayerLogRoutes);
 
   // POST /api/stream/webhook - MediaMTX webhook for stream start/stop
   app.post("/api/stream/webhook", async (req, res) => {

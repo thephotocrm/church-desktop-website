@@ -181,6 +181,17 @@ router.get("/me/groups", requireMember, async (req, res) => {
   res.json(groups);
 });
 
+// GET /api/members/kiosk — public, minimal data for kiosk name picker
+router.get("/kiosk", async (_req, res) => {
+  const allMembers = await storage.getMembers();
+  const minimal = allMembers.map((m) => ({
+    id: m.id,
+    firstName: m.firstName,
+    lastName: m.lastName,
+  }));
+  res.json(minimal);
+});
+
 // ========== Admin member management ==========
 
 // GET /api/admin/members/pending

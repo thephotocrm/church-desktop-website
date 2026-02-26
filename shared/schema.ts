@@ -418,3 +418,37 @@ export const authCodes = pgTable("auth_codes", {
 });
 
 export type AuthCode = typeof authCodes.$inferSelect;
+
+// ===================== Victory Reports =====================
+
+export const victoryReports = pgTable("victory_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").references(() => members.id, { onDelete: "set null" }),
+  authorName: text("author_name"),
+  isAnonymous: boolean("is_anonymous").default(false),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  isPublic: boolean("is_public").default(true),
+  status: text("status").notNull().default("active"), // active | archived
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertVictoryReportSchema = createInsertSchema(victoryReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertVictoryReport = z.infer<typeof insertVictoryReportSchema>;
+export type VictoryReport = typeof victoryReports.$inferSelect;
+
+// ===================== Prayer Logs =====================
+
+export const prayerLogs = pgTable("prayer_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  memberId: varchar("member_id").notNull().references(() => members.id, { onDelete: "cascade" }),
+  loggedAt: timestamp("logged_at").defaultNow(),
+});
+
+export type PrayerLog = typeof prayerLogs.$inferSelect;
