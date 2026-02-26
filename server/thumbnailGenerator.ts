@@ -214,12 +214,12 @@ async function createTitleLayer(
   width: number, height: number, title: string, layout: PastorLayout,
   style: TextStyle, subtitle?: string
 ): Promise<Buffer> {
-  const textZoneWidth = Math.round(width * 0.40);
+  const textZoneWidth = Math.round(width * 0.45);
   const wordCount = title.trim().split(/\s+/).length;
   let fontSize: number;
-  if (wordCount <= 2) fontSize = Math.round(height * 0.14);
-  else if (wordCount <= 4) fontSize = Math.round(height * 0.11);
-  else fontSize = Math.round(height * 0.08);
+  if (wordCount <= 2) fontSize = Math.round(height * 0.18);
+  else if (wordCount <= 4) fontSize = Math.round(height * 0.14);
+  else fontSize = Math.round(height * 0.10);
 
   const escaped = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").toUpperCase();
   const pangoMarkup = `<span foreground="${style.color}" font_desc="${style.fontFamily} ${fontSize}px">${escaped}</span>`;
@@ -272,10 +272,11 @@ async function createTitleLayer(
   const top = Math.round((height - totalTextH) / 2);
 
   // Create hard drop shadow for title (no blur)
+  // Use recomb to zero out RGB channels (tint preserves luminance so white stays white)
   const shadowOffset = 2;
   const shadowImage = await sharp(textImage)
     .ensureAlpha()
-    .tint({ r: 0, g: 0, b: 0 })
+    .recomb([[0,0,0],[0,0,0],[0,0,0]])
     .toBuffer();
 
   const composites: sharp.OverlayOptions[] = [
@@ -290,7 +291,7 @@ async function createTitleLayer(
 
     const subShadow = await sharp(subtitleImage)
       .ensureAlpha()
-      .tint({ r: 0, g: 0, b: 0 })
+      .recomb([[0,0,0],[0,0,0],[0,0,0]])
       .toBuffer();
 
     composites.push(
@@ -319,8 +320,8 @@ async function fetchAndPrepPastor(
   const origW = meta.width!;
   const origH = meta.height!;
 
-  // Scale to fit pastor zone (~50% width) maintaining aspect ratio
-  const zoneWidth = Math.round(width * 0.50);
+  // Scale to fit pastor zone (~40% width) maintaining aspect ratio
+  const zoneWidth = Math.round(width * 0.40);
   const zoneHeight = height;
   const scale = Math.min(zoneWidth / origW, zoneHeight / origH);
   const scaledW = Math.round(origW * scale);
@@ -337,10 +338,11 @@ async function fetchAndPrepPastor(
   const left = Math.max(0, Math.round(zoneCenterX - scaledW / 2));
   const top = Math.max(0, height - scaledH);
 
-  // Shadow: black tinted copy, blurred, offset down-right
+  // Shadow: black copy, blurred, offset down-right
+  // Use recomb to zero out RGB (tint preserves luminance)
   const shadowLayer = await sharp(scaledPastor)
     .ensureAlpha()
-    .tint({ r: 0, g: 0, b: 0 })
+    .recomb([[0,0,0],[0,0,0],[0,0,0]])
     .blur(8)
     .toBuffer();
 
