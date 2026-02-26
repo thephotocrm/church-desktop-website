@@ -50,6 +50,7 @@ router.post("/ingest", async (req, res) => {
       duration: data.duration ?? null,
       fileSize: data.fileSize ?? null,
       status: "ready",
+      published: false,
       streamStartedAt: data.streamStartedAt ? new Date(data.streamStartedAt) : new Date(),
     });
 
@@ -712,6 +713,7 @@ const updateRecordingSchema = z.object({
   description: z.string().nullable().optional(),
   thumbnailUrl: z.string().url().nullable().optional(),
   status: z.enum(["processing", "ready", "error"]).optional(),
+  published: z.boolean().optional(),
 });
 
 router.patch("/admin/:id", requireAuth, async (req, res) => {

@@ -343,6 +343,7 @@ interface AdminRecording {
   duration: number | null;
   fileSize: number | null;
   status: string;
+  published: boolean;
   streamStartedAt: string | null;
   createdAt: string | null;
 }
@@ -413,6 +414,20 @@ function RecordingsAdmin() {
     },
     onError: () => {
       toast({ title: "Failed to delete recording", variant: "destructive" });
+    },
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: async ({ id, published }: { id: string; published: boolean }) => {
+      await apiRequest("PATCH", `/api/recordings/admin/${id}`, { published });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/recordings/admin/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/recordings"] });
+      toast({ title: "Recording updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update recording", variant: "destructive" });
     },
   });
 
@@ -541,6 +556,11 @@ function RecordingsAdmin() {
                         <Badge className={`${statusColors[rec.status] || "bg-gray-500"} text-white border-0 text-xs capitalize`}>
                           {rec.status}
                         </Badge>
+                        {rec.status === "ready" && (
+                          <Badge className={`${rec.published ? "bg-blue-500" : "bg-orange-500"} text-white border-0 text-xs`}>
+                            {rec.published ? "Published" : "Draft"}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
@@ -567,6 +587,17 @@ function RecordingsAdmin() {
 
                     {/* Actions */}
                     <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {rec.status === "ready" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-2 text-xs"
+                          onClick={() => publishMutation.mutate({ id: rec.id, published: !rec.published })}
+                          disabled={publishMutation.isPending}
+                        >
+                          {rec.published ? "Unpublish" : "Publish"}
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="ghost"

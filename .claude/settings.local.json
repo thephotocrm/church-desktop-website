@@ -38,7 +38,8 @@
       "Bash(cd /home/runner/workspace && ./node_modules/.bin/tsc --noEmit --pretty 2>&1 | tail -10)",
       "Bash(fc-cache -f 2>&1 && fc-list : family | sort -u | wc -l)",
       "Bash(# The fonts are in server/fonts but need to be copied to ~/.fonts by the app's install function\n# Let's manually copy them and refresh\ncp /home/runner/workspace/server/fonts/*.ttf /home/runner/.fonts/ 2>/dev/null\nfc-cache -f 2>&1\nfc-list : family | sort -u)",
-      "WebFetch(domain:www.libvips.org)"
+      "WebFetch(domain:www.libvips.org)",
+      "Bash(npx tsx -e \"\nconst { db } = require\\('./server/db'\\);\nconst { recordings } = require\\('./shared/schema'\\);\nconst { eq } = require\\('drizzle-orm'\\);\n\nasync function migrate\\(\\) {\n  const result = await db.update\\(recordings\\).set\\({ published: true }\\).where\\(eq\\(recordings.status, 'ready'\\)\\).returning\\({ id: recordings.id }\\);\n  console.log\\('Updated', result.length, 'recordings to published'\\);\n  process.exit\\(0\\);\n}\nmigrate\\(\\).catch\\(e => { console.error\\(e\\); process.exit\\(1\\); }\\);\n\" 2>&1)"
     ]
   }
 }

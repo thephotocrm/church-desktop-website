@@ -861,13 +861,13 @@ export class DatabaseStorage implements IStorage {
     const [countRow] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(recordings)
-      .where(eq(recordings.status, "ready"));
+      .where(and(eq(recordings.status, "ready"), eq(recordings.published, true)));
     const total = countRow?.count ?? 0;
 
     const items = await db
       .select()
       .from(recordings)
-      .where(eq(recordings.status, "ready"))
+      .where(and(eq(recordings.status, "ready"), eq(recordings.published, true)))
       .orderBy(desc(recordings.streamStartedAt))
       .limit(limit)
       .offset(offset);

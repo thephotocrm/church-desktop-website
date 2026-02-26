@@ -376,6 +376,7 @@ export const recordings = pgTable("recordings", {
   duration: integer("duration_seconds"),
   fileSize: integer("file_size_bytes"),
   status: text("status").notNull().default("processing"), // processing | ready | error
+  published: boolean("published").notNull().default(false),
   streamStartedAt: timestamp("stream_started_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
