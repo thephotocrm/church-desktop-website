@@ -1,9 +1,10 @@
 import { useState } from "react";
 
 export default function ThumbnailTest() {
-  const [pastorImageUrl, setPastorImageUrl] = useState("");
+  const [pastorImageId, setPastorImageId] = useState("");
+  const [pastorPreviewUrl, setPastorPreviewUrl] = useState("");
   const [title, setTitle] = useState("Delivered Daily");
-  const [subtitle, setSubtitle] = useState("");
+  const [subtitle, setSubtitle] = useState("Pastor James Pacholek");
   const [layout, setLayout] = useState<"left" | "right">("right");
   const [generating, setGenerating] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -19,9 +20,14 @@ export default function ThumbnailTest() {
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/recordings/test/upload-pastor", { method: "POST", body: form });
-      if (!res.ok) throw new Error((await res.json()).error || "Upload failed");
-      const { url } = await res.json();
-      setPastorImageUrl(url);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `Upload failed (${res.status})`);
+      }
+      const data = await res.json();
+      const id = data.id || data.url?.split("/").pop() || "";
+      setPastorImageId(id);
+      setPastorPreviewUrl(data.url);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -29,17 +35,28 @@ export default function ThumbnailTest() {
     }
   };
 
+  const generatePayload = () => ({
+    mode: "pastor-title" as const,
+    pastorImageId,
+    layout,
+    title,
+    subtitle: subtitle || undefined,
+  });
+
   const handleGenerate = async () => {
-    if (!pastorImageUrl || !title) return;
+    if (!pastorImageId || !title) return;
     setGenerating(true);
     setError("");
     try {
       const res = await fetch("/api/recordings/test/generate-thumbnail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "pastor-title", pastorImageUrl, layout, title, subtitle: subtitle || undefined }),
+        body: JSON.stringify(generatePayload()),
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Generation failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `Generation failed (${res.status})`);
+      }
       const { url } = await res.json();
       setPreviews((prev) => [url, ...prev]);
     } catch (err: any) {
@@ -50,7 +67,7 @@ export default function ThumbnailTest() {
   };
 
   const handleBatchGenerate = async (count: number) => {
-    if (!pastorImageUrl || !title) return;
+    if (!pastorImageId || !title) return;
     setGenerating(true);
     setError("");
     try {
@@ -58,9 +75,12 @@ export default function ThumbnailTest() {
         const res = await fetch("/api/recordings/test/generate-thumbnail", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "pastor-title", pastorImageUrl, layout, title, subtitle: subtitle || undefined }),
+          body: JSON.stringify(generatePayload()),
         });
-        if (!res.ok) throw new Error((await res.json()).error || "Generation failed");
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error || `Generation failed (${res.status})`);
+        }
         const { url } = await res.json();
         setPreviews((prev) => [url, ...prev]);
       }
@@ -80,9 +100,9 @@ export default function ThumbnailTest() {
           <label style={{ display: "block", fontSize: 14, marginBottom: 4 }}>Pastor Image</label>
           <input type="file" accept="image/*" onChange={handleUploadPastor} disabled={uploading} />
           {uploading && <span style={{ fontSize: 12, color: "#888" }}> Uploading...</span>}
-          {pastorImageUrl && (
+          {pastorPreviewUrl && (
             <div style={{ marginTop: 8 }}>
-              <img src={pastorImageUrl} alt="Pastor" style={{ height: 80, borderRadius: 4 }} />
+              <img src={pastorPreviewUrl} alt="Pastor" style={{ height: 80, borderRadius: 4 }} />
             </div>
           )}
         </div>
@@ -123,7 +143,7 @@ export default function ThumbnailTest() {
       <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
         <button
           onClick={handleGenerate}
-          disabled={generating || !pastorImageUrl || !title}
+          disabled={generating || !pastorImageId || !title}
           style={{
             padding: "8px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer",
             background: generating ? "#999" : "#2563eb", color: "#fff", border: "none", borderRadius: 6,
@@ -133,7 +153,7 @@ export default function ThumbnailTest() {
         </button>
         <button
           onClick={() => handleBatchGenerate(4)}
-          disabled={generating || !pastorImageUrl || !title}
+          disabled={generating || !pastorImageId || !title}
           style={{
             padding: "8px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer",
             background: generating ? "#999" : "#7c3aed", color: "#fff", border: "none", borderRadius: 6,
@@ -143,7 +163,7 @@ export default function ThumbnailTest() {
         </button>
         <button
           onClick={() => handleBatchGenerate(8)}
-          disabled={generating || !pastorImageUrl || !title}
+          disabled={generating || !pastorImageId || !title}
           style={{
             padding: "8px 20px", fontSize: 14, fontWeight: 600, cursor: "pointer",
             background: generating ? "#999" : "#059669", color: "#fff", border: "none", borderRadius: 6,
@@ -166,7 +186,7 @@ export default function ThumbnailTest() {
 
       {error && <div style={{ color: "#ef4444", marginBottom: 16, fontSize: 14 }}>{error}</div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(400px, 1fr))", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(600px, 1fr))", gap: 16 }}>
         {previews.map((url, i) => (
           <div key={`${url}-${i}`} style={{ border: "1px solid #ddd", borderRadius: 8, overflow: "hidden" }}>
             <img src={url} alt={`Thumbnail ${i + 1}`} style={{ width: "100%", display: "block" }} />

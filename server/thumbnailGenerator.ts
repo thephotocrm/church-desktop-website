@@ -1,7 +1,33 @@
 import OpenAI from "openai";
 import sharp from "sharp";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { execSync } from "child_process";
 
 import { storage } from "./storage";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Install bundled fonts into ~/.fonts so fontconfig picks them up
+(function installFonts() {
+  const fontsDir = path.join(__dirname, "fonts");
+  const destDir = path.join(process.env.HOME || "/home/runner", ".fonts");
+  try {
+    if (!fs.existsSync(fontsDir)) return;
+    fs.mkdirSync(destDir, { recursive: true });
+    for (const f of fs.readdirSync(fontsDir)) {
+      const src = path.join(fontsDir, f);
+      const dst = path.join(destDir, f);
+      if (!fs.existsSync(dst)) fs.copyFileSync(src, dst);
+    }
+    execSync("fc-cache -f", { stdio: "ignore" });
+    console.log("[Fonts] Installed bundled fonts");
+  } catch (e: any) {
+    console.warn("[Fonts] Could not install fonts:", e.message);
+  }
+})();
 
 const THUMB_WIDTH = 1280;
 const THUMB_HEIGHT = 720;
@@ -54,8 +80,15 @@ interface TextStyle {
 }
 
 const TEXT_STYLES: TextStyle[] = [
-  { name: "sans-white",  color: "white", fontFamily: "DejaVu Sans Bold" },
-  { name: "serif-white", color: "white", fontFamily: "DejaVu Serif Bold" },
+  { name: "montserrat",   color: "white", fontFamily: "Montserrat Bold" },
+  { name: "bebas",        color: "white", fontFamily: "Bebas Neue" },
+  { name: "oswald",       color: "white", fontFamily: "Oswald Bold" },
+  { name: "anton",        color: "white", fontFamily: "Anton" },
+  { name: "poppins",      color: "white", fontFamily: "Poppins Bold" },
+  { name: "playfair",     color: "white", fontFamily: "Playfair Display Bold" },
+  { name: "raleway",      color: "white", fontFamily: "Raleway Bold" },
+  { name: "dejavu-sans",  color: "white", fontFamily: "DejaVu Sans Bold" },
+  { name: "dejavu-serif", color: "white", fontFamily: "DejaVu Serif Bold" },
 ];
 
 // Anti-repeat for programmatic pastor-title
@@ -242,11 +275,20 @@ async function createTitleLayer(
   style: TextStyle, subtitle?: string
 ): Promise<Buffer> {
   const textZoneWidth = Math.round(width * 0.45);
-  const wordCount = title.trim().split(/\s+/).length;
+  const words = title.trim().split(/\s+/);
+  const wordCount = words.length;
   let fontSize: number;
   if (wordCount <= 2) fontSize = Math.round(height * 0.18);
   else if (wordCount <= 4) fontSize = Math.round(height * 0.14);
   else fontSize = Math.round(height * 0.10);
+
+  // Scale down if the longest word is too wide for the text zone
+  const longestWord = words.reduce((a, b) => a.length > b.length ? a : b, "");
+  const estCharWidth = fontSize * 0.65; // approximate uppercase character width
+  const estWordWidth = longestWord.length * estCharWidth;
+  if (estWordWidth > textZoneWidth * 0.9) {
+    fontSize = Math.round((textZoneWidth * 0.9) / (longestWord.length * 0.65));
+  }
 
   const escaped = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").toUpperCase();
   const pangoMarkup = `<span foreground="${style.color}" font_desc="${style.fontFamily} ${fontSize}px">${escaped}</span>`;
@@ -266,12 +308,17 @@ async function createTitleLayer(
   const textW = textMeta.width!;
   const textH = textMeta.height!;
 
-  // Build subtitle image if provided
+  // Build subtitle image if provided — sized to fit on one line
   let subtitleImage: Buffer | null = null;
   let subtitleW = 0;
   let subtitleH = 0;
   if (subtitle && subtitle.trim()) {
-    const subFontSize = Math.round(fontSize * 0.4);
+    let subFontSize = Math.round(fontSize * 0.3);
+    // Estimate if subtitle fits on one line; shrink if needed
+    const estSubWidth = subtitle.length * subFontSize * 0.55;
+    if (estSubWidth > textZoneWidth * 0.95) {
+      subFontSize = Math.round((textZoneWidth * 0.95) / (subtitle.length * 0.55));
+    }
     const escapedSub = subtitle.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const subMarkup = `<span foreground="${style.color}" font_desc="DejaVu Sans ${subFontSize}px">${escapedSub}</span>`;
     subtitleImage = await sharp({
@@ -294,7 +341,7 @@ async function createTitleLayer(
   const totalTextH = textH + gap + subtitleH;
 
   // Center text block in the text zone (opposite side from pastor)
-  const textZoneX = layout === "right" ? width * 0.05 : width * 0.55;
+  const textZoneX = layout === "right" ? width * 0.05 : width * 0.50;
   const left = Math.round(textZoneX + (textZoneWidth - textW) / 2);
   const top = Math.round((height - totalTextH) / 2);
 

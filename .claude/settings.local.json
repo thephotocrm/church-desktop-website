@@ -26,7 +26,16 @@
       "Bash(npx vite build 2>&1 | tail -10)",
       "Bash(npx vite build 2>&1)",
       "WebSearch",
-      "WebFetch(domain:www.elevationchurch.org)"
+      "WebFetch(domain:www.elevationchurch.org)",
+      "Bash(fc-list : family style | sort -u | head -50)",
+      "Bash(fc-cache -fv ~/.local/share/fonts 2>&1 | tail -5 && fc-list : family | sort -u)",
+      "Bash(fc-list ~/.local/share/fonts : family | sort -u)",
+      "Bash(file ~/.local/share/fonts/Montserrat.ttf && fc-scan ~/.local/share/fonts/Montserrat.ttf 2>&1 | head -5)",
+      "Bash(python3 -c \"\nwith open\\('/home/runner/.local/share/fonts/Montserrat.ttf', 'rb'\\) as f:\n    header = f.read\\(4\\)\n    print\\('Header bytes:', header.hex\\(\\), 'ASCII:', header\\)\n\")",
+      "Bash(FONTCONFIG_PATH=~/.config/fontconfig fc-list : family | sort -u)",
+      "Bash(ln -sf ~/.local/share/fonts ~/.fonts && fc-cache -f && fc-list : family | sort -u)",
+      "Bash(fc-list : family | grep -i lato)",
+      "Bash(cd /home/runner/workspace && ./node_modules/.bin/tsc --noEmit --pretty 2>&1 | tail -10)"
     ]
   }
 }

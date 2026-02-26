@@ -192,6 +192,9 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
 });
 
 // --- Temporary test endpoints (no auth) for thumbnail preview ---
+// In-memory store so we skip R2 entirely for this test page
+const testPastorImages = new Map<string, { buffer: Buffer; mime: string }>();
+
 router.post("/test/upload-pastor", (req, res, next) => {
   upload.single("file")(req, res, (err: any) => {
     if (err) {
@@ -207,31 +210,52 @@ router.post("/test/upload-pastor", (req, res, next) => {
     if (!req.file) {
       return res.status(400).json({ error: "No file provided" });
     }
-    const ext = path.extname(req.file.originalname).toLowerCase() || ".png";
-    const key = `thumbnails/test/${Date.now()}-${crypto.randomBytes(6).toString("hex")}${ext}`;
-    const url = await uploadBuffer(req.file.buffer, key, req.file.mimetype);
-    res.json({ url });
+    const id = `${Date.now()}-${crypto.randomBytes(6).toString("hex")}`;
+    testPastorImages.set(id, { buffer: req.file.buffer, mime: req.file.mimetype });
+    const url = `/api/recordings/test/pastor-image/${id}`;
+    console.log(`[Test] Pastor image stored in-memory: ${id} (${req.file.buffer.length} bytes)`);
+    res.json({ url, id });
   } catch (err) {
     console.error("[Test] Error uploading pastor image:", err);
     res.status(500).json({ error: "Failed to upload" });
   }
 });
 
+router.get("/test/pastor-image/:id", (req, res) => {
+  const entry = testPastorImages.get(req.params.id);
+  if (!entry) {
+    return res.status(404).json({ error: "Image not found" });
+  }
+  res.setHeader("Content-Type", entry.mime);
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(entry.buffer);
+});
+
+const testGenerateSchema = z.object({
+  mode: z.enum(["pastor-title"]),
+  pastorImageId: z.string().min(1),
+  title: z.string().min(1),
+  subtitle: z.string().optional(),
+  layout: z.enum(["left", "right"]),
+});
+
 router.post("/test/generate-thumbnail", async (req, res) => {
-  const parsed = generateThumbnailSchema.safeParse(req.body);
+  const parsed = testGenerateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.message });
   }
   try {
-    const { title, subtitle } = parsed.data;
-    if (!parsed.data.pastorImageUrl || !parsed.data.layout) {
-      return res.status(400).json({ error: "pastorImageUrl and layout required" });
+    const { pastorImageId, title, subtitle, layout } = parsed.data;
+    const entry = testPastorImages.get(pastorImageId);
+    if (!entry) {
+      return res.status(400).json({ error: "Pastor image not found — re-upload it" });
     }
+    // Convert buffer to data URL so the generator's fetch() can read it
+    const dataUrl = `data:${entry.mime};base64,${entry.buffer.toString("base64")}`;
     console.log(`[Test] Generating pastor-title thumbnail for: "${title}"`);
-    const thumbnailBuffer = await generatePastorTitleProgrammatic(parsed.data.pastorImageUrl, title, parsed.data.layout, subtitle);
-    const key = `thumbnails/test/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.jpg`;
-    const url = await uploadBuffer(thumbnailBuffer, key, "image/jpeg");
-    console.log(`[Test] Thumbnail generated: ${key}`);
+    const thumbnailBuffer = await generatePastorTitleProgrammatic(dataUrl, title, layout, subtitle);
+    const url = `data:image/jpeg;base64,${thumbnailBuffer.toString("base64")}`;
+    console.log(`[Test] Thumbnail generated (${thumbnailBuffer.length} bytes)`);
     res.json({ url });
   } catch (err: any) {
     console.error("[Test] Error generating thumbnail:", err);
