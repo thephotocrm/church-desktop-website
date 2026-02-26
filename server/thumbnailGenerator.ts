@@ -4,12 +4,16 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let __dirnameCompat: string;
+try {
+  __dirnameCompat = path.dirname(fileURLToPath(import.meta.url));
+} catch {
+  __dirnameCompat = __dirname;
+}
 
 // Install bundled fonts into ~/.fonts so fontconfig picks them up
 (function installFonts() {
-  const fontsDir = path.join(__dirname, "fonts");
+  const fontsDir = path.join(__dirnameCompat, "fonts");
   const destDir = path.join(process.env.HOME || "/home/runner", ".fonts");
   try {
     if (!fs.existsSync(fontsDir)) return;
