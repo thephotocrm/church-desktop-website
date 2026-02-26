@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { Users, MessageSquarePlus, Trophy, ArrowLeft } from "lucide-react";
 
 interface KioskMember {
   id: string;
@@ -18,11 +19,11 @@ interface PrayerLog {
 const INACTIVITY_TIMEOUT = 30_000;
 
 export default function KioskPage() {
-  const [tab, setTab] = useState<"prayer" | "login" | "victory">("prayer");
+  const [tab, setTab] = useState<"home" | "prayer" | "login" | "victory">("home");
   const [lastActivity, setLastActivity] = useState(Date.now());
 
   const resetToHome = useCallback(() => {
-    setTab("prayer");
+    setTab("home");
   }, []);
 
   // Auto-reset on inactivity
@@ -47,37 +48,75 @@ export default function KioskPage() {
 
   return (
     <div
-      className="fixed inset-0 bg-gray-950 text-white flex flex-col overflow-hidden select-none"
+      className="fixed inset-0 text-white flex flex-col overflow-hidden select-none"
+      style={{ background: "radial-gradient(ellipse at center, #1e1b4b 0%, #0a0a0a 70%)" }}
       onTouchStart={handleActivity}
       onMouseDown={handleActivity}
     >
-      {/* Tab Header */}
-      <div className="flex gap-2 p-4 justify-center bg-gray-900/80 border-b border-white/10">
-        {([
-          ["prayer", "Prayer Request"],
-          ["login", "Prayer Login"],
-          ["victory", "Victory Report"],
-        ] as const).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => { setTab(key); handleActivity(); }}
-            className={`px-8 py-4 rounded-xl text-lg font-semibold transition-all ${
-              tab === key
-                ? "bg-amber-500 text-black shadow-lg shadow-amber-500/30"
-                : "bg-gray-800 text-gray-300 hover:bg-gray-700"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {tab === "home" ? (
+        /* ===== Welcome Screen ===== */
+        <div className="flex-1 flex flex-col items-center justify-center px-6 md:px-16">
+          <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 text-center">
+            Welcome
+          </h1>
+          <p className="text-xl md:text-2xl text-gray-300 mb-12 text-center">
+            How can we pray with you today?
+          </p>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto p-6 md:p-10">
-        {tab === "prayer" && <PrayerRequestForm />}
-        {tab === "login" && <PrayerLoginSection />}
-        {tab === "victory" && <VictoryReportForm />}
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+            {([
+              {
+                key: "login" as const,
+                icon: Users,
+                label: "Prayer Login",
+                desc: "Check in as a prayer warrior",
+              },
+              {
+                key: "prayer" as const,
+                icon: MessageSquarePlus,
+                label: "Submit Prayer Request",
+                desc: "Share your prayer need with the community",
+              },
+              {
+                key: "victory" as const,
+                icon: Trophy,
+                label: "Share a Victory",
+                desc: "Celebrate what God has done",
+              },
+            ]).map((card) => (
+              <button
+                key={card.key}
+                onClick={() => { setTab(card.key); handleActivity(); }}
+                className="group flex flex-col items-center justify-center gap-4 min-h-[200px] md:min-h-[280px] rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/20 transition-all active:scale-95 p-8"
+              >
+                <card.icon className="w-16 h-16 text-amber-400 group-hover:text-amber-300 transition-colors" />
+                <span className="text-2xl font-bold text-white">{card.label}</span>
+                <span className="text-base text-gray-400 text-center">{card.desc}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-16 w-24 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+        </div>
+      ) : (
+        /* ===== Sub-view ===== */
+        <>
+          <div className="p-4">
+            <button
+              onClick={() => { setTab("home"); handleActivity(); }}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white transition-colors text-lg"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Home
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 md:p-10">
+            {tab === "prayer" && <PrayerRequestForm />}
+            {tab === "login" && <PrayerLoginSection />}
+            {tab === "victory" && <VictoryReportForm />}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -291,19 +330,36 @@ function PrayerLoginSection() {
         )}
       </div>
 
-      {/* Prayer Warriors Today */}
+      {/* Prayer Warriors Today — Horizontal Marquee */}
       {uniqueWarriors.length > 0 && (
         <div className="mt-8 pt-6 border-t border-white/10">
+          <style>{`
+            @keyframes marquee {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+          `}</style>
           <h3 className="text-xl font-semibold mb-4 text-amber-400">Prayer Warriors Today</h3>
-          <div className="flex flex-wrap gap-3">
-            {uniqueWarriors.map((l) => (
-              <span
-                key={l.id}
-                className="px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-base"
-              >
-                {l.member.firstName} {l.member.lastName}
-              </span>
-            ))}
+          <div className="overflow-hidden">
+            <div
+              className="whitespace-nowrap"
+              style={{
+                animation: `marquee ${Math.max(uniqueWarriors.length * 3, 15)}s linear infinite`,
+              }}
+            >
+              {[0, 1].map((copy) => (
+                <span key={copy}>
+                  {uniqueWarriors.map((l) => (
+                    <span
+                      key={`${copy}-${l.id}`}
+                      className="inline-block px-4 py-2 mx-2 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-base"
+                    >
+                      {l.member.firstName} {l.member.lastName}
+                    </span>
+                  ))}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       )}

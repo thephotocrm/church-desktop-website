@@ -1,6 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 
 interface PrayerRequest {
   id: string;
@@ -30,11 +28,7 @@ function timeAgo(dateStr: string): string {
   return "just now";
 }
 
-const CYCLE_MS = 10_000;
-
 export default function PrayerDisplay() {
-  const [index, setIndex] = useState(0);
-
   const { data: prayerLogs } = useQuery<PrayerLog[]>({
     queryKey: ["/api/prayer-logs", "display"],
     queryFn: async () => {
@@ -60,27 +54,23 @@ export default function PrayerDisplay() {
   });
 
   const count = requests?.length ?? 0;
+  const scrollDuration = Math.max(count * 8, 30);
 
-  const advance = useCallback(() => {
-    setIndex((prev) => (count > 0 ? (prev + 1) % count : 0));
-  }, [count]);
-
-  // Reset index when data changes and current index is out of bounds
-  useEffect(() => {
-    if (count > 0 && index >= count) setIndex(0);
-  }, [count, index]);
-
-  // Auto-cycle
-  useEffect(() => {
-    if (count <= 1) return;
-    const timer = setInterval(advance, CYCLE_MS);
-    return () => clearInterval(timer);
-  }, [count, advance]);
-
-  const current = requests?.[index];
+  const warriorNames = uniqueWarriors.map((l) => l.member.firstName).join("   •   ");
 
   return (
     <div className="fixed inset-0 bg-black text-white flex flex-col cursor-none select-none overflow-hidden">
+      <style>{`
+        @keyframes scroll-up {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(-50%); }
+        }
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
+
       {/* Header */}
       <div className="pt-10 pb-4 text-center">
         <h1 className="text-2xl font-light tracking-widest uppercase text-white/60">
@@ -88,62 +78,64 @@ export default function PrayerDisplay() {
         </h1>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex items-center justify-center px-8 md:px-16 lg:px-32">
+      {/* Content — Vertical Scrolling */}
+      <div className="flex-1 overflow-hidden px-8 md:px-16 lg:px-32">
         {!requests ? (
-          <p className="text-white/30 text-lg">Loading...</p>
+          <p className="text-white/30 text-lg text-center mt-20">Loading...</p>
         ) : count === 0 ? (
-          <p className="text-white/30 text-lg">No prayer requests this week</p>
+          <p className="text-white/30 text-lg text-center mt-20">No prayer requests this week</p>
         ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={current?.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8 }}
-              className="max-w-3xl w-full text-center space-y-8"
-            >
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-light leading-tight">
-                {current?.title}
-              </h2>
-              <p className="text-lg md:text-xl lg:text-2xl text-white/70 leading-relaxed">
-                {current?.body}
-              </p>
-              <div className="text-sm text-white/40 space-x-6">
-                <span>
-                  {current?.prayerCount ?? 0} {current?.prayerCount === 1 ? "person" : "people"} praying
-                </span>
-                <span>{current?.createdAt ? timeAgo(current.createdAt) : ""}</span>
+          <div
+            className="flex flex-col"
+            style={{
+              animation: `scroll-up ${scrollDuration}s linear infinite`,
+            }}
+          >
+            {/* Render list twice for seamless loop */}
+            {[0, 1].map((copy) => (
+              <div key={copy} className="flex flex-col">
+                {requests.map((req) => (
+                  <div
+                    key={`${copy}-${req.id}`}
+                    className="max-w-3xl mx-auto w-full text-center space-y-4 py-10"
+                  >
+                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-light leading-tight">
+                      {req.title}
+                    </h2>
+                    <p className="text-lg md:text-xl lg:text-2xl text-white/70 leading-relaxed">
+                      {req.body}
+                    </p>
+                    <div className="text-sm text-white/40 space-x-6">
+                      <span>
+                        {req.prayerCount ?? 0} {req.prayerCount === 1 ? "person" : "people"} praying
+                      </span>
+                      <span>{timeAgo(req.createdAt)}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </motion.div>
-          </AnimatePresence>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Dot indicators */}
-      {count > 1 && (
-        <div className="pb-4 flex justify-center gap-2">
-          {requests?.map((_, i) => (
-            <div
-              key={i}
-              className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-                i === index ? "bg-white" : "bg-white/20"
-              }`}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Prayer Warriors */}
+      {/* Prayer Warriors — Horizontal Marquee */}
       {uniqueWarriors.length > 0 && (
-        <div className="pb-8 text-center px-8">
-          <p className="text-white/40 text-sm tracking-widest uppercase mb-2">
+        <div className="pb-8 px-8">
+          <p className="text-white/40 text-sm tracking-widest uppercase mb-2 text-center">
             Joining in prayer today
           </p>
-          <p className="text-white/60 text-base">
-            {uniqueWarriors.map((l) => l.member.firstName).join(", ")}
-          </p>
+          <div className="overflow-hidden">
+            <div
+              className="whitespace-nowrap text-white/60 text-base"
+              style={{
+                animation: `marquee ${Math.max(uniqueWarriors.length * 3, 15)}s linear infinite`,
+              }}
+            >
+              <span>{warriorNames}   •   </span>
+              <span>{warriorNames}   •   </span>
+            </div>
+          </div>
         </div>
       )}
     </div>
