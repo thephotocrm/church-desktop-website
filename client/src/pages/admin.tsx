@@ -28,9 +28,9 @@ import {
   Radio, Settings, LogOut, Save, Video, Users, Calendar, Church,
   HandHeart, DollarSign, Check, X, UserCheck, UserX, Plus, Trash2, Cast, Shield,
   Edit2, MapPin, Clock, Film, Image, Upload, Loader2, Wand2, Camera, Play,
-  Type, RefreshCw, MousePointer, Download, Palette, Paintbrush
+  Type, RefreshCw, MousePointer, Download, Palette
 } from "lucide-react";
-import { BrushMaskEditor } from "@/components/brush-mask-editor";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { apiRequest, getQueryFn, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -626,9 +626,11 @@ function RecordingEditRow({
   const [aiSubtitle, setAiSubtitle] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
 
-  // Brush mask state
-  const [showBrushEditor, setShowBrushEditor] = useState(false);
-  const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
+  // Pastor upload state
+  const [pastorImageUrl, setPastorImageUrl] = useState("");
+  const [pastorLayout, setPastorLayout] = useState<"left" | "right">("right");
+  const [uploadingPastor, setUploadingPastor] = useState(false);
+  const pastorFileInputRef = useRef<HTMLInputElement>(null);
 
   // Frame capture state
   const [showFrameCapture, setShowFrameCapture] = useState(false);
@@ -639,11 +641,6 @@ function RecordingEditRow({
 
   const candidates = recording.thumbnailCandidates || [];
   const currentThumb = customThumbUrl || selectedThumb || null;
-
-  // Clear mask when snapshot changes
-  useEffect(() => {
-    setMaskDataUrl(null);
-  }, [aiSnapshotUrl]);
 
   const handleModeChange = (mode: 'pastor-title' | 'service-overlay' | 'title-background' | 'manual') => {
     setThumbnailMode(thumbnailMode === mode ? null : mode);
@@ -676,9 +673,33 @@ function RecordingEditRow({
     }
   };
 
+  const handlePastorImageUpload = async (file: File) => {
+    setUploadingPastor(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/recordings/admin/upload-thumbnail", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error || "Upload failed");
+      }
+      const { url } = await res.json();
+      setPastorImageUrl(url);
+      toast({ title: "Pastor image uploaded" });
+    } catch (err: any) {
+      toast({ title: err.message || "Upload failed", variant: "destructive" });
+    } finally {
+      setUploadingPastor(false);
+    }
+  };
+
   const handleGeneratePastorTitle = async () => {
-    if (!aiSnapshotUrl || !aiTitle || !maskDataUrl) {
-      toast({ title: "Select a snapshot, paint over the pastor, and enter a title", variant: "destructive" });
+    if (!pastorImageUrl || !aiTitle) {
+      toast({ title: "Upload a pastor image and enter a title", variant: "destructive" });
       return;
     }
     setAiGenerating(true);
@@ -687,7 +708,7 @@ function RecordingEditRow({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: 'pastor-title', snapshotUrl: aiSnapshotUrl, title: aiTitle, maskDataUrl: maskDataUrl || undefined }),
+        body: JSON.stringify({ mode: 'pastor-title', pastorImageUrl, layout: pastorLayout, title: aiTitle }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Generation failed" }));
@@ -695,7 +716,7 @@ function RecordingEditRow({
       }
       const { url } = await res.json();
       setGeneratedPreview(url);
-      toast({ title: "AI thumbnail generated! Review below." });
+      toast({ title: "Thumbnail generated! Review below." });
     } catch (err: any) {
       toast({ title: err.message || "Generation failed", variant: "destructive" });
     } finally {
@@ -862,7 +883,7 @@ function RecordingEditRow({
       mode: 'pastor-title',
       icon: Wand2,
       label: 'Pastor + Title',
-      desc: 'Find a snapshot where the pastor is looking at the camera — AI creates a colorful background with title',
+      desc: 'Upload a pastor PNG (transparent bg) — generates a colorful gradient background with title',
       accent: 'purple',
       borderActive: 'border-purple-500',
       bgActive: 'bg-purple-500/[0.05]',
@@ -1050,7 +1071,7 @@ function RecordingEditRow({
 
         {/* Mode content panels */}
 
-        {/* Mode 1: Pastor + Title */}
+        {/* Mode 1: Pastor + Title (Programmatic) */}
         {thumbnailMode === 'pastor-title' && (
           <div className="p-4 border border-purple-500/20 rounded-xl bg-purple-500/[0.03] space-y-3">
             <p className="text-sm font-semibold flex items-center gap-2">
@@ -1060,165 +1081,67 @@ function RecordingEditRow({
               Pastor + Title Thumbnail
             </p>
             <p className="text-xs text-muted-foreground">
-              Find a snapshot where the pastor is looking at the camera, then generate a thumbnail with a colorful AI background and title.
+              Upload a pre-edited pastor PNG (transparent background), pick a layout, and enter a title.
             </p>
 
-            {/* Snapshot grid + Capture Frame card */}
+            {/* Upload pastor image */}
             <div className="space-y-1">
-              <Label className="text-xs">Select Pastor Snapshot</Label>
-              <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-                {candidates.map((url, i) => (
-                  <div
-                    key={i}
-                    onClick={() => setAiSnapshotUrl(url)}
-                    className={`relative aspect-video rounded overflow-hidden cursor-pointer border-2 transition-all ${
-                      aiSnapshotUrl === url
-                        ? "border-purple-500 ring-2 ring-purple-500/30"
-                        : "border-transparent hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    <img src={url} alt={`Snapshot ${i + 1}`} className="w-full h-full object-cover" />
-                    {aiSnapshotUrl === url && (
-                      <div className="absolute top-1 right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
-                        <Check className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {/* + Capture Frame card */}
+              <Label className="text-xs">Upload Pastor PNG</Label>
+              {!pastorImageUrl ? (
                 <div
-                  onClick={() => setShowFrameCapture(!showFrameCapture)}
-                  className={`aspect-video rounded border-2 border-dashed cursor-pointer transition-all flex flex-col items-center justify-center gap-1 ${
-                    showFrameCapture
-                      ? "border-purple-500 bg-purple-500/[0.05]"
-                      : "border-muted-foreground/30 hover:border-purple-500/50 hover:bg-purple-500/[0.02]"
-                  }`}
+                  onClick={() => pastorFileInputRef.current?.click()}
+                  className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-purple-500/50 transition-colors"
                 >
-                  <Camera className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground font-medium">Capture Frame</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Inline frame capture (expands below grid) */}
-            {showFrameCapture && (
-              <div className="p-3 border border-purple-500/10 rounded-lg bg-background/50 space-y-2">
-                <div className="flex items-center gap-3">
-                  <Label className="text-xs whitespace-nowrap">Timestamp (seconds)</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={recording.duration || 7200}
-                    value={frameTimestamp}
+                  <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">Click to upload pastor PNG (transparent background)</p>
+                  <input
+                    ref={pastorFileInputRef}
+                    type="file"
+                    accept="image/png"
+                    className="hidden"
                     onChange={(e) => {
-                      const t = Number(e.target.value);
-                      setFrameTimestamp(t);
-                      if (videoRef.current) videoRef.current.currentTime = t;
+                      const file = e.target.files?.[0];
+                      if (file) handlePastorImageUpload(file);
                     }}
-                    className="w-28"
                   />
-                  <span className="text-xs text-muted-foreground">
-                    {formatTimestamp(frameTimestamp)}
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 p-2 rounded-lg bg-purple-500/[0.05] border border-purple-500/20">
+                  <div className="h-16 w-16 rounded border bg-[repeating-conic-gradient(#e5e7eb_0%_25%,transparent_0%_50%)] bg-[length:16px_16px]">
+                    <img src={pastorImageUrl} alt="Pastor" className="h-full w-full object-contain" />
+                  </div>
+                  <span className="text-xs text-purple-600 flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Pastor image uploaded
                   </span>
-                  <Button type="button" variant="outline" size="sm" onClick={handleSeekVideo}>
-                    <Play className="w-3 h-3 mr-1" /> Seek
+                  <Button type="button" variant="ghost" size="sm" className="ml-auto h-7 w-7 p-0" onClick={() => setPastorImageUrl("")}>
+                    <X className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-
-                <input
-                  type="range"
-                  min={0}
-                  max={recording.duration || 7200}
-                  value={frameTimestamp}
-                  onChange={(e) => {
-                    const t = Number(e.target.value);
-                    setFrameTimestamp(t);
-                    if (videoRef.current) videoRef.current.currentTime = t;
-                  }}
-                  className="w-full"
-                />
-
-                <div className="rounded overflow-hidden border bg-black">
-                  <video
-                    ref={videoRef}
-                    src={`/api/recordings/${recording.id}/video`}
-                    controls
-                    preload="auto"
-                    playsInline
-                    className="w-full"
-                    onLoadedMetadata={handleSeekVideo}
-                  />
+              )}
+              {uploadingPastor && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Uploading...
                 </div>
-                <canvas ref={canvasRef} className="hidden" />
+              )}
+            </div>
 
-                <Button
-                  type="button"
-                  className="bg-purple-600 text-white hover:bg-purple-700"
-                  size="sm"
-                  disabled={capturingFrame}
-                  onClick={handleCaptureFrame}
-                >
-                  {capturingFrame ? (
-                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Capturing...</>
-                  ) : (
-                    <><Camera className="w-4 h-4 mr-1" /> Capture Frame</>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {/* Captured frame chip (if custom frame selected) */}
-            {aiSnapshotUrl && !candidates.includes(aiSnapshotUrl) && (
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-purple-500/[0.05] border border-purple-500/20">
-                <img src={aiSnapshotUrl} alt="Custom snapshot" className="h-12 aspect-video object-cover rounded border" />
-                <span className="text-xs text-muted-foreground">Custom captured frame</span>
-                <Button type="button" variant="ghost" size="sm" className="ml-auto h-7 w-7 p-0" onClick={() => setAiSnapshotUrl("")}>
-                  <X className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            )}
-
-            {/* Select Person brush tool */}
-            {aiSnapshotUrl && (
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowBrushEditor(true)}
-                  className="border-purple-500/30 text-purple-600 hover:bg-purple-500/10"
-                >
-                  <Paintbrush className="w-4 h-4 mr-1" /> Select Person
-                </Button>
-                {maskDataUrl && (
-                  <span className="text-xs text-purple-600 flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Mask applied
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Brush mask editor dialog */}
-            <Dialog open={showBrushEditor} onOpenChange={setShowBrushEditor}>
-              <DialogContent className="max-w-3xl w-[90vw]">
-                <DialogHeader>
-                  <DialogTitle>Select Person</DialogTitle>
-                  <DialogDescription>
-                    Paint over the person you want to keep in the thumbnail.
-                  </DialogDescription>
-                </DialogHeader>
-                {showBrushEditor && aiSnapshotUrl && (
-                  <BrushMaskEditor
-                    imageUrl={aiSnapshotUrl}
-                    onConfirm={(dataUrl) => {
-                      setMaskDataUrl(dataUrl);
-                      setShowBrushEditor(false);
-                    }}
-                    onCancel={() => setShowBrushEditor(false)}
-                  />
-                )}
-              </DialogContent>
-            </Dialog>
+            {/* Layout picker */}
+            <div className="space-y-1">
+              <Label className="text-xs">Layout</Label>
+              <ToggleGroup
+                type="single"
+                value={pastorLayout}
+                onValueChange={(val) => { if (val) setPastorLayout(val as "left" | "right"); }}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="left" className="gap-1.5 data-[state=on]:bg-purple-500/10 data-[state=on]:text-purple-600">
+                  <span className="text-xs">Pastor Left / Text Right</span>
+                </ToggleGroupItem>
+                <ToggleGroupItem value="right" className="gap-1.5 data-[state=on]:bg-purple-500/10 data-[state=on]:text-purple-600">
+                  <span className="text-xs">Pastor Right / Text Left</span>
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
 
             {/* Title input */}
             <div className="space-y-1">
@@ -1236,11 +1159,11 @@ function RecordingEditRow({
                 type="button"
                 className="bg-purple-600 text-white hover:bg-purple-700"
                 size="sm"
-                disabled={aiGenerating || !aiSnapshotUrl || !aiTitle || !maskDataUrl}
+                disabled={aiGenerating || !pastorImageUrl || !aiTitle}
                 onClick={handleGeneratePastorTitle}
               >
                 {aiGenerating ? (
-                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating (~30s)...</>
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Generating...</>
                 ) : (
                   <><Wand2 className="w-4 h-4 mr-1" /> Generate Thumbnail</>
                 )}

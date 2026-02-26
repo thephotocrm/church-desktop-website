@@ -8,7 +8,7 @@ import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { uploadBuffer } from "../r2";
 import sharp from "sharp";
-import { generatePastorTitle, generateServiceOverlay, generateTitleColoredBg } from "../thumbnailGenerator";
+import { generatePastorTitleProgrammatic, generateServiceOverlay, generateTitleColoredBg } from "../thumbnailGenerator";
 
 const router = Router();
 
@@ -124,6 +124,8 @@ const generateThumbnailSchema = z.object({
   title: z.string().min(1),
   subtitle: z.string().optional(),
   maskDataUrl: z.string().optional(),
+  pastorImageUrl: z.string().url().optional(),
+  layout: z.enum(["left", "right"]).optional(),
 });
 
 router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
@@ -139,42 +141,14 @@ router.post("/admin/generate-thumbnail", requireAuth, async (req, res) => {
 
     switch (mode) {
       case "pastor-title": {
-        if (!snapshotUrl) {
-          return res.status(400).json({ error: "Snapshot URL is required for pastor-title mode" });
+        if (!parsed.data.pastorImageUrl) {
+          return res.status(400).json({ error: "Pastor image URL is required for pastor-title mode" });
         }
-        if (!maskDataUrl) {
-          return res.status(400).json({ error: "Mask is required for pastor-title mode — paint over the pastor first" });
+        if (!parsed.data.layout) {
+          return res.status(400).json({ error: "Layout (left/right) is required for pastor-title mode" });
         }
-        console.log(`[Admin] Fetching snapshot from: ${snapshotUrl}`);
-        const response = await fetch(snapshotUrl);
-        if (!response.ok) {
-          return res.status(400).json({ error: `Failed to download snapshot: ${response.status}` });
-        }
-        const contentType = response.headers.get("content-type");
-        const snapshotBuffer = Buffer.from(await response.arrayBuffer());
-        console.log(`[Admin] Snapshot downloaded: ${snapshotBuffer.length} bytes, content-type: ${contentType}`);
-        if (snapshotBuffer.length === 0) {
-          return res.status(400).json({ error: "Downloaded snapshot is empty (0 bytes)" });
-        }
-        try {
-          const meta = await sharp(snapshotBuffer).metadata();
-          console.log(`[Admin] Snapshot image: ${meta.width}x${meta.height}, format=${meta.format}, channels=${meta.channels}`);
-        } catch (e: any) {
-          console.log(`[Admin] WARNING: Could not read snapshot metadata: ${e.message}`);
-        }
-
-        // Decode mask if provided
-        let maskBuffer: Buffer | undefined;
-        if (maskDataUrl) {
-          const base64Match = maskDataUrl.match(/^data:image\/png;base64,(.+)$/);
-          if (base64Match) {
-            maskBuffer = Buffer.from(base64Match[1], "base64");
-            console.log(`[Admin] Mask provided: ${maskBuffer.length} bytes`);
-          }
-        }
-
-        console.log(`[Admin] Generating pastor-title thumbnail for: "${title}"`);
-        thumbnailBuffer = await generatePastorTitle(snapshotBuffer, title, maskBuffer);
+        console.log(`[Admin] Generating programmatic pastor-title thumbnail for: "${title}" (layout=${parsed.data.layout})`);
+        thumbnailBuffer = await generatePastorTitleProgrammatic(parsed.data.pastorImageUrl, title, parsed.data.layout);
         break;
       }
       case "service-overlay": {
