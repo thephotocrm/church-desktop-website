@@ -1524,6 +1524,7 @@ function PlatformCard({
   const [channelUrl, setChannelUrl] = useState(config?.channelUrl || "");
   const [channelId, setChannelId] = useState(config?.channelId || "");
   const [apiKey, setApiKey] = useState(config?.apiKey || "");
+  const [rtmpUrl, setRtmpUrl] = useState(config?.rtmpUrl || "");
 
   useEffect(() => {
     if (config) {
@@ -1532,6 +1533,7 @@ function PlatformCard({
       setChannelUrl(config.channelUrl || "");
       setChannelId(config.channelId || "");
       setApiKey(config.apiKey || "");
+      setRtmpUrl(config.rtmpUrl || "");
     }
   }, [config]);
 
@@ -1540,6 +1542,7 @@ function PlatformCard({
       const body: Record<string, unknown> = {
         enabled,
         channelUrl,
+        rtmpUrl,
       };
       // Only send stream key if user changed it (not the masked value)
       if (streamKey && !streamKey.startsWith("****")) {
@@ -1605,6 +1608,15 @@ function PlatformCard({
               value={streamKey}
               onChange={(e) => setStreamKey(e.target.value)}
               placeholder="Enter RTMP stream key"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`${platform}-rtmp-url`}>RTMP URL</Label>
+            <Input
+              id={`${platform}-rtmp-url`}
+              value={rtmpUrl}
+              onChange={(e) => setRtmpUrl(e.target.value)}
+              placeholder="rtmp://a.rtmp.youtube.com/live2"
             />
           </div>
           <div className="space-y-2">
