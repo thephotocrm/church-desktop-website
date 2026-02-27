@@ -313,7 +313,7 @@ export default function Admin() {
               </CardHeader>
               <CardContent className="flex flex-wrap gap-3">
                 <a
-                  href="https://github.com/thephotocrm/church-desktop-website/releases/latest/download/Prayer.Display_1.0.0_x64-setup.exe"
+                  href="https://github.com/thephotocrm/church-desktop-website/releases/download/prayer-display-v1.0.0/Prayer.Display_1.0.0_x64-setup.exe"
                   download
                 >
                   <Button variant="outline" className="gap-2">
@@ -322,7 +322,7 @@ export default function Admin() {
                   </Button>
                 </a>
                 <a
-                  href="https://github.com/thephotocrm/church-desktop-website/releases/latest/download/Prayer.Display_1.0.0_aarch64.dmg"
+                  href="https://github.com/thephotocrm/church-desktop-website/releases/download/prayer-display-v1.0.0/Prayer.Display_1.0.0_aarch64.dmg"
                   download
                 >
                   <Button variant="outline" className="gap-2">
@@ -346,7 +346,7 @@ export default function Admin() {
               </CardHeader>
               <CardContent className="flex flex-wrap gap-3">
                 <a
-                  href="https://github.com/thephotocrm/church-desktop-website/releases/latest/download/Church.Kiosk_1.0.0_x64-setup.exe"
+                  href="https://github.com/thephotocrm/church-desktop-website/releases/download/kiosk-v1.0.0/Church.Kiosk_1.0.0_x64-setup.exe"
                   download
                 >
                   <Button variant="outline" className="gap-2">
@@ -355,7 +355,7 @@ export default function Admin() {
                   </Button>
                 </a>
                 <a
-                  href="https://github.com/thephotocrm/church-desktop-website/releases/latest/download/Church.Kiosk_1.0.0_aarch64.dmg"
+                  href="https://github.com/thephotocrm/church-desktop-website/releases/download/kiosk-v1.0.0/Church.Kiosk_1.0.0_aarch64.dmg"
                   download
                 >
                   <Button variant="outline" className="gap-2">
