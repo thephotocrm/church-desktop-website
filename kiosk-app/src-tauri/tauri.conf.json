@@ -5,8 +5,7 @@
   "identifier": "app.church.kiosk",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "https://fpcd.life/kiosk",
-    "withGlobalTauri": false
+    "devUrl": "https://fpcd.life/kiosk"
   },
   "app": {
     "windows": [
