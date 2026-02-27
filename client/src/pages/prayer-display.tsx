@@ -40,19 +40,20 @@ function timeAgo(dateStr: string): string {
 }
 
 const SECTION_ORDER: Section[] = ["prayers", "victories", "warriors"];
-const SECONDS_PER_ITEM = 4;
+const SCROLL_SPEED_PX_PER_SEC = 80;
 const WARRIORS_HOLD_SECONDS = 10;
 const NO_SCROLL_HOLD_SECONDS = 8;
+const END_PAUSE_MS = 1500;
 
 export default function PrayerDisplay() {
   const [activeSection, setActiveSection] = useState<Section>("prayers");
   const [visible, setVisible] = useState(true);
-  const [scrolling, setScrolling] = useState(false);
-  const [scrollDuration, setScrollDuration] = useState(0);
-  const [scrollDistance, setScrollDistance] = useState(0);
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const scrollStartRef = useRef<number | null>(null);
+  const scrollActiveRef = useRef(false);
 
   const { data: requests } = useQuery<PrayerRequest[]>({
     queryKey: ["/api/prayer-requests", "display"],
@@ -114,14 +115,58 @@ export default function PrayerDisplay() {
     [getItemCount]
   );
 
+  const stopScrollAnimation = useCallback(() => {
+    scrollActiveRef.current = false;
+    scrollStartRef.current = null;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
+
   const advanceSection = useCallback(() => {
-    setScrolling(false);
+    stopScrollAnimation();
     setVisible(false);
     setTimeout(() => {
       setActiveSection((prev) => getNextSection(prev));
       setVisible(true);
     }, 700);
-  }, [getNextSection]);
+  }, [getNextSection, stopScrollAnimation]);
+
+  const startScrollAnimation = useCallback(
+    (totalDistance: number) => {
+      const viewport = viewportRef.current;
+      if (!viewport || totalDistance <= 0) return;
+
+      const duration = (totalDistance / SCROLL_SPEED_PX_PER_SEC) * 1000;
+      scrollActiveRef.current = true;
+      scrollStartRef.current = null;
+      viewport.scrollTop = 0;
+
+      const animate = (timestamp: number) => {
+        if (!scrollActiveRef.current) return;
+
+        if (scrollStartRef.current === null) {
+          scrollStartRef.current = timestamp;
+        }
+
+        const elapsed = timestamp - scrollStartRef.current;
+        const progress = Math.min(elapsed / duration, 1);
+        viewport.scrollTop = progress * totalDistance;
+
+        if (progress < 1) {
+          rafRef.current = requestAnimationFrame(animate);
+        } else {
+          // Reached the end — pause then advance
+          scrollActiveRef.current = false;
+          setTimeout(advanceSection, END_PAUSE_MS);
+        }
+      };
+
+      rafRef.current = requestAnimationFrame(animate);
+    },
+    [advanceSection]
+  );
 
   // Measure content and start scrolling when section changes
   useEffect(() => {
@@ -138,6 +183,7 @@ export default function PrayerDisplay() {
     }
 
     // Measure after a brief delay to let content render
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
     const measureTimer = setTimeout(() => {
       const viewport = viewportRef.current;
       const content = contentRef.current;
@@ -148,36 +194,18 @@ export default function PrayerDisplay() {
       const overflow = contentHeight - viewportHeight;
 
       if (overflow > 0) {
-        // Content overflows — scroll it
-        const duration = count * SECONDS_PER_ITEM;
-        setScrollDistance(overflow);
-        setScrollDuration(duration);
-        setScrolling(true);
+        startScrollAnimation(overflow);
       } else {
-        // Content fits — hold then advance
-        const holdTimer = setTimeout(advanceSection, NO_SCROLL_HOLD_SECONDS * 1000);
-        // Store ref so we can clean up
-        (viewport as any).__holdTimer = holdTimer;
+        holdTimer = setTimeout(advanceSection, NO_SCROLL_HOLD_SECONDS * 1000);
       }
     }, 100);
 
     return () => {
       clearTimeout(measureTimer);
-      setScrolling(false);
-      setScrollDistance(0);
-      setScrollDuration(0);
-      const viewport = viewportRef.current;
-      if (viewport && (viewport as any).__holdTimer) {
-        clearTimeout((viewport as any).__holdTimer);
-      }
+      if (holdTimer) clearTimeout(holdTimer);
+      stopScrollAnimation();
     };
-  }, [activeSection, getItemCount, advanceSection, requests, victoryReports]);
-
-  // When scroll animation ends, advance to next section
-  const handleScrollEnd = useCallback(() => {
-    // Small pause at the bottom before transitioning
-    setTimeout(advanceSection, 1500);
-  }, [advanceSection]);
+  }, [activeSection, getItemCount, advanceSection, startScrollAnimation, stopScrollAnimation, requests, victoryReports]);
 
   // Skip to first non-empty section on initial load
   useEffect(() => {
@@ -215,40 +243,26 @@ export default function PrayerDisplay() {
         >
           {/* Prayer Requests - vertical scroll list */}
           {activeSection === "prayers" && requests && requests.length > 0 && (
-            <div
-              ref={contentRef}
-              className="max-w-3xl mx-auto"
-              style={
-                scrolling
-                  ? {
-                      transform: `translateY(-${scrollDistance}px)`,
-                      transition: `transform ${scrollDuration}s linear`,
-                    }
-                  : { transform: "translateY(0)" }
-              }
-              onTransitionEnd={(e) => {
-                if (e.propertyName === "transform" && scrolling) {
-                  handleScrollEnd();
-                }
-              }}
-            >
+            <div ref={contentRef} className="max-w-3xl mx-auto">
               {requests.map((prayer) => (
                 <div
                   key={prayer.id}
-                  className="py-8 border-b border-white/10 last:border-b-0"
+                  className="min-h-[80vh] flex items-center justify-center"
                 >
-                  <h2 className="text-2xl md:text-3xl lg:text-4xl font-light leading-tight mb-3">
-                    {prayer.title}
-                  </h2>
-                  <p className="text-lg md:text-xl text-white/70 leading-relaxed mb-3">
-                    {prayer.body}
-                  </p>
-                  <div className="text-sm text-white/40 space-x-6">
-                    <span>
-                      {prayer.prayerCount ?? 0}{" "}
-                      {prayer.prayerCount === 1 ? "person" : "people"} praying
-                    </span>
-                    <span>{timeAgo(prayer.createdAt)}</span>
+                  <div className="text-center px-4 py-12">
+                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-light leading-tight mb-6">
+                      {prayer.title}
+                    </h2>
+                    <p className="text-xl md:text-2xl text-white/70 leading-relaxed mb-6">
+                      {prayer.body}
+                    </p>
+                    <div className="text-base text-white/40 space-x-6">
+                      <span>
+                        {prayer.prayerCount ?? 0}{" "}
+                        {prayer.prayerCount === 1 ? "person" : "people"} praying
+                      </span>
+                      <span>{timeAgo(prayer.createdAt)}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -257,39 +271,25 @@ export default function PrayerDisplay() {
 
           {/* Victory Reports - vertical scroll list */}
           {activeSection === "victories" && victoryReports && victoryReports.length > 0 && (
-            <div
-              ref={contentRef}
-              className="max-w-3xl mx-auto"
-              style={
-                scrolling
-                  ? {
-                      transform: `translateY(-${scrollDistance}px)`,
-                      transition: `transform ${scrollDuration}s linear`,
-                    }
-                  : { transform: "translateY(0)" }
-              }
-              onTransitionEnd={(e) => {
-                if (e.propertyName === "transform" && scrolling) {
-                  handleScrollEnd();
-                }
-              }}
-            >
+            <div ref={contentRef} className="max-w-3xl mx-auto">
               {victoryReports.map((victory) => (
                 <div
                   key={victory.id}
-                  className="py-8 border-b border-white/10 last:border-b-0"
+                  className="min-h-[80vh] flex items-center justify-center"
                 >
-                  <h2 className="text-2xl md:text-3xl lg:text-4xl font-light leading-tight mb-3">
-                    {victory.title}
-                  </h2>
-                  <p className="text-lg md:text-xl text-white/70 leading-relaxed mb-3">
-                    {victory.body}
-                  </p>
-                  <div className="text-sm text-white/40 space-x-6">
-                    {victory.authorName && (
-                      <span>— {victory.authorName}</span>
-                    )}
-                    <span>{timeAgo(victory.createdAt)}</span>
+                  <div className="text-center px-4 py-12">
+                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-light leading-tight mb-6">
+                      {victory.title}
+                    </h2>
+                    <p className="text-xl md:text-2xl text-white/70 leading-relaxed mb-6">
+                      {victory.body}
+                    </p>
+                    <div className="text-base text-white/40 space-x-6">
+                      {victory.authorName && (
+                        <span>— {victory.authorName}</span>
+                      )}
+                      <span>{timeAgo(victory.createdAt)}</span>
+                    </div>
                   </div>
                 </div>
               ))}
