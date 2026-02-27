@@ -123,7 +123,14 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+// Only run CLI when executed directly (not when imported as a module)
+const isDirectRun =
+  process.argv[1]?.endsWith("import-saints.ts") ||
+  process.argv[1]?.endsWith("import-saints.js");
+
+if (isDirectRun) {
+  main().catch((err) => {
+    console.error("Fatal error:", err);
+    process.exit(1);
+  });
+}
