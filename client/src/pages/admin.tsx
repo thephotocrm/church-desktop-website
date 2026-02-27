@@ -332,6 +332,39 @@ export default function Admin() {
                 </a>
               </CardContent>
             </Card>
+
+            {/* Church Kiosk App Downloads */}
+            <Card className="border border-amber-200/30 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Download className="w-5 h-5 text-amber-600" />
+                  Church Kiosk App
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Fullscreen kiosk app for lobby check-in screens and welcome displays.
+                </p>
+              </CardHeader>
+              <CardContent className="flex flex-wrap gap-3">
+                <a
+                  href="https://github.com/thephotocrm/church-desktop-website/releases/latest/download/Church.Kiosk_1.0.0_x64-setup.exe"
+                  download
+                >
+                  <Button variant="outline" className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download for Windows (.exe)
+                  </Button>
+                </a>
+                <a
+                  href="https://github.com/thephotocrm/church-desktop-website/releases/latest/download/Church.Kiosk_1.0.0_aarch64.dmg"
+                  download
+                >
+                  <Button variant="outline" className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download for Mac (.dmg)
+                  </Button>
+                </a>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Recordings Tab */}
