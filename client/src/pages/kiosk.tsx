@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Users, MessageSquarePlus, Trophy, ArrowLeft, CalendarDays } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
-import { isSameDay } from "date-fns";
+import { isSameDay, isSameMonth } from "date-fns";
 import type { Event } from "@shared/schema";
 
 interface KioskMember {
@@ -382,6 +382,7 @@ function PrayerLoginSection() {
 // ========== Upcoming Events View ==========
 function UpcomingEventsView() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [displayedMonth, setDisplayedMonth] = useState<Date>(new Date());
 
   const { data: events, isLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
@@ -402,13 +403,16 @@ function UpcomingEventsView() {
     [publishedEvents],
   );
 
-  const eventsOnDate = useMemo(
+  const eventsThisMonth = useMemo(
     () =>
       publishedEvents
-        .filter((e) => isSameDay(new Date(e.startDate), selectedDate))
+        .filter((e) => isSameMonth(new Date(e.startDate), displayedMonth))
         .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()),
-    [publishedEvents, selectedDate],
+    [publishedEvents, displayedMonth],
   );
+
+  const formatEventDate = (date: string | Date) =>
+    new Date(date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   const formatEventTime = (date: string | Date) =>
     new Date(date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -422,78 +426,82 @@ function UpcomingEventsView() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <h2 className="text-2xl font-semibold text-center mb-6">Upcoming Events</h2>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Calendar panel */}
-        <div className="shrink-0 flex justify-center">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={(date) => date && setSelectedDate(date)}
-            modifiers={{ hasEvent: eventDates }}
-            modifiersClassNames={{ hasEvent: "has-event-dot" }}
-            className="rounded-xl border border-gray-600 bg-gray-900 p-4 text-white"
-            classNames={{
-              months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-              month: "space-y-4",
-              caption: "flex justify-center pt-1 relative items-center text-white",
-              caption_label: "text-base font-semibold text-white",
-              nav: "space-x-1 flex items-center",
-              nav_button:
-                "h-8 w-8 bg-transparent border border-gray-600 rounded-md p-0 opacity-60 hover:opacity-100 hover:bg-gray-700 inline-flex items-center justify-center text-white",
-              nav_button_previous: "absolute left-1",
-              nav_button_next: "absolute right-1",
-              table: "w-full border-collapse space-y-1",
-              head_row: "flex",
-              head_cell: "text-gray-400 rounded-md w-10 font-normal text-[0.8rem]",
-              row: "flex w-full mt-2",
-              cell: "h-10 w-10 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
-              day: "h-10 w-10 p-0 font-normal rounded-md hover:bg-gray-700 inline-flex items-center justify-center text-gray-200 aria-selected:opacity-100 transition-colors",
-              day_selected: "bg-amber-500 text-black hover:bg-amber-400 font-bold",
-              day_today: "ring-2 ring-amber-400/60 text-amber-300 font-semibold",
-              day_outside: "text-gray-600 opacity-50",
-              day_disabled: "text-gray-600 opacity-30",
-              day_hidden: "invisible",
-            }}
-          />
-          <style>{`
-            .has-event-dot { position: relative; }
-            .has-event-dot::after {
-              content: '';
-              position: absolute;
-              bottom: 2px;
-              left: 50%;
-              transform: translateX(-50%);
-              width: 5px;
-              height: 5px;
-              border-radius: 50%;
-              background-color: #f59e0b;
-            }
-          `}</style>
-        </div>
+      {/* Big centered calendar */}
+      <div className="flex justify-center mb-8">
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={(date) => date && setSelectedDate(date)}
+          month={displayedMonth}
+          onMonthChange={setDisplayedMonth}
+          modifiers={{ hasEvent: eventDates }}
+          modifiersClassNames={{ hasEvent: "has-event-dot" }}
+          className="rounded-xl border border-gray-600 bg-gray-900 p-6 md:p-8 text-white"
+          classNames={{
+            months: "flex flex-col space-y-6",
+            month: "space-y-6",
+            caption: "flex justify-center pt-1 relative items-center text-white",
+            caption_label: "text-xl md:text-2xl font-bold text-white",
+            nav: "space-x-1 flex items-center",
+            nav_button:
+              "h-10 w-10 bg-transparent border border-gray-600 rounded-lg p-0 opacity-60 hover:opacity-100 hover:bg-gray-700 inline-flex items-center justify-center text-white",
+            nav_button_previous: "absolute left-1",
+            nav_button_next: "absolute right-1",
+            table: "w-full border-collapse",
+            head_row: "flex",
+            head_cell: "text-gray-400 rounded-md w-12 md:w-16 font-medium text-sm md:text-base",
+            row: "flex w-full mt-2",
+            cell: "h-12 w-12 md:h-16 md:w-16 text-center p-0 relative focus-within:relative focus-within:z-20",
+            day: "h-12 w-12 md:h-16 md:w-16 p-0 font-normal text-base md:text-lg rounded-lg hover:bg-gray-700 inline-flex items-center justify-center text-gray-200 aria-selected:opacity-100 transition-colors",
+            day_selected: "bg-amber-500 text-black hover:bg-amber-400 font-bold",
+            day_today: "ring-2 ring-amber-400/60 text-amber-300 font-semibold",
+            day_outside: "text-gray-600 opacity-50",
+            day_disabled: "text-gray-600 opacity-30",
+            day_hidden: "invisible",
+          }}
+        />
+        <style>{`
+          .has-event-dot { position: relative; }
+          .has-event-dot::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #f59e0b;
+          }
+        `}</style>
+      </div>
 
-        {/* Event list panel */}
-        <div className="flex-1 min-w-0 space-y-3">
-          <h3 className="text-lg font-semibold text-gray-200">
-            {selectedDate.toLocaleDateString("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-          </h3>
+      {/* Events for this month */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-gray-200">
+          Events in {displayedMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+        </h3>
 
-          {eventsOnDate.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <CalendarDays className="w-12 h-12 text-gray-600 mb-3" />
-              <p className="text-gray-400 text-lg">No events on this date</p>
-            </div>
-          ) : (
-            eventsOnDate.map((event) => (
+        {eventsThisMonth.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <CalendarDays className="w-12 h-12 text-gray-600 mb-3" />
+            <p className="text-gray-400 text-lg">No events this month</p>
+          </div>
+        ) : (
+          eventsThisMonth.map((event) => {
+            const isSelected = isSameDay(new Date(event.startDate), selectedDate);
+            return (
               <div
                 key={event.id}
-                className="rounded-xl bg-gray-900 border border-gray-500 p-5 space-y-2"
+                onClick={() => setSelectedDate(new Date(event.startDate))}
+                className={`rounded-xl bg-gray-900 border p-5 space-y-2 cursor-pointer transition-colors ${
+                  isSelected
+                    ? "border-amber-400 ring-1 ring-amber-400/50"
+                    : "border-gray-500 hover:border-gray-400"
+                }`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <h3 className="text-xl font-bold text-white">{event.title}</h3>
@@ -504,6 +512,7 @@ function UpcomingEventsView() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-4 text-gray-300 text-base">
+                  <span>{formatEventDate(event.startDate)}</span>
                   {!event.allDay && <span>{formatEventTime(event.startDate)}</span>}
                   {event.endDate && !event.allDay && (
                     <span>– {formatEventTime(event.endDate)}</span>
@@ -517,9 +526,9 @@ function UpcomingEventsView() {
                   <p className="text-gray-400 text-base line-clamp-2">{event.description}</p>
                 )}
               </div>
-            ))
-          )}
-        </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

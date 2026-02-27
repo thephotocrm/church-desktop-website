@@ -1,0 +1,8 @@
+{
+  "identifier": "default",
+  "description": "Default capability for the church kiosk",
+  "windows": ["main"],
+  "permissions": [
+    "core:default"
+  ]
+}

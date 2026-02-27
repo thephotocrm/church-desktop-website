@@ -1,0 +1,11 @@
+{
+  "name": "kiosk-app",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

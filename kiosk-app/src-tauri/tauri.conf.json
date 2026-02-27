@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/refs/heads/dev/crates/tauri-config-schema/schema.json",
+  "productName": "Church Kiosk",
+  "version": "1.0.0",
+  "identifier": "app.church.kiosk",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "https://fpcd.life/kiosk",
+    "withGlobalTauri": false
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Church Kiosk",
+        "url": "https://fpcd.life/kiosk",
+        "fullscreen": true,
+        "decorations": false,
+        "width": 1920,
+        "height": 1080
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

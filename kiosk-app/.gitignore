@@ -1,0 +1,8 @@
+# Dependencies
+node_modules/
+
+# Rust build artifacts
+src-tauri/target/
+
+# Generated bundles
+src-tauri/gen/
