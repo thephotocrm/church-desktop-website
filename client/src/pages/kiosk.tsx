@@ -59,7 +59,7 @@ export default function KioskPage() {
           <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 text-center">
             Welcome
           </h1>
-          <p className="text-xl md:text-2xl text-gray-300 mb-12 text-center">
+          <p className="text-xl md:text-2xl text-gray-100 mb-12 text-center">
             How can we pray with you today?
           </p>
 
@@ -87,16 +87,16 @@ export default function KioskPage() {
               <button
                 key={card.key}
                 onClick={() => { setTab(card.key); handleActivity(); }}
-                className="group flex flex-col items-center justify-center gap-4 min-h-[200px] md:min-h-[280px] rounded-2xl bg-white/5 border border-white/10 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/20 transition-all active:scale-95 p-8"
+                className="group flex flex-col items-center justify-center gap-4 min-h-[200px] md:min-h-[280px] rounded-2xl bg-white/10 border border-white/25 hover:border-amber-400/60 hover:shadow-lg hover:shadow-amber-400/30 transition-all active:scale-95 p-8"
               >
                 <card.icon className="w-16 h-16 text-amber-400 group-hover:text-amber-300 transition-colors" />
                 <span className="text-2xl font-bold text-white">{card.label}</span>
-                <span className="text-base text-gray-400 text-center">{card.desc}</span>
+                <span className="text-lg text-gray-200 text-center">{card.desc}</span>
               </button>
             ))}
           </div>
 
-          <div className="mt-16 w-24 h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+          <div className="mt-16 w-24 h-px bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
         </div>
       ) : (
         /* ===== Sub-view ===== */
@@ -104,7 +104,7 @@ export default function KioskPage() {
           <div className="p-4">
             <button
               onClick={() => { setTab("home"); handleActivity(); }}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-gray-300 hover:text-white transition-colors text-lg"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/15 hover:bg-white/25 text-white hover:text-white transition-colors text-lg"
             >
               <ArrowLeft className="w-5 h-5" />
               Home
@@ -161,7 +161,7 @@ function PrayerRequestForm() {
         <div className="text-center space-y-4">
           <div className="text-6xl">🙏</div>
           <h2 className="text-3xl font-light">Prayer Request Submitted</h2>
-          <p className="text-gray-400 text-xl">Thank you for sharing your prayer need.</p>
+          <p className="text-gray-200 text-xl">Thank you for sharing your prayer need.</p>
         </div>
       </div>
     );
@@ -176,7 +176,7 @@ function PrayerRequestForm() {
           <div
             onClick={() => setIsAnonymous(!isAnonymous)}
             className={`w-14 h-8 rounded-full transition-colors relative ${
-              isAnonymous ? "bg-amber-500" : "bg-gray-700"
+              isAnonymous ? "bg-amber-500" : "bg-gray-600"
             }`}
           >
             <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-transform ${
@@ -193,7 +193,7 @@ function PrayerRequestForm() {
           placeholder="Your name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-5 py-4 rounded-xl bg-gray-800 border border-gray-700 text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
         />
       )}
 
@@ -202,7 +202,7 @@ function PrayerRequestForm() {
         placeholder="Prayer request title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        className="w-full px-5 py-4 rounded-xl bg-gray-800 border border-gray-700 text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+        className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
       />
 
       <textarea
@@ -210,13 +210,13 @@ function PrayerRequestForm() {
         value={body}
         onChange={(e) => setBody(e.target.value)}
         rows={5}
-        className="w-full px-5 py-4 rounded-xl bg-gray-800 border border-gray-700 text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+        className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
       />
 
       <button
         onClick={() => submit.mutate()}
         disabled={!title || !body || (!isAnonymous && !name) || submit.isPending}
-        className="w-full py-5 rounded-xl bg-amber-500 text-black text-xl font-bold hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-lg shadow-amber-500/20"
+        className="w-full py-5 rounded-xl bg-amber-500 text-black text-xl font-bold hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-amber-400/30"
       >
         {submit.isPending ? "Submitting..." : "Submit Prayer Request"}
       </button>
@@ -294,7 +294,7 @@ function PrayerLoginSection() {
           <h2 className="text-3xl font-light">
             {success === "already" ? "You're already checked in!" : `Thank you, ${success}!`}
           </h2>
-          <p className="text-gray-400 text-xl">
+          <p className="text-gray-200 text-xl">
             {success === "already" ? "Come back later to check in again." : "You've joined the prayer warriors."}
           </p>
         </div>
@@ -311,7 +311,7 @@ function PrayerLoginSection() {
         placeholder="Search names..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full px-5 py-4 rounded-xl bg-gray-800 border border-gray-700 text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+        className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
       />
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[40vh] overflow-y-auto pr-2">
@@ -320,26 +320,26 @@ function PrayerLoginSection() {
             key={m.id}
             onClick={() => checkin.mutate(m.id)}
             disabled={checkin.isPending}
-            className="px-4 py-4 rounded-xl bg-gray-800 border border-gray-700 text-lg font-medium hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all active:scale-95"
+            className="px-4 py-4 rounded-xl bg-gray-800 border border-gray-500 text-lg font-medium hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all active:scale-95"
           >
             {m.firstName} {m.lastName}
           </button>
         ))}
         {filtered?.length === 0 && (
-          <p className="col-span-full text-center text-gray-500 py-8">No members found</p>
+          <p className="col-span-full text-center text-gray-300 text-lg py-8">No members found</p>
         )}
       </div>
 
       {/* Prayer Warriors Today — Horizontal Marquee */}
       {uniqueWarriors.length > 0 && (
-        <div className="mt-8 pt-6 border-t border-white/10">
+        <div className="mt-8 pt-6 border-t border-white/25">
           <style>{`
             @keyframes marquee {
               0% { transform: translateX(0); }
               100% { transform: translateX(-50%); }
             }
           `}</style>
-          <h3 className="text-xl font-semibold mb-4 text-amber-400">Prayer Warriors Today</h3>
+          <h3 className="text-2xl font-semibold mb-4 text-amber-400">Prayer Warriors Today</h3>
           <div className="overflow-hidden">
             <div
               className="whitespace-nowrap"
@@ -352,7 +352,7 @@ function PrayerLoginSection() {
                   {uniqueWarriors.map((l) => (
                     <span
                       key={`${copy}-${l.id}`}
-                      className="inline-block px-4 py-2 mx-2 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-base"
+                      className="inline-block px-4 py-2 mx-2 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-200 text-lg"
                     >
                       {l.member.firstName} {l.member.lastName}
                     </span>
@@ -406,7 +406,7 @@ function VictoryReportForm() {
         <div className="text-center space-y-4">
           <div className="text-6xl">🏆</div>
           <h2 className="text-3xl font-light">Victory Report Submitted!</h2>
-          <p className="text-gray-400 text-xl">Thank you for sharing your testimony.</p>
+          <p className="text-gray-200 text-xl">Thank you for sharing your testimony.</p>
         </div>
       </div>
     );
@@ -421,7 +421,7 @@ function VictoryReportForm() {
           <div
             onClick={() => setIsAnonymous(!isAnonymous)}
             className={`w-14 h-8 rounded-full transition-colors relative ${
-              isAnonymous ? "bg-amber-500" : "bg-gray-700"
+              isAnonymous ? "bg-amber-500" : "bg-gray-600"
             }`}
           >
             <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-transform ${
@@ -438,7 +438,7 @@ function VictoryReportForm() {
           placeholder="Your name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full px-5 py-4 rounded-xl bg-gray-800 border border-gray-700 text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
         />
       )}
 
@@ -447,7 +447,7 @@ function VictoryReportForm() {
         placeholder="Victory title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        className="w-full px-5 py-4 rounded-xl bg-gray-800 border border-gray-700 text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+        className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
       />
 
       <textarea
@@ -455,13 +455,13 @@ function VictoryReportForm() {
         value={body}
         onChange={(e) => setBody(e.target.value)}
         rows={5}
-        className="w-full px-5 py-4 rounded-xl bg-gray-800 border border-gray-700 text-lg placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+        className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
       />
 
       <button
         onClick={() => submit.mutate()}
         disabled={!title || !body || (!isAnonymous && !name) || submit.isPending}
-        className="w-full py-5 rounded-xl bg-amber-500 text-black text-xl font-bold hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-lg shadow-amber-500/20"
+        className="w-full py-5 rounded-xl bg-amber-500 text-black text-xl font-bold hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-amber-400/30"
       >
         {submit.isPending ? "Submitting..." : "Submit Victory Report"}
       </button>
