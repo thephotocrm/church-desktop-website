@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Users, MessageSquarePlus, Trophy, ArrowLeft } from "lucide-react";
+import { Users, MessageSquarePlus, Trophy, ArrowLeft, CalendarDays } from "lucide-react";
+import type { Event } from "@shared/schema";
 
 interface KioskMember {
   id: string;
@@ -19,7 +20,7 @@ interface PrayerLog {
 const INACTIVITY_TIMEOUT = 30_000;
 
 export default function KioskPage() {
-  const [tab, setTab] = useState<"home" | "prayer" | "login" | "victory">("home");
+  const [tab, setTab] = useState<"home" | "prayer" | "login" | "victory" | "events">("home");
   const [lastActivity, setLastActivity] = useState(Date.now());
 
   const resetToHome = useCallback(() => {
@@ -60,7 +61,7 @@ export default function KioskPage() {
             Welcome
           </h1>
           <p className="text-xl md:text-2xl text-gray-100 mb-12 text-center">
-            How can we pray with you today?
+            Log in, share a request, or celebrate a victory
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
@@ -96,6 +97,14 @@ export default function KioskPage() {
             ))}
           </div>
 
+          <button
+            onClick={() => { setTab("events"); handleActivity(); }}
+            className="mt-8 flex items-center justify-center gap-3 w-full max-w-md mx-auto px-6 py-4 rounded-xl bg-white/10 border border-white/25 hover:border-amber-400/60 hover:shadow-lg hover:shadow-amber-400/30 transition-all active:scale-95"
+          >
+            <CalendarDays className="w-6 h-6 text-amber-400" />
+            <span className="text-lg font-semibold text-white">Upcoming Events</span>
+          </button>
+
           <div className="mt-16 w-24 h-px bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
         </div>
       ) : (
@@ -114,6 +123,7 @@ export default function KioskPage() {
             {tab === "prayer" && <PrayerRequestForm />}
             {tab === "login" && <PrayerLoginSection />}
             {tab === "victory" && <VictoryReportForm />}
+            {tab === "events" && <UpcomingEventsView />}
           </div>
         </>
       )}
@@ -344,7 +354,7 @@ function PrayerLoginSection() {
             <div
               className="whitespace-nowrap"
               style={{
-                animation: `marquee ${Math.max(uniqueWarriors.length * 3, 15)}s linear infinite`,
+                animation: `marquee ${Math.max(uniqueWarriors.length * 1.5, 8)}s linear infinite`,
               }}
             >
               {[0, 1].map((copy) => (
@@ -363,6 +373,82 @@ function PrayerLoginSection() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ========== Upcoming Events View ==========
+function UpcomingEventsView() {
+  const { data: events, isLoading } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
+    queryFn: async () => {
+      const res = await fetch("/api/events");
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
+
+  const formatEventDate = (date: string | Date) =>
+    new Date(date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+
+  const formatEventTime = (date: string | Date) =>
+    new Date(date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+  const upcoming = events
+    ?.filter((e) => e.status === "published" && new Date(e.startDate) >= new Date())
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-xl text-gray-300">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!upcoming || upcoming.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <CalendarDays className="w-16 h-16 text-gray-500 mx-auto" />
+          <h2 className="text-3xl font-light">No Upcoming Events</h2>
+          <p className="text-gray-300 text-xl">Check back soon for new events.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-4">
+      <h2 className="text-2xl font-semibold text-center mb-8">Upcoming Events</h2>
+      {upcoming.map((event) => (
+        <div
+          key={event.id}
+          className="rounded-xl bg-gray-900 border border-gray-500 p-5 space-y-2"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <h3 className="text-xl font-bold text-white">{event.title}</h3>
+            {event.category && (
+              <span className="shrink-0 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-200 text-sm">
+                {event.category}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-4 text-gray-300 text-base">
+            <span>{formatEventDate(event.startDate)}</span>
+            {!event.allDay && <span>{formatEventTime(event.startDate)}</span>}
+            {event.endDate && !event.allDay && (
+              <span>– {formatEventTime(event.endDate)}</span>
+            )}
+          </div>
+          {event.location && (
+            <p className="text-gray-300 text-base">📍 {event.location}</p>
+          )}
+          {event.description && (
+            <p className="text-gray-400 text-base line-clamp-2">{event.description}</p>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
