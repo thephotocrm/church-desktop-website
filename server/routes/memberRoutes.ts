@@ -1,11 +1,13 @@
 import { Router } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import multer from "multer";
 import { storage } from "../storage";
 import { insertMemberSchema, loginMemberSchema } from "@shared/schema";
 import { signAccessToken, signRefreshToken, verifyToken } from "../jwt";
 import { requireMember, requireApprovedMember } from "../memberAuth";
 import { requireAuth } from "../auth";
+import { importSaintsFromBuffer } from "../import-saints";
 
 const router = Router();
 
@@ -22,10 +24,26 @@ router.post("/register", async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
-  const member = await storage.createMember({
-    ...parsed.data,
-    password: hashedPassword,
-  });
+
+  // Auto-claim: check if an imported member exists with the same first+last name
+  const nameMatches = await storage.getMembersByName(parsed.data.firstName, parsed.data.lastName);
+  const importedMatches = nameMatches.filter((m) => m.email.endsWith("@import.fpcd.local"));
+
+  let member;
+  if (importedMatches.length === 1) {
+    // Exactly one imported match — claim it by updating with real credentials
+    member = await storage.updateMember(importedMatches[0].id, {
+      email: parsed.data.email,
+      password: hashedPassword,
+      phone: parsed.data.phone || undefined,
+    });
+  } else {
+    // No match or multiple matches — create a new account as usual
+    member = await storage.createMember({
+      ...parsed.data,
+      password: hashedPassword,
+    });
+  }
 
   const tokenPayload = { memberId: member.id, email: member.email, role: member.role };
   const accessToken = signAccessToken(tokenPayload);
@@ -246,6 +264,18 @@ router.get("/admin/all", requireAuth, async (_req, res) => {
   res.json(result);
 });
 
+// GET /api/members/admin/imported — view unclaimed imported members
+router.get("/admin/imported", requireAuth, async (_req, res) => {
+  const imported = await storage.getImportedMembers();
+  res.json(imported.map((m) => ({
+    id: m.id,
+    firstName: m.firstName,
+    lastName: m.lastName,
+    title: m.title,
+    createdAt: m.createdAt,
+  })));
+});
+
 // PATCH /api/members/admin/:id/role — update role, title, group admin assignments
 router.patch("/admin/:id/role", requireAuth, async (req, res) => {
   const { role, title, groupAdminIds } = req.body;
@@ -297,6 +327,44 @@ router.patch("/admin/:id/role", requireAuth, async (req, res) => {
   const updated = await storage.getMember(memberId);
   const updatedGroupAdminIds = await storage.getMemberGroupAdminIds(memberId);
   res.json({ ...updated, password: undefined, groupAdminIds: updatedGroupAdminIds });
+});
+
+// POST /api/members/admin/import — upload XLS/XLSX to import saints
+const importUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed =
+      /^application\/(vnd\.ms-excel|vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet)$/;
+    if (allowed.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only XLS/XLSX files are allowed"));
+    }
+  },
+});
+
+router.post("/admin/import", requireAuth, (req, res, next) => {
+  importUpload.single("file")(req, res, (err: any) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ error: "File too large (max 5 MB)" });
+      }
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+
+  try {
+    const result = await importSaintsFromBuffer(req.file.buffer);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: `Import failed: ${err.message}` });
+  }
 });
 
 export default router;

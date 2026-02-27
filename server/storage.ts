@@ -27,7 +27,7 @@ import {
   victoryReports, prayerLogs,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc, and, gte, lte, lt, desc, sql, inArray } from "drizzle-orm";
+import { eq, asc, and, gte, lte, lt, desc, sql, inArray, ilike } from "drizzle-orm";
 
 export interface PrayerRequestFilter {
   since?: string;
@@ -108,6 +108,8 @@ export interface IStorage {
   getPendingMembers(): Promise<Member[]>;
   approveMember(id: string): Promise<Member>;
   rejectMember(id: string): Promise<Member>;
+  getMembersByName(firstName: string, lastName: string): Promise<Member[]>;
+  getImportedMembers(): Promise<Member[]>;
 
   // Groups
   getGroups(): Promise<Group[]>;
@@ -491,6 +493,21 @@ export class DatabaseStorage implements IStorage {
       .where(eq(members.id, id))
       .returning();
     return result;
+  }
+
+  async getMembersByName(firstName: string, lastName: string): Promise<Member[]> {
+    return db.select().from(members).where(
+      and(
+        ilike(members.firstName, firstName),
+        ilike(members.lastName, lastName),
+      )
+    );
+  }
+
+  async getImportedMembers(): Promise<Member[]> {
+    return db.select().from(members).where(
+      ilike(members.email, '%@import.fpcd.local')
+    ).orderBy(asc(members.lastName), asc(members.firstName));
   }
 
   // ========== Groups ==========
