@@ -40,7 +40,7 @@ function timeAgo(dateStr: string): string {
 }
 
 const SECTION_ORDER: Section[] = ["prayers", "victories", "warriors"];
-const SCROLL_SPEED_PX_PER_SEC = 80;
+const SCROLL_SPEED_PX_PER_SEC = 50;
 const WARRIORS_HOLD_SECONDS = 10;
 const NO_SCROLL_HOLD_SECONDS = 8;
 const END_PAUSE_MS = 1500;
@@ -227,7 +227,7 @@ export default function PrayerDisplay() {
     <div className="fixed inset-0 bg-black text-white flex flex-col cursor-none select-none overflow-hidden">
       {/* Header */}
       <div className="pt-10 pb-4 text-center shrink-0">
-        <h1 className="text-2xl font-light tracking-widest uppercase text-white/60">
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-light tracking-widest uppercase text-white/60">
           {sectionTitle}
         </h1>
       </div>
@@ -247,16 +247,16 @@ export default function PrayerDisplay() {
               {requests.map((prayer) => (
                 <div
                   key={prayer.id}
-                  className="min-h-[80vh] flex items-center justify-center"
+                  className="min-h-[40vh] flex items-center justify-center"
                 >
-                  <div className="text-center px-4 py-12">
-                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-light leading-tight mb-6">
+                  <div className="text-center px-4 py-8">
+                    <h2 className="text-5xl md:text-6xl lg:text-7xl font-light leading-tight mb-8">
                       {prayer.title}
                     </h2>
-                    <p className="text-xl md:text-2xl text-white/70 leading-relaxed mb-6">
+                    <p className="text-2xl md:text-3xl lg:text-4xl text-white/70 leading-relaxed mb-8">
                       {prayer.body}
                     </p>
-                    <div className="text-base text-white/40 space-x-6">
+                    <div className="text-lg md:text-xl text-white/40 space-x-6">
                       <span>
                         {prayer.prayerCount ?? 0}{" "}
                         {prayer.prayerCount === 1 ? "person" : "people"} praying
@@ -275,16 +275,16 @@ export default function PrayerDisplay() {
               {victoryReports.map((victory) => (
                 <div
                   key={victory.id}
-                  className="min-h-[80vh] flex items-center justify-center"
+                  className="min-h-[40vh] flex items-center justify-center"
                 >
-                  <div className="text-center px-4 py-12">
-                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-light leading-tight mb-6">
+                  <div className="text-center px-4 py-8">
+                    <h2 className="text-5xl md:text-6xl lg:text-7xl font-light leading-tight mb-8">
                       {victory.title}
                     </h2>
-                    <p className="text-xl md:text-2xl text-white/70 leading-relaxed mb-6">
+                    <p className="text-2xl md:text-3xl lg:text-4xl text-white/70 leading-relaxed mb-8">
                       {victory.body}
                     </p>
-                    <div className="text-base text-white/40 space-x-6">
+                    <div className="text-lg md:text-xl text-white/40 space-x-6">
                       {victory.authorName && (
                         <span>— {victory.authorName}</span>
                       )}
