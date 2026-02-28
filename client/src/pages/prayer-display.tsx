@@ -44,8 +44,8 @@ function timeAgo(dateStr: string): string {
 
 const SECTION_ORDER: Section[] = ["prayers", "victories", "warriors"];
 const SCROLL_SPEED_PX_PER_SEC = 50;
-const WARRIORS_HOLD_SECONDS = 10;
 const NO_SCROLL_HOLD_SECONDS = 8;
+const EMPTY_STATE_HOLD_SECONDS = 6;
 const END_PAUSE_MS = 1500;
 
 export default function PrayerDisplay() {
@@ -112,13 +112,9 @@ export default function PrayerDisplay() {
   const getNextSection = useCallback(
     (current: Section): Section => {
       const idx = SECTION_ORDER.indexOf(current);
-      for (let i = 1; i <= SECTION_ORDER.length; i++) {
-        const next = SECTION_ORDER[(idx + i) % SECTION_ORDER.length];
-        if (getItemCount(next) > 0) return next;
-      }
-      return current;
+      return SECTION_ORDER[(idx + 1) % SECTION_ORDER.length];
     },
-    [getItemCount]
+    []
   );
 
   const stopScrollAnimation = useCallback(() => {
@@ -174,21 +170,28 @@ export default function PrayerDisplay() {
     [advanceSection]
   );
 
+  const isDataLoaded = useCallback(
+    (section: Section): boolean => {
+      switch (section) {
+        case "prayers": return requests !== undefined;
+        case "victories": return victoryReports !== undefined;
+        case "warriors": return prayerLogs !== undefined;
+      }
+    },
+    [requests, victoryReports, prayerLogs]
+  );
+
   // Measure content and start scrolling when section changes
   useEffect(() => {
-    const count = getItemCount(activeSection);
-    if (count === 0) {
-      advanceSection();
-      return;
-    }
+    if (!isDataLoaded(activeSection)) return;
 
-    // Warriors hold then advance (no scroll)
-    if (activeSection === "warriors") {
-      const timer = setTimeout(advanceSection, WARRIORS_HOLD_SECONDS * 1000);
+    const count = getItemCount(activeSection);
+
+    if (count === 0) {
+      const timer = setTimeout(advanceSection, EMPTY_STATE_HOLD_SECONDS * 1000);
       return () => clearTimeout(timer);
     }
 
-    // Measure after a brief delay to let content render
     let holdTimer: ReturnType<typeof setTimeout> | null = null;
     const measureTimer = setTimeout(() => {
       const viewport = viewportRef.current;
@@ -211,17 +214,8 @@ export default function PrayerDisplay() {
       if (holdTimer) clearTimeout(holdTimer);
       stopScrollAnimation();
     };
-  }, [activeSection, getItemCount, advanceSection, startScrollAnimation, stopScrollAnimation, requests, victoryReports]);
+  }, [activeSection, getItemCount, isDataLoaded, advanceSection, startScrollAnimation, stopScrollAnimation, requests, victoryReports, prayerLogs]);
 
-  // Skip to first non-empty section on initial load
-  useEffect(() => {
-    if (getItemCount(activeSection) === 0) {
-      const next = getNextSection(activeSection);
-      if (next !== activeSection) {
-        setActiveSection(next);
-      }
-    }
-  }, [requests, victoryReports, prayerLogs]);
 
   // Periodic full-page reload every 6 hours to prevent memory buildup
   useEffect(() => {
@@ -253,7 +247,7 @@ export default function PrayerDisplay() {
           className="w-full transition-opacity duration-700"
           style={{ opacity: visible ? 1 : 0 }}
         >
-          {/* Prayer Requests - vertical scroll list */}
+          {/* Prayer Requests */}
           {activeSection === "prayers" && requests && requests.length > 0 && (
             <div ref={contentRef} className="max-w-3xl mx-auto">
               {requests.map((prayer) => (
@@ -281,7 +275,7 @@ export default function PrayerDisplay() {
             </div>
           )}
 
-          {/* Victory Reports - vertical scroll list */}
+          {/* Victory Reports */}
           {activeSection === "victories" && victoryReports && victoryReports.length > 0 && (
             <div ref={contentRef} className="max-w-3xl mx-auto">
               {victoryReports.map((victory) => (
@@ -308,19 +302,47 @@ export default function PrayerDisplay() {
             </div>
           )}
 
-          {/* Prayer Warriors - grid, hold then advance */}
+          {/* Prayer Warriors - vertical scroll list */}
           {activeSection === "warriors" && uniqueWarriors.length > 0 && (
-            <div className="max-w-4xl mx-auto text-center">
-              <div className="flex flex-wrap justify-center gap-3">
-                {uniqueWarriors.map((w) => (
-                  <span
-                    key={w.memberId}
-                    className="px-4 py-2 rounded-full bg-amber-500/20 text-amber-300 text-lg font-medium"
-                  >
-                    {w.member.firstName} {w.member.lastName}
-                  </span>
-                ))}
-              </div>
+            <div ref={contentRef} className="max-w-3xl mx-auto">
+              {uniqueWarriors.map((w) => (
+                <div
+                  key={w.memberId}
+                  className="min-h-[40vh] flex items-center justify-center"
+                >
+                  <div className="text-center px-4 py-8">
+                    <h2 className="text-5xl md:text-6xl lg:text-7xl font-light leading-tight mb-8">
+                      {w.member.firstName} {w.member.lastName}
+                    </h2>
+                    <div className="text-lg md:text-xl text-white/40">
+                      <span>Prayed {timeAgo(w.loggedAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty states */}
+          {activeSection === "prayers" && requests && requests.length === 0 && (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <p className="text-3xl md:text-4xl lg:text-5xl font-light text-white/30 text-center">
+                No prayer requests at this time
+              </p>
+            </div>
+          )}
+          {activeSection === "victories" && victoryReports && victoryReports.length === 0 && (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <p className="text-3xl md:text-4xl lg:text-5xl font-light text-white/30 text-center">
+                No victory reports at this time
+              </p>
+            </div>
+          )}
+          {activeSection === "warriors" && prayerLogs && uniqueWarriors.length === 0 && (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <p className="text-3xl md:text-4xl lg:text-5xl font-light text-white/30 text-center">
+                No prayer warriors at this time
+              </p>
             </div>
           )}
 
