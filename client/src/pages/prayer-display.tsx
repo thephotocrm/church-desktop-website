@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useCallback, useRef } from "react";
 
+const SIX_HOURS = 6 * 60 * 60 * 1000;
+const RETRY_OPTS = { retry: 3, retryDelay: (n: number) => Math.min(1000 * 2 ** n, 30_000), staleTime: 5 * 60_000, refetchOnReconnect: true as const };
+
 interface PrayerRequest {
   id: string;
   title: string;
@@ -55,7 +58,7 @@ export default function PrayerDisplay() {
   const scrollStartRef = useRef<number | null>(null);
   const scrollActiveRef = useRef(false);
 
-  const { data: requests } = useQuery<PrayerRequest[]>({
+  const { data: requests, isError: reqError } = useQuery<PrayerRequest[]>({
     queryKey: ["/api/prayer-requests", "display"],
     queryFn: async () => {
       const res = await fetch("/api/prayer-requests?since=7d&status=active&limit=50");
@@ -63,9 +66,10 @@ export default function PrayerDisplay() {
       return res.json();
     },
     refetchInterval: 60_000,
+    ...RETRY_OPTS,
   });
 
-  const { data: victoryReports } = useQuery<VictoryReport[]>({
+  const { data: victoryReports, isError: vicError } = useQuery<VictoryReport[]>({
     queryKey: ["/api/victory-reports", "display"],
     queryFn: async () => {
       const res = await fetch("/api/victory-reports");
@@ -73,9 +77,10 @@ export default function PrayerDisplay() {
       return res.json();
     },
     refetchInterval: 60_000,
+    ...RETRY_OPTS,
   });
 
-  const { data: prayerLogs } = useQuery<PrayerLog[]>({
+  const { data: prayerLogs, isError: logError } = useQuery<PrayerLog[]>({
     queryKey: ["/api/prayer-logs", "display"],
     queryFn: async () => {
       const res = await fetch("/api/prayer-logs");
@@ -83,6 +88,7 @@ export default function PrayerDisplay() {
       return res.json();
     },
     refetchInterval: 60_000,
+    ...RETRY_OPTS,
   });
 
   const uniqueWarriors = prayerLogs
@@ -217,6 +223,12 @@ export default function PrayerDisplay() {
     }
   }, [requests, victoryReports, prayerLogs]);
 
+  // Periodic full-page reload every 6 hours to prevent memory buildup
+  useEffect(() => {
+    const timer = setTimeout(() => window.location.reload(), SIX_HOURS);
+    return () => clearTimeout(timer);
+  }, []);
+
   const sectionTitle = {
     prayers: "Prayer Requests",
     victories: "Victory Reports",
@@ -312,15 +324,21 @@ export default function PrayerDisplay() {
             </div>
           )}
 
-          {/* Loading / empty state */}
+          {/* Loading / error state */}
           {activeSection === "prayers" && !requests && (
-            <p className="text-white/30 text-lg text-center">Loading...</p>
+            <p className="text-white/30 text-lg text-center">
+              {reqError ? "Reconnecting..." : "Loading..."}
+            </p>
           )}
           {activeSection === "victories" && !victoryReports && (
-            <p className="text-white/30 text-lg text-center">Loading...</p>
+            <p className="text-white/30 text-lg text-center">
+              {vicError ? "Reconnecting..." : "Loading..."}
+            </p>
           )}
           {activeSection === "warriors" && !prayerLogs && (
-            <p className="text-white/30 text-lg text-center">Loading...</p>
+            <p className="text-white/30 text-lg text-center">
+              {logError ? "Reconnecting..." : "Loading..."}
+            </p>
           )}
         </div>
       </div>

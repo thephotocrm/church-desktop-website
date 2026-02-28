@@ -20,6 +20,8 @@ interface PrayerLog {
 }
 
 const INACTIVITY_TIMEOUT = 30_000;
+const SIX_HOURS = 6 * 60 * 60 * 1000;
+const RETRY_OPTS = { retry: 3, retryDelay: (n: number) => Math.min(1000 * 2 ** n, 30_000), staleTime: 5 * 60_000, refetchOnReconnect: true as const };
 
 export default function KioskPage() {
   const [tab, setTab] = useState<"home" | "prayer" | "login" | "victory" | "events">("home");
@@ -42,6 +44,16 @@ export default function KioskPage() {
   const handleActivity = useCallback(() => {
     setLastActivity(Date.now());
   }, []);
+
+  // Periodic full-page reload every 6 hours (when idle on home) to prevent memory buildup
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (tab === "home" && Date.now() - lastActivity > 60_000) {
+        window.location.reload();
+      }
+    }, SIX_HOURS);
+    return () => clearInterval(timer);
+  }, [tab, lastActivity]);
 
   useEffect(() => {
     const events = ["touchstart", "mousedown", "keydown"] as const;
@@ -225,6 +237,10 @@ function PrayerRequestForm() {
         className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
       />
 
+      {submit.isError && (
+        <p className="text-center text-red-400 text-lg">Something went wrong. Please try again.</p>
+      )}
+
       <button
         onClick={() => submit.mutate()}
         disabled={!title || !body || (!isAnonymous && !name) || submit.isPending}
@@ -248,6 +264,7 @@ function PrayerLoginSection() {
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
+    ...RETRY_OPTS,
   });
 
   const { data: prayerLogs } = useQuery<PrayerLog[]>({
@@ -258,6 +275,7 @@ function PrayerLoginSection() {
       return res.json();
     },
     refetchInterval: 30_000,
+    ...RETRY_OPTS,
   });
 
   const checkin = useMutation({
@@ -283,6 +301,9 @@ function PrayerLoginSection() {
       if (err.message.includes("Already checked in")) {
         setSuccess("already");
         setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setSuccess("error");
+        setTimeout(() => setSuccess(null), 3000);
       }
     },
   });
@@ -303,12 +324,12 @@ function PrayerLoginSection() {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="text-6xl">✨</div>
+          <div className="text-6xl">{success === "error" ? "⚠️" : "✨"}</div>
           <h2 className="text-3xl font-light">
-            {success === "already" ? "You're already checked in!" : `Thank you, ${success}!`}
+            {success === "already" ? "You're already checked in!" : success === "error" ? "Something went wrong" : `Thank you, ${success}!`}
           </h2>
           <p className="text-gray-200 text-xl">
-            {success === "already" ? "Come back later to check in again." : "You've joined the prayer warriors."}
+            {success === "already" ? "Come back later to check in again." : success === "error" ? "Please try again in a moment." : "You've joined the prayer warriors."}
           </p>
         </div>
       </div>
@@ -397,6 +418,7 @@ function UpcomingEventsView() {
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
+    ...RETRY_OPTS,
   });
 
   const publishedEvents = useMemo(
@@ -630,6 +652,10 @@ function VictoryReportForm() {
         rows={5}
         className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
       />
+
+      {submit.isError && (
+        <p className="text-center text-red-400 text-lg">Something went wrong. Please try again.</p>
+      )}
 
       <button
         onClick={() => submit.mutate()}
