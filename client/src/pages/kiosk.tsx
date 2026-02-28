@@ -287,11 +287,12 @@ function PrayerLoginSection() {
     },
   });
 
-  const filtered = members?.filter((m) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return m.firstName.toLowerCase().includes(q) || m.lastName.toLowerCase().includes(q);
-  });
+  const filtered = search.trim()
+    ? members?.filter((m) => {
+        const q = search.toLowerCase();
+        return m.firstName.toLowerCase().includes(q) || m.lastName.toLowerCase().includes(q);
+      })
+    : [];
 
   // Deduplicate prayer warriors by memberId
   const uniqueWarriors = prayerLogs
@@ -316,31 +317,36 @@ function PrayerLoginSection() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <h2 className="text-2xl font-semibold text-center mb-2">Tap Your Name to Join in Prayer</h2>
+      <h2 className="text-2xl font-semibold text-center mb-2">Type Your Name to Join in Prayer</h2>
 
       <input
         type="text"
-        placeholder="Search names..."
+        placeholder="Start typing your name..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="w-full px-5 py-4 rounded-xl bg-gray-900 border border-gray-500 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+        autoFocus
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[40vh] overflow-y-auto pr-2">
-        {filtered?.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => checkin.mutate(m.id)}
-            disabled={checkin.isPending}
-            className="px-4 py-4 rounded-xl bg-gray-800 border border-gray-500 text-lg font-medium hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all active:scale-95"
-          >
-            {m.firstName} {m.lastName}
-          </button>
-        ))}
-        {filtered?.length === 0 && (
-          <p className="col-span-full text-center text-gray-300 text-lg py-8">No members found</p>
-        )}
-      </div>
+      {!search.trim() ? (
+        <p className="text-center text-gray-400 text-lg py-8">Start typing to find your name</p>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[40vh] overflow-y-auto pr-2">
+          {filtered?.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => checkin.mutate(m.id)}
+              disabled={checkin.isPending}
+              className="px-4 py-4 rounded-xl bg-gray-800 border border-gray-500 text-lg font-medium hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all active:scale-95"
+            >
+              {m.firstName} {m.lastName}
+            </button>
+          ))}
+          {filtered?.length === 0 && (
+            <p className="col-span-full text-center text-gray-300 text-lg py-8">No members found</p>
+          )}
+        </div>
+      )}
 
       {/* Prayer Warriors Today — Horizontal Marquee */}
       {uniqueWarriors.length > 0 && (
