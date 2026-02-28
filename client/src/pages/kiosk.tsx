@@ -287,7 +287,7 @@ function PrayerLoginSection() {
     },
   });
 
-  const filtered = search.trim()
+  const filtered = search.trim().length >= 2
     ? members?.filter((m) => {
         const q = search.toLowerCase();
         return m.firstName.toLowerCase().includes(q) || m.lastName.toLowerCase().includes(q);
@@ -328,7 +328,7 @@ function PrayerLoginSection() {
         autoFocus
       />
 
-      {!search.trim() ? (
+      {search.trim().length < 2 ? (
         <p className="text-center text-gray-400 text-lg py-8">Start typing to find your name</p>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[40vh] overflow-y-auto pr-2">
