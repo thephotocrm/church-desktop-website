@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { storage } from "../storage";
-import { requireMember, optionalMember } from "../memberAuth";
+import { requireApprovedMember, optionalMember } from "../memberAuth";
 import { requireAuth } from "../auth";
 
 const router = Router();
@@ -26,7 +26,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/victory-reports — requireMember (mobile app)
-router.post("/", requireMember, async (req, res) => {
+router.post("/", requireApprovedMember, async (req, res) => {
   const { title, body, isAnonymous } = req.body;
 
   if (!title || !body) {

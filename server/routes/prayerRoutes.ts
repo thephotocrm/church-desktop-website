@@ -42,23 +42,18 @@ router.get("/:id", optionalMember, async (req, res) => {
 });
 
 // POST /api/prayer-requests
-router.post("/", optionalMember, async (req, res) => {
-  const { title, body, isAnonymous, isPublic, groupId, authorName } = req.body;
+router.post("/", requireApprovedMember, async (req, res) => {
+  const { title, body, isAnonymous, isPublic, groupId } = req.body;
 
   if (!title || !body) {
     return res.status(400).json({ message: "Title and body are required" });
   }
 
-  // If not logged in, require authorName
-  if (!req.member && !authorName) {
-    return res.status(400).json({ message: "Author name is required for anonymous submissions" });
-  }
-
-  const member = req.member ? await storage.getMember(req.member.memberId) : null;
+  const member = await storage.getMember(req.member!.memberId);
 
   const request = await storage.createPrayerRequest({
-    memberId: req.member?.memberId || null,
-    authorName: authorName || (member ? `${member.firstName} ${member.lastName}` : "Anonymous"),
+    memberId: req.member!.memberId,
+    authorName: member ? `${member.firstName} ${member.lastName}` : "Anonymous",
     isAnonymous: isAnonymous || false,
     title,
     body,
