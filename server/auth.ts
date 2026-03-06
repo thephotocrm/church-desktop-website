@@ -3,6 +3,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 
@@ -16,6 +17,10 @@ declare global {
 }
 
 export function setupAuth(app: Express) {
+  if (!process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET environment variable is required");
+  }
+
   const PgStore = connectPgSimple(session);
 
   app.use(
@@ -25,13 +30,13 @@ export function setupAuth(app: Express) {
         // Note: createTableIfMissing won't work in bundled builds (can't find table.sql).
         // The session table is created in server/seed.ts instead.
       }),
-      secret: process.env.SESSION_SECRET || "fpc-dallas-secret-key-change-in-production",
+      secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
       cookie: {
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
         httpOnly: true,
-        secure: false,
+        secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
       },
     })
@@ -74,8 +79,16 @@ export function setupAuth(app: Express) {
     }
   });
 
+  const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many login attempts, please try again later" },
+  });
+
   // Auth routes
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", loginLimiter, (req, res, next) => {
     passport.authenticate("local", (err: Error | null, user: Express.User | false, info: { message: string } | undefined) => {
       if (err) return next(err);
       if (!user) {

@@ -182,15 +182,24 @@ export async function seedDatabase() {
     });
   }
 
-  // Seed default admin user
+  // Seed admin user from environment variables
   const existingUsers = await db.select().from(users);
   if (existingUsers.length === 0) {
-    const hashedPassword = await bcrypt.hash("admin123", 10);
-    await db.insert(users).values({
-      username: "admin",
-      password: hashedPassword,
-    });
-    console.log("Default admin user created (admin / admin123)");
+    const adminUsername = process.env.ADMIN_USERNAME;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminUsername || !adminPassword) {
+      console.warn(
+        "WARNING: No admin user exists and ADMIN_USERNAME/ADMIN_PASSWORD env vars are not set. " +
+        "Set these environment variables to create the initial admin account."
+      );
+    } else {
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      await db.insert(users).values({
+        username: adminUsername,
+        password: hashedPassword,
+      });
+      console.log("Admin user created from environment variables");
+    }
   }
 
   // Seed fund categories

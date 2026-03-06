@@ -19,7 +19,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' https://fpcd.life; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://fpcd.life data: blob:; connect-src 'self' https://fpcd.life wss://fpcd.life; media-src 'self' https://fpcd.life blob:;"
     }
   },
   "bundle": {

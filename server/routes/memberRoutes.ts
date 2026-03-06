@@ -2,17 +2,28 @@ import { Router } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 import { storage } from "../storage";
 import { insertMemberSchema, loginMemberSchema } from "@shared/schema";
 import { signAccessToken, signRefreshToken, verifyToken } from "../jwt";
 import { requireMember, requireApprovedMember } from "../memberAuth";
 import { requireAuth } from "../auth";
 import { importSaintsFromBuffer } from "../import-saints";
+import { createWsTicket } from "../websocket";
 
 const router = Router();
 
+// Rate limiting for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts, please try again later" },
+});
+
 // POST /api/members/register
-router.post("/register", async (req, res) => {
+router.post("/register", authLimiter, async (req, res) => {
   const parsed = insertMemberSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
@@ -57,7 +68,7 @@ router.post("/register", async (req, res) => {
 });
 
 // POST /api/members/login
-router.post("/login", async (req, res) => {
+router.post("/login", authLimiter, async (req, res) => {
   const parsed = loginMemberSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ message: "Invalid email or password" });
@@ -85,7 +96,7 @@ router.post("/login", async (req, res) => {
 });
 
 // POST /api/members/refresh
-router.post("/refresh", async (req, res) => {
+router.post("/refresh", authLimiter, async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) {
     return res.status(400).json({ message: "Refresh token required" });
@@ -118,7 +129,7 @@ router.post("/auth-code", requireMember, async (req, res) => {
 });
 
 // POST /api/members/exchange-code — exchange a one-time code for JWT tokens
-router.post("/exchange-code", async (req, res) => {
+router.post("/exchange-code", authLimiter, async (req, res) => {
   const { code } = req.body;
   if (!code) {
     return res.status(400).json({ message: "Code is required" });
@@ -160,6 +171,12 @@ router.get("/me", requireMember, async (req, res) => {
     return res.status(404).json({ message: "Member not found" });
   }
   res.json({ ...member, password: undefined });
+});
+
+// POST /api/members/ws-ticket — get a short-lived ticket for WebSocket auth
+router.post("/ws-ticket", requireMember, async (req, res) => {
+  const ticket = createWsTicket(req.member!.memberId, req.member!.role);
+  res.json({ ticket });
 });
 
 // PATCH /api/members/me

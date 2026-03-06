@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
+import crypto from "crypto";
 import { verifyToken } from "./jwt";
 import { storage } from "./storage";
 
@@ -12,6 +13,23 @@ interface AuthenticatedSocket extends WebSocket {
 
 // Map of groupId -> Set of connected sockets
 const groupSubscriptions = new Map<string, Set<AuthenticatedSocket>>();
+
+// Short-lived ticket store for WebSocket authentication
+const wsTickets = new Map<string, { memberId: string; role: string; expiresAt: number }>();
+
+export function createWsTicket(memberId: string, role: string): string {
+  const ticket = crypto.randomBytes(32).toString("hex");
+  wsTickets.set(ticket, { memberId, role, expiresAt: Date.now() + 30_000 }); // 30 seconds
+  return ticket;
+}
+
+function consumeWsTicket(ticket: string): { memberId: string; role: string } | null {
+  const entry = wsTickets.get(ticket);
+  if (!entry) return null;
+  wsTickets.delete(ticket);
+  if (Date.now() > entry.expiresAt) return null;
+  return { memberId: entry.memberId, role: entry.role };
+}
 
 export function broadcastToGroup(groupId: string, data: unknown) {
   const sockets = groupSubscriptions.get(groupId);
@@ -46,20 +64,30 @@ export function setupWebSocket(httpServer: Server) {
     ws.subscribedGroups = new Set();
     ws.isAlive = true;
 
-    // Auth via query param
+    // Auth via short-lived ticket (preferred) or JWT token (legacy)
     const url = new URL(req.url || "", `http://${req.headers.host}`);
+    const ticket = url.searchParams.get("ticket");
     const token = url.searchParams.get("token");
-    if (!token) {
-      ws.close(4001, "Authentication required");
-      return;
-    }
 
-    try {
-      const payload = verifyToken(token);
-      ws.memberId = payload.memberId;
-      ws.memberRole = payload.role;
-    } catch {
-      ws.close(4001, "Invalid token");
+    if (ticket) {
+      const ticketData = consumeWsTicket(ticket);
+      if (!ticketData) {
+        ws.close(4001, "Invalid or expired ticket");
+        return;
+      }
+      ws.memberId = ticketData.memberId;
+      ws.memberRole = ticketData.role;
+    } else if (token) {
+      try {
+        const payload = verifyToken(token);
+        ws.memberId = payload.memberId;
+        ws.memberRole = payload.role;
+      } catch {
+        ws.close(4001, "Invalid token");
+        return;
+      }
+    } else {
+      ws.close(4001, "Authentication required");
       return;
     }
 

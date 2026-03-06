@@ -137,6 +137,12 @@ export async function registerRoutes(
   app.get("/api/stream/hls/{*path}", async (req, res) => {
     const rawPath = (req.params as Record<string, string | string[]>).path;
     const subPath = Array.isArray(rawPath) ? rawPath.join("/") : rawPath;
+
+    // Validate path to prevent SSRF / path traversal
+    if (/\.\./.test(subPath) || !/^[a-zA-Z0-9/_\-\.]+$/.test(subPath)) {
+      return res.status(400).json({ error: "Invalid path" });
+    }
+
     const targetUrl = `${MEDIA_SERVER_BASE}/${subPath}`;
 
     try {
@@ -194,7 +200,12 @@ export async function registerRoutes(
     const secret = req.headers["x-webhook-secret"];
     const expectedSecret = process.env.WEBHOOK_SECRET;
 
-    if (expectedSecret && secret !== expectedSecret) {
+    if (!expectedSecret) {
+      console.error("[Webhook] WEBHOOK_SECRET env var not configured — rejecting request");
+      return res.status(500).json({ error: "Webhook not configured" });
+    }
+
+    if (secret !== expectedSecret) {
       return res.status(403).json({ error: "Invalid webhook secret" });
     }
 
