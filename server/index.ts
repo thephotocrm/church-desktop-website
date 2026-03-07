@@ -27,8 +27,20 @@ app.use(
 app.use(express.urlencoded({ extended: false }));
 
 // Security headers
+const isDev = process.env.NODE_ENV !== "production";
+
 app.use(helmet({
-  contentSecurityPolicy: process.env.NODE_ENV === "production" ? undefined : false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'", "https://fpcd.life"],
+      scriptSrc: ["'self'", ...(isDev ? ["'unsafe-inline'"] : [])],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "https://fpcd.life", "data:", "blob:"],
+      connectSrc: ["'self'", "https://fpcd.life", "wss://fpcd.life"],
+      mediaSrc: ["'self'", "https://fpcd.life", "blob:"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 
