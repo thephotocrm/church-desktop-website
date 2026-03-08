@@ -40,7 +40,9 @@
       "Bash(# The fonts are in server/fonts but need to be copied to ~/.fonts by the app's install function\n# Let's manually copy them and refresh\ncp /home/runner/workspace/server/fonts/*.ttf /home/runner/.fonts/ 2>/dev/null\nfc-cache -f 2>&1\nfc-list : family | sort -u)",
       "WebFetch(domain:www.libvips.org)",
       "Bash(npx tsx -e \"\nconst { db } = require\\('./server/db'\\);\nconst { recordings } = require\\('./shared/schema'\\);\nconst { eq } = require\\('drizzle-orm'\\);\n\nasync function migrate\\(\\) {\n  const result = await db.update\\(recordings\\).set\\({ published: true }\\).where\\(eq\\(recordings.status, 'ready'\\)\\).returning\\({ id: recordings.id }\\);\n  console.log\\('Updated', result.length, 'recordings to published'\\);\n  process.exit\\(0\\);\n}\nmigrate\\(\\).catch\\(e => { console.error\\(e\\); process.exit\\(1\\); }\\);\n\" 2>&1)",
-      "Bash(git log --all --full-history --source -- \"*.env\" 2>/dev/null | head -30)"
+      "Bash(git log --all --full-history --source -- \"*.env\" 2>/dev/null | head -30)",
+      "Bash(sleep 5 && curl -s -v -X POST http://localhost:5000/api/auth/login \\\\\n  -H \"Content-Type: application/json\" \\\\\n  -d '{\"username\":\"admin\",\"password\":\"22Act1vetrader#\"}' 2>&1 | grep -iE \"Set-Cookie|HTTP/\")",
+      "Bash(curl -s -v -X POST http://localhost:5000/api/auth/login \\\\\n  -H \"Content-Type: application/json\" \\\\\n  -H \"X-Forwarded-Proto: https\" \\\\\n  -d '{\"username\":\"admin\",\"password\":\"22Act1vetrader#\"}' 2>&1 | grep -iE \"Set-Cookie|HTTP/\")"
     ]
   }
 }

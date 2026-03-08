@@ -24,7 +24,6 @@ export default function Login() {
       const res = await apiRequest("POST", "/api/auth/login", { username, password });
       const user = await res.json();
       queryClient.setQueryData(["/api/auth/me"], user);
-      queryClient.invalidateQueries();
       navigate("/admin");
     } catch (err: any) {
       setError("Invalid username or password");
