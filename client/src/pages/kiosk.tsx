@@ -155,7 +155,7 @@ function PrayerRequestForm() {
 
   const submit = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/prayer-requests", {
+      const res = await fetch("/api/prayer-requests/kiosk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

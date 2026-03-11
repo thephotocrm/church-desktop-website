@@ -41,6 +41,32 @@ router.get("/:id", optionalMember, async (req, res) => {
   }
 });
 
+// POST /api/prayer-requests/kiosk — public (no auth), kiosk guest submissions
+router.post("/kiosk", async (req, res) => {
+  const { title, body, authorName, isAnonymous } = req.body;
+
+  if (!title || !body) {
+    return res.status(400).json({ message: "Title and body are required" });
+  }
+
+  if (!isAnonymous && !authorName) {
+    return res.status(400).json({ message: "Author name is required for non-anonymous submissions" });
+  }
+
+  const request = await storage.createPrayerRequest({
+    memberId: null,
+    authorName: isAnonymous ? "Anonymous" : authorName,
+    isAnonymous: isAnonymous || false,
+    title,
+    body,
+    groupId: null,
+    isPublic: true,
+    status: "active",
+  });
+
+  res.status(201).json(request);
+});
+
 // POST /api/prayer-requests
 router.post("/", requireApprovedMember, async (req, res) => {
   const { title, body, isAnonymous, isPublic, groupId } = req.body;
