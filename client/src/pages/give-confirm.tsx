@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { loadStripe, type Stripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -117,11 +117,12 @@ function CheckoutForm({ amount, onSuccess }: { amount: string; onSuccess: () => 
 
 export default function GiveConfirm() {
   const [, navigate] = useLocation();
+  const search = useSearch();
   const { member, exchangeCode, isLoading: authLoading } = useMemberAuth();
   const { toast } = useToast();
 
-  const [params] = useState(() => {
-    const p = new URLSearchParams(window.location.search);
+  const params = useMemo(() => {
+    const p = new URLSearchParams(search);
     return {
       amount: p.get("amount") || "",
       fund: p.get("fund") || "",
@@ -129,10 +130,11 @@ export default function GiveConfirm() {
       frequency: p.get("frequency") || "monthly",
       code: p.get("code") || "",
     };
-  });
+  }, [search]);
 
-  const [exchangingCode, setExchangingCode] = useState(!!params.code);
+  const [exchangingCode, setExchangingCode] = useState(false);
   const [fundId, setFundId] = useState("");
+  const [fundMatchError, setFundMatchError] = useState(false);
   const [chargingCard, setChargingCard] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -146,23 +148,22 @@ export default function GiveConfirm() {
     if (!params.amount || !params.fund) {
       navigate("/give");
     }
-  }, []);
+  }, [params.amount, params.fund]);
 
   // Exchange auth code from mobile app
   useEffect(() => {
-    if (params.code && !member) {
-      exchangeCode(params.code)
-        .catch(() => {})
-        .finally(() => {
-          setExchangingCode(false);
-          const clean = new URLSearchParams(window.location.search);
-          clean.delete("code");
-          window.history.replaceState({}, "", `/give/confirm?${clean.toString()}`);
-        });
-    } else {
-      setExchangingCode(false);
-    }
-  }, []);
+    if (!params.code) return;
+    if (member) { setExchangingCode(false); return; }
+    setExchangingCode(true);
+    exchangeCode(params.code)
+      .catch(() => {})
+      .finally(() => {
+        setExchangingCode(false);
+        const clean = new URLSearchParams(search);
+        clean.delete("code");
+        window.history.replaceState({}, "", `/give/confirm?${clean.toString()}`);
+      });
+  }, [params.code]);
 
   // Load Stripe publishable key
   useEffect(() => {
@@ -183,11 +184,22 @@ export default function GiveConfirm() {
   });
 
   useEffect(() => {
-    if (params.fund && funds?.length && !fundId) {
-      const match = funds.find(
-        (f) => f.name.toLowerCase() === params.fund.toLowerCase()
-      );
-      if (match) setFundId(match.id);
+    if (!params.fund || !funds?.length || fundId) return;
+    const match = funds.find(
+      (f) => f.name.toLowerCase() === params.fund.toLowerCase()
+    );
+    if (match) {
+      setFundId(match.id);
+      setFundMatchError(false);
+    } else {
+      // Fund name in URL doesn't match DB — fall back to first active fund
+      const fallback = funds[0];
+      if (fallback) {
+        setFundId(fallback.id);
+        setFundMatchError(false);
+      } else {
+        setFundMatchError(true);
+      }
     }
   }, [funds, params.fund]);
 
@@ -465,13 +477,13 @@ export default function GiveConfirm() {
         )}
 
         {/* Inline Payment Element */}
-        {intentError ? (
+        {(intentError || fundMatchError) ? (
           <div
             className="rounded-[20px] p-6 text-center"
             style={{ background: C.INK2, border: `1px solid ${C.BORDER}` }}
           >
             <p className="font-['Open_Sans'] text-sm" style={{ color: "rgba(239,68,68,0.9)" }}>
-              {intentError}
+              {intentError || "Unable to load payment form. Please try again."}
             </p>
             <button
               onClick={() => navigate("/give")}

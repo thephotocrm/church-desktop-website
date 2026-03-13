@@ -34,11 +34,34 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'", "https://fpcd.life"],
-      scriptSrc: ["'self'", ...(isDev ? ["'unsafe-inline'"] : [])],
+      scriptSrc: [
+        "'self'",
+        "https://js.stripe.com",
+        ...(isDev ? ["'unsafe-inline'"] : []),
+      ],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "https://fpcd.life", "https://pub-8263e274d0ae480ea30209ad5993de0b.r2.dev", "data:", "blob:"],
-      connectSrc: ["'self'", "https://fpcd.life", "wss://fpcd.life", "https://pub-8263e274d0ae480ea30209ad5993de0b.r2.dev"],
+      imgSrc: [
+        "'self'",
+        "https://fpcd.life",
+        "https://pub-8263e274d0ae480ea30209ad5993de0b.r2.dev",
+        "https://*.stripe.com",
+        "data:",
+        "blob:",
+      ],
+      connectSrc: [
+        "'self'",
+        "https://fpcd.life",
+        "wss://fpcd.life",
+        "https://pub-8263e274d0ae480ea30209ad5993de0b.r2.dev",
+        "https://api.stripe.com",
+        "https://errors.stripe.com",
+        ...(isDev ? ["ws://localhost:*", "wss://*.replit.dev"] : []),
+      ],
+      frameSrc: [
+        "https://js.stripe.com",
+        "https://hooks.stripe.com",
+      ],
       mediaSrc: ["'self'", "https://fpcd.life", "https://pub-8263e274d0ae480ea30209ad5993de0b.r2.dev", "blob:"],
     },
   },
