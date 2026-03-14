@@ -47,6 +47,7 @@ const SCROLL_SPEED_PX_PER_SEC = 50;
 const NO_SCROLL_HOLD_SECONDS = 8;
 const EMPTY_STATE_HOLD_SECONDS = 6;
 const END_PAUSE_MS = 1500;
+const MIN_SCROLL_DURATION_MS = 6000;
 
 export default function PrayerDisplay() {
   const [activeSection, setActiveSection] = useState<Section>("prayers");
@@ -140,7 +141,7 @@ export default function PrayerDisplay() {
       const viewport = viewportRef.current;
       if (!viewport || totalDistance <= 0) return;
 
-      const duration = (totalDistance / SCROLL_SPEED_PX_PER_SEC) * 1000;
+      const duration = Math.max((totalDistance / SCROLL_SPEED_PX_PER_SEC) * 1000, MIN_SCROLL_DURATION_MS);
       scrollActiveRef.current = true;
       scrollStartRef.current = null;
       viewport.scrollTop = 0;
