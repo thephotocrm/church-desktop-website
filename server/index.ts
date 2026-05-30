@@ -56,7 +56,7 @@ app.use(helmet({
         "https://pub-8263e274d0ae480ea30209ad5993de0b.r2.dev",
         "https://api.stripe.com",
         "https://errors.stripe.com",
-        ...(isDev ? ["ws://localhost:*", "wss://*.replit.dev"] : []),
+        ...(isDev ? ["ws://localhost:*", "ws://localhost:5173", "wss://*.replit.dev", "wss://*.spock.replit.dev"] : []),
       ],
       frameSrc: [
         "https://js.stripe.com",

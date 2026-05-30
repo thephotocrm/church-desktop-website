@@ -43,7 +43,19 @@ export function broadcastToGroup(groupId: string, data: unknown) {
 }
 
 export function setupWebSocket(httpServer: Server) {
-  const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+  // Use noServer mode so upgrade events for other paths (e.g. Vite's /vite-hmr)
+  // are NOT destroyed by the ws library — we route manually below.
+  const wss = new WebSocketServer({ noServer: true });
+
+  httpServer.on("upgrade", (req, socket, head) => {
+    const pathname = (req.url || "").split("?")[0];
+    if (pathname === "/ws") {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+    }
+    // All other paths (e.g. /vite-hmr) fall through unmodified
+  });
 
   // Heartbeat to clean up dead connections
   const interval = setInterval(() => {
