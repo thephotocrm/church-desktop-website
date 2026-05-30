@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
-  Wand2, Upload, Camera, Check, X, Loader2, Play, RefreshCw, Image,
+  Wand2, Upload, Camera, Check, X, Loader2, Play, RefreshCw, Image, Download,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -209,6 +209,33 @@ export function ThumbnailStudioModal({
     if (selectedUrl) {
       onSelect(selectedUrl);
       onOpenChange(false);
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    if (!selectedUrl) return;
+    try {
+      // R2 public URLs are cross-origin and need no auth; credentials would
+      // conflict with the bucket's wildcard CORS header and be rejected.
+      const res = await fetch(selectedUrl);
+      if (!res.ok) throw new Error("Failed to fetch image");
+      const blob = await res.blob();
+      const ext = (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+      const safeTitle =
+        (recording.title || "thumbnail").replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "") || "thumbnail";
+
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `${safeTitle}-thumbnail.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+
+      toast({ title: "Thumbnail downloaded" });
+    } catch (err: any) {
+      toast({ title: err.message || "Download failed", variant: "destructive" });
     }
   };
 
@@ -496,13 +523,22 @@ export function ThumbnailStudioModal({
           >
             <RefreshCw className="w-4 h-4 mr-2" /> Regenerate All
           </Button>
-          <Button
-            onClick={handleUseSelected}
-            disabled={!selectedUrl}
-            className="bg-green-600 text-white hover:bg-green-700"
-          >
-            <Check className="w-4 h-4 mr-2" /> Use Selected Thumbnail
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDownloadSelected}
+              disabled={!selectedUrl}
+            >
+              <Download className="w-4 h-4 mr-2" /> Download
+            </Button>
+            <Button
+              onClick={handleUseSelected}
+              disabled={!selectedUrl}
+              className="bg-green-600 text-white hover:bg-green-700"
+            >
+              <Check className="w-4 h-4 mr-2" /> Use Selected Thumbnail
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
