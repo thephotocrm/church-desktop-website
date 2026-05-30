@@ -72,7 +72,7 @@ export default function PrayerDisplay() {
   const { data: victoryReports, isError: vicError } = useQuery<VictoryReport[]>({
     queryKey: ["/api/victory-reports", "display"],
     queryFn: async () => {
-      const res = await fetch("/api/victory-reports");
+      const res = await fetch("/api/victory-reports?since=30d");
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -263,10 +263,6 @@ export default function PrayerDisplay() {
                       {prayer.body}
                     </p>
                     <div className="text-lg md:text-xl text-white/40 space-x-6">
-                      <span>
-                        {prayer.prayerCount ?? 0}{" "}
-                        {prayer.prayerCount === 1 ? "person" : "people"} praying
-                      </span>
                       <span>{timeAgo(prayer.createdAt)}</span>
                     </div>
                   </div>
