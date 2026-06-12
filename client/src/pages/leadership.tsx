@@ -42,7 +42,7 @@ export default function Leadership() {
     <div className="min-h-screen">
       <section className="relative h-[60vh] flex items-center justify-center overflow-hidden" data-testid="section-leadership-hero">
         <div className="absolute inset-0">
-          <img src="/images/hero-sanctuary.png" alt="Sanctuary" className="w-full h-full object-cover" />
+          <img src="/images/church-exterior.jpg" alt="First Pentecostal Church of Dallas" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
         <motion.div
@@ -98,7 +98,7 @@ export default function Leadership() {
                         <div className="grid grid-cols-1 md:grid-cols-2">
                           <div className="h-80 md:h-full">
                             <img
-                              src={leaders[0].imageUrl || "/images/pastor-main.png"}
+                              src={leaders[0].imageUrl || "/images/pastor-portrait.jpg"}
                               alt={leaders[0].name}
                               className="w-full h-full object-cover object-top"
                             />

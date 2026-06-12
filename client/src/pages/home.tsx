@@ -36,8 +36,8 @@ export default function Home() {
       <section className="relative h-screen flex items-center justify-center overflow-hidden" data-testid="section-hero">
         <div className="absolute inset-0">
           <img
-            src="/images/hero-sanctuary.png"
-            alt="Church sanctuary"
+            src="/images/church-exterior.jpg"
+            alt="First Pentecostal Church of Dallas"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
@@ -146,8 +146,8 @@ export default function Home() {
       <section className="py-20 relative overflow-hidden" data-testid="section-welcome">
         <div className="absolute inset-0">
           <img
-            src="/images/hero-worship.png"
-            alt="Worship"
+            src="/images/church-worship.jpg"
+            alt="Worship service"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/85 to-black/60" />
@@ -237,7 +237,7 @@ export default function Home() {
             <motion.div variants={fadeUp} className="order-1 lg:order-2 flex justify-center">
               <div className="relative">
                 <img
-                  src="/images/pastor-main.png"
+                  src="/images/pastor-portrait.jpg"
                   alt="Pastor James Pacholek"
                   className="w-72 md:w-80 rounded-md object-cover object-top"
                 />
@@ -381,8 +381,8 @@ export default function Home() {
       <section className="py-20 relative overflow-hidden" data-testid="section-cta">
         <div className="absolute inset-0">
           <img
-            src="/images/cross-glow.png"
-            alt="Cross"
+            src="/images/pastor-preaching.jpg"
+            alt="Pastor preaching"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/70 to-black/50" />

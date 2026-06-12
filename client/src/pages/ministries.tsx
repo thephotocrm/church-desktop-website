@@ -41,7 +41,7 @@ export default function Ministries() {
     <div className="min-h-screen">
       <section className="relative h-[60vh] flex items-center justify-center overflow-hidden" data-testid="section-ministries-hero">
         <div className="absolute inset-0">
-          <img src="/images/youth-ministry.png" alt="Ministries" className="w-full h-full object-cover" />
+          <img src="/images/church-children.jpg" alt="Church ministries" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
         <motion.div
@@ -144,7 +144,7 @@ export default function Ministries() {
               <motion.div variants={fadeUp}>
                 <div className="rounded-xl overflow-hidden">
                   <img
-                    src="/images/community-outreach.png"
+                    src="/images/church-ceremony.jpg"
                     alt="Church community serving together"
                     className="w-full h-80 object-cover"
                   />

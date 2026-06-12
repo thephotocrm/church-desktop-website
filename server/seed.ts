@@ -25,7 +25,7 @@ export async function seedDatabase() {
         name: "Pastor James Pacholek",
         title: "Senior Pastor",
         bio: "Pastor Pacholek leads First Pentecostal Church of Dallas with a passion for the uncompromising Word of God and a heart for the lost. His ministry is marked by a commitment to Apostolic truth, Spirit-filled worship, and genuine care for every member of the congregation.",
-        imageUrl: "/images/pastor-main.png",
+        imageUrl: "/images/pastor-portrait.jpg",
         orderIndex: 0,
       },
       {
@@ -54,6 +54,7 @@ export async function seedDatabase() {
     await db.update(leaders).set({
       name: "Pastor James Pacholek",
       bio: "Pastor Pacholek leads First Pentecostal Church of Dallas with a passion for the uncompromising Word of God and a heart for the lost. His ministry is marked by a commitment to Apostolic truth, Spirit-filled worship, and genuine care for every member of the congregation.",
+      imageUrl: "/images/pastor-portrait.jpg",
     }).where(eq(leaders.orderIndex, 0));
 
     await db.update(leaders).set({
@@ -72,7 +73,7 @@ export async function seedDatabase() {
       startDate: new Date("2026-03-10T19:00:00"),
       endDate: new Date("2026-03-14T21:00:00"),
       location: "Main Sanctuary",
-      imageUrl: "/images/hero-worship.png",
+      imageUrl: "/images/church-service.jpg",
       featured: true,
       category: "worship",
       status: "published",
@@ -83,7 +84,7 @@ export async function seedDatabase() {
       startDate: new Date("2026-03-22T09:00:00"),
       endDate: new Date("2026-03-22T14:00:00"),
       location: "Church Fellowship Hall",
-      imageUrl: "/images/community-outreach.png",
+      imageUrl: "/images/church-group.jpg",
       featured: true,
       category: "outreach",
       status: "published",
@@ -94,7 +95,7 @@ export async function seedDatabase() {
       startDate: new Date("2026-03-28T18:30:00"),
       endDate: new Date("2026-03-28T21:00:00"),
       location: "Youth Center",
-      imageUrl: "/images/youth-ministry.png",
+      imageUrl: "/images/church-children.jpg",
       featured: true,
       category: "youth",
       status: "published",
@@ -105,6 +106,7 @@ export async function seedDatabase() {
       startDate: new Date("2026-04-05T08:30:00"),
       endDate: new Date("2026-04-05T10:00:00"),
       location: "Fellowship Hall",
+      imageUrl: "/images/church-ceremony.jpg",
       featured: false,
       category: "prayer",
       status: "published",
@@ -115,7 +117,7 @@ export async function seedDatabase() {
       startDate: new Date("2026-04-05T10:00:00"),
       endDate: new Date("2026-04-05T12:00:00"),
       location: "Main Sanctuary",
-      imageUrl: "/images/cross-glow.png",
+      imageUrl: "/images/pastor-preaching.jpg",
       featured: true,
       category: "worship",
       status: "published",
@@ -126,6 +128,7 @@ export async function seedDatabase() {
       startDate: new Date("2026-04-12T18:00:00"),
       endDate: new Date("2026-04-12T20:00:00"),
       location: "Fellowship Hall",
+      imageUrl: "/images/church-bible-study.jpg",
       featured: false,
       category: "fellowship",
       status: "published",
@@ -138,37 +141,32 @@ export async function seedDatabase() {
     {
       name: "Worship & Music Ministry",
       description: "Our worship team leads the congregation into the presence of God through Spirit-filled praise and worship. Whether you sing, play an instrument, or run sound, there's a place for you.",
-      imageUrl: "/images/hero-worship.png",
-      leader: "Brother James Thompson",
+      imageUrl: "/images/church-worship.jpg",
     },
     {
       name: "Youth Ministry",
       description: "Empowering the next generation with the gospel of Jesus Christ through dynamic teaching, mentorship, and community. For ages 13-25 with weekly meetings and special events.",
-      imageUrl: "/images/youth-ministry.png",
-      leader: "Minister Marcus Williams",
+      imageUrl: "/images/church-children.jpg",
     },
     {
       name: "Women of Virtue",
       description: "A ministry dedicated to building up women in faith, purpose, and community. Monthly meetings, Bible studies, retreats, and outreach opportunities for women of all ages.",
-      imageUrl: "/images/community-outreach.png",
-      leader: "Lady Sarah Johnson",
+      imageUrl: "/images/church-ceremony.jpg",
     },
     {
       name: "Community Outreach",
       description: "Serving the Dallas community through food drives, clothing distributions, neighborhood clean-ups, and partnerships with local organizations to meet real needs.",
-      imageUrl: "/images/community-outreach.png",
-      leader: "Deacon Robert Harris",
+      imageUrl: "/images/church-group.jpg",
     },
     {
       name: "Children's Ministry",
       description: "A safe, fun, and faith-filled environment where children learn about God's love through interactive lessons, games, crafts, and worship designed just for them. Ages 3-12.",
-      leader: "Sister Angela Davis",
+      imageUrl: "/images/church-children.jpg",
     },
     {
       name: "Prayer Warriors",
       description: "A dedicated team of intercessors who pray for the church, community, and world. Weekly prayer meetings and 24-hour prayer chains for urgent needs. Open to all who have a heart for prayer.",
-      imageUrl: "/images/bible-podium.png",
-      leader: "Mother Grace Williams",
+      imageUrl: "/images/church-pulpit.jpg",
     },
   ]);
   }

@@ -72,7 +72,7 @@ export default function Beliefs() {
     <div className="min-h-screen">
       <section className="relative h-[60vh] flex items-center justify-center overflow-hidden" data-testid="section-beliefs-hero">
         <div className="absolute inset-0">
-          <img src="/images/bible-podium.png" alt="Bible on podium" className="w-full h-full object-cover" />
+          <img src="/images/church-pulpit.jpg" alt="Preaching from the pulpit" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
         <motion.div

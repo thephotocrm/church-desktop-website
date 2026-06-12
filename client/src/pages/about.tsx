@@ -21,7 +21,7 @@ export default function About() {
     <div className="min-h-screen">
       <section className="relative h-[60vh] flex items-center justify-center overflow-hidden" data-testid="section-about-hero">
         <div className="absolute inset-0">
-          <img src="/images/hero-worship.png" alt="Worship" className="w-full h-full object-cover" />
+          <img src="/images/church-group.jpg" alt="First Pentecostal Church congregation" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
         <motion.div
@@ -80,8 +80,8 @@ export default function About() {
 
             <motion.div variants={fadeUp}>
               <img
-                src="/images/community-outreach.png"
-                alt="Community outreach"
+                src="/images/church-bible-study.jpg"
+                alt="Church congregation"
                 className="w-full rounded-md object-cover"
               />
             </motion.div>

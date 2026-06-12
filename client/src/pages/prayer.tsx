@@ -37,7 +37,7 @@ export default function Prayer() {
       {/* Hero */}
       <section className="relative h-[40vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
-          <img src="/images/bible-podium.png" alt="Prayer" className="w-full h-full object-cover" />
+          <img src="/images/church-pulpit.jpg" alt="Prayer at FPC Dallas" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black/80" />
         </div>
         <motion.div

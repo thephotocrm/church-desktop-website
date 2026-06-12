@@ -89,8 +89,8 @@ export function StreamPlayer() {
     <Card className="overflow-hidden">
       <div className="relative aspect-video bg-navy flex items-center justify-center">
         <img
-          src="/images/hero-sanctuary.png"
-          alt="Live stream placeholder"
+          src="/images/church-exterior.jpg"
+          alt="First Pentecostal Church of Dallas"
           className="w-full h-full object-cover opacity-30"
         />
         <div className="absolute inset-0 flex flex-col items-center justify-center">
