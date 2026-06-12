@@ -119,7 +119,7 @@ export default function Leadership() {
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {leaders?.slice(1).map((leader) => (
+                  {leaders?.slice(1).filter((l) => l.name !== "Coming Soon").map((leader) => (
                     <motion.div key={leader.id} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "50px" }} variants={fadeUp}>
                       <Card className="overflow-hidden hover-elevate" data-testid={`card-leader-${leader.id}`}>
                         <div className="h-72 overflow-hidden">

@@ -5,7 +5,7 @@ import { GivingForm } from "@/components/giving-form";
 import { SavedPaymentMethods } from "@/components/saved-payment-methods";
 import { useMemberAuth } from "@/hooks/use-member-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, BookOpen, HandHeart, Gift, Smartphone, Building2, CheckCircle } from "lucide-react";
+import { Heart, BookOpen, HandHeart, Gift, Building2, CheckCircle } from "lucide-react";
 import { useSEO } from "@/hooks/use-seo";
 import { Link } from "wouter";
 
@@ -132,21 +132,6 @@ export default function Give() {
                     Other Ways to Give
                   </h3>
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ background: C.GOLD_DIM }}
-                      >
-                        <Smartphone className="w-4 h-4" style={{ color: C.GOLD }} />
-                      </div>
-                      <div>
-                        <p className="text-white font-['Open_Sans'] text-[14px] font-medium">Text to Give</p>
-                        <p className="font-['Open_Sans'] text-[12px]" style={{ color: C.MUTED }}>
-                          Text 'GIVE' to (214) 555-GIVE
-                        </p>
-                      </div>
-                    </div>
-                    <div style={{ borderTop: `1px solid ${C.BORDER}` }} />
                     <div className="flex items-center gap-3">
                       <div
                         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"

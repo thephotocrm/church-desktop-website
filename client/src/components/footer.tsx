@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Cross, MapPin, Phone, Mail, Clock } from "lucide-react";
-import { SiFacebook, SiInstagram, SiYoutube } from "react-icons/si";
+import { SiFacebook, SiYoutube } from "react-icons/si";
 
 export function Footer() {
   const { data: socialLinks } = useQuery<{ youtube: string | null; facebook: string | null }>({
@@ -26,17 +26,20 @@ export function Footer() {
             <p className="text-white/70 font-body text-sm leading-relaxed">
               A Spirit-filled community of believers committed to worshipping God, reaching the lost, and making disciples for Jesus Christ.
             </p>
-            <div className="flex gap-3 mt-6">
-              <a href={socialLinks?.facebook || "https://facebook.com"} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-md bg-white/10 flex items-center justify-center hover:bg-gold transition-colors" data-testid="link-facebook">
-                <SiFacebook className="w-4 h-4" />
-              </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-md bg-white/10 flex items-center justify-center hover:bg-gold transition-colors" data-testid="link-instagram">
-                <SiInstagram className="w-4 h-4" />
-              </a>
-              <a href={socialLinks?.youtube || "https://youtube.com"} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-md bg-white/10 flex items-center justify-center hover:bg-gold transition-colors" data-testid="link-youtube">
-                <SiYoutube className="w-4 h-4" />
-              </a>
-            </div>
+            {(socialLinks?.facebook || socialLinks?.youtube) && (
+              <div className="flex gap-3 mt-6">
+                {socialLinks?.facebook && (
+                  <a href={socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-md bg-white/10 flex items-center justify-center hover:bg-gold transition-colors" data-testid="link-facebook">
+                    <SiFacebook className="w-4 h-4" />
+                  </a>
+                )}
+                {socialLinks?.youtube && (
+                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-md bg-white/10 flex items-center justify-center hover:bg-gold transition-colors" data-testid="link-youtube">
+                    <SiYoutube className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -98,11 +101,11 @@ export function Footer() {
               </li>
               <li className="flex gap-3">
                 <Phone className="w-4 h-4 text-gold mt-0.5 shrink-0" />
-                <span className="text-white/70">(214) 555-0123</span>
+                <span className="text-white/70">(214) 918-0257</span>
               </li>
               <li className="flex gap-3">
                 <Mail className="w-4 h-4 text-gold mt-0.5 shrink-0" />
-                <span className="text-white/70">info@fpcdallas.org</span>
+                <span className="text-white/70">admin@fpcd.life</span>
               </li>
             </ul>
           </div>

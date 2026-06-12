@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import { insertContactSchema, type InsertContact } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { MapPin, Phone, Mail, Clock, Send, Heart, MessageCircle } from "lucide-react";
-import { SiFacebook, SiInstagram, SiYoutube } from "react-icons/si";
 import { useSEO } from "@/hooks/use-seo";
 
 const fadeUp = {
@@ -236,7 +235,7 @@ export default function Connect() {
                   </div>
                   <div>
                     <h3 className="font-bold mb-1">Phone</h3>
-                    <p className="text-muted-foreground font-body text-sm">(214) 555-0123</p>
+                    <p className="text-muted-foreground font-body text-sm">(214) 918-0257</p>
                   </div>
                 </div>
               </Card>
@@ -248,7 +247,7 @@ export default function Connect() {
                   </div>
                   <div>
                     <h3 className="font-bold mb-1">Email</h3>
-                    <p className="text-muted-foreground font-body text-sm">info@fpcdallas.org</p>
+                    <p className="text-muted-foreground font-body text-sm">admin@fpcd.life</p>
                   </div>
                 </div>
               </Card>
@@ -269,20 +268,6 @@ export default function Connect() {
                 </div>
               </Card>
 
-              <div className="pt-4">
-                <h3 className="font-bold mb-4">Follow Us</h3>
-                <div className="flex gap-3">
-                  <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-md bg-card flex items-center justify-center border hover-elevate" data-testid="link-connect-facebook">
-                    <SiFacebook className="w-5 h-5" />
-                  </a>
-                  <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-md bg-card flex items-center justify-center border hover-elevate" data-testid="link-connect-instagram">
-                    <SiInstagram className="w-5 h-5" />
-                  </a>
-                  <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="w-11 h-11 rounded-md bg-card flex items-center justify-center border hover-elevate" data-testid="link-connect-youtube">
-                    <SiYoutube className="w-5 h-5" />
-                  </a>
-                </div>
-              </div>
             </motion.div>
           </motion.div>
         </div>
