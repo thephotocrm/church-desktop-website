@@ -47,7 +47,6 @@ export function Footer() {
                 { href: "/beliefs", label: "Our Beliefs" },
                 { href: "/leadership", label: "Leadership" },
                 { href: "/ministries", label: "Ministries" },
-                { href: "/events", label: "Events" },
                 { href: "/live", label: "Live Stream" },
                 { href: "/past-streams", label: "Past Services" },
                 { href: "/give", label: "Give" },

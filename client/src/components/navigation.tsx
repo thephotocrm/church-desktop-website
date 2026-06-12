@@ -22,7 +22,7 @@ const aboutSubLinks = [
 
 const navLinks = [
   { href: "/", label: "Home" },
-  { href: "/events", label: "Events" },
+  // { href: "/events", label: "Events" },
   { href: "/live", label: "Live Stream" },
   { href: "/prayer", label: "Prayer" },
   { href: "/connect", label: "Connect" },

@@ -248,65 +248,6 @@ export default function Home() {
         </div>
       </section>
 
-      {featuredEvents.length > 0 && (
-        <section className="py-20 bg-card" data-testid="section-events">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "50px" }}
-              variants={stagger}
-            >
-              <motion.div variants={fadeUp} className="text-center mb-14">
-                <span className="text-gold font-body text-sm font-semibold uppercase tracking-widest">What's Happening</span>
-                <h2 className="text-3xl md:text-4xl font-bold mt-2">Upcoming Events</h2>
-                <div className="w-16 h-1 bg-gold mx-auto mt-4 rounded-full" />
-              </motion.div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {featuredEvents.map((event) => (
-                  <motion.div key={event.id} initial="hidden" whileInView="visible" viewport={{ once: true, margin: "50px" }} variants={fadeUp}>
-                    <Card className="overflow-hidden hover-elevate" data-testid={`card-event-${event.id}`}>
-                      {event.imageUrl && (
-                        <div className="h-48 overflow-hidden">
-                          <img
-                            src={event.imageUrl}
-                            alt={event.title}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <div className="p-6">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Calendar className="w-4 h-4 text-gold" />
-                          <span className="text-sm font-body text-muted-foreground">{new Date(event.startDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} at {new Date(event.startDate).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>
-                        </div>
-                        <h3 className="text-lg font-bold mb-2">{event.title}</h3>
-                        <p className="text-muted-foreground font-body text-sm line-clamp-2">{event.description}</p>
-                        {event.location && (
-                          <div className="flex items-center gap-2 mt-3">
-                            <MapPin className="w-3 h-3 text-muted-foreground" />
-                            <span className="text-xs font-body text-muted-foreground">{event.location}</span>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  </motion.div>
-                ))}
-              </div>
-
-              <motion.div variants={fadeUp} className="text-center mt-10">
-                <Link href="/events">
-                  <Button variant="outline" className="font-body" data-testid="button-all-events">
-                    View All Events
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </motion.div>
-            </motion.div>
-          </div>
-        </section>
-      )}
 
       <section className="py-20 bg-card" data-testid="section-location">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
