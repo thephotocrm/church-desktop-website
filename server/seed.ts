@@ -24,7 +24,7 @@ export async function seedDatabase() {
       {
         name: "Pastor James Pacholek",
         title: "Senior Pastor",
-        bio: "Pastor Pacholek has faithfully led First Pentecostal Church for over 15 years. His passion for preaching the uncompromising Word of God and his heart for the lost have been the driving force behind the church's growth. He holds a Master of Divinity and is a sought-after speaker at conferences across the nation.",
+        bio: "Pastor Pacholek leads First Pentecostal Church of Dallas with a passion for the uncompromising Word of God and a heart for the lost. His ministry is marked by a commitment to Apostolic truth, Spirit-filled worship, and genuine care for every member of the congregation.",
         imageUrl: "/images/pastor-main.png",
         orderIndex: 0,
       },
@@ -53,7 +53,7 @@ export async function seedDatabase() {
   } else {
     await db.update(leaders).set({
       name: "Pastor James Pacholek",
-      bio: "Pastor Pacholek has faithfully led First Pentecostal Church for over 15 years. His passion for preaching the uncompromising Word of God and his heart for the lost have been the driving force behind the church's growth. He holds a Master of Divinity and is a sought-after speaker at conferences across the nation.",
+      bio: "Pastor Pacholek leads First Pentecostal Church of Dallas with a passion for the uncompromising Word of God and a heart for the lost. His ministry is marked by a commitment to Apostolic truth, Spirit-filled worship, and genuine care for every member of the congregation.",
     }).where(eq(leaders.orderIndex, 0));
 
     await db.update(leaders).set({
@@ -101,7 +101,7 @@ export async function seedDatabase() {
     },
     {
       title: "Women's Prayer Breakfast",
-      description: "Ladies, join us for a morning of prayer, fellowship, and an encouraging word from Lady Sarah Johnson. A continental breakfast will be provided.",
+      description: "Ladies, join us for a morning of prayer, fellowship, and an encouraging word from our speaker. A continental breakfast will be provided.",
       startDate: new Date("2026-04-05T08:30:00"),
       endDate: new Date("2026-04-05T10:00:00"),
       location: "Fellowship Hall",

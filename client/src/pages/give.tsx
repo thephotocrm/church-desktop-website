@@ -207,10 +207,10 @@ export default function Give() {
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { icon: Heart, title: "Community Outreach", desc: "Feeding families, supporting shelters, and meeting needs locally.", pct: "30%" },
-                { icon: BookOpen, title: "Ministry & Teaching", desc: "Bible studies, discipleship, and Sunday school materials.", pct: "25%" },
-                { icon: HandHeart, title: "Missions", desc: "Supporting missionaries and gospel outreach worldwide.", pct: "20%" },
-                { icon: Gift, title: "Operations", desc: "Maintaining facilities and supporting staff and programs.", pct: "25%" },
+                { icon: Heart, title: "Community Outreach", desc: "Feeding families, supporting shelters, and meeting needs locally." },
+                { icon: BookOpen, title: "Ministry & Teaching", desc: "Bible studies, discipleship, and Sunday school materials." },
+                { icon: HandHeart, title: "Missions", desc: "Supporting missionaries and gospel outreach worldwide." },
+                { icon: Gift, title: "Operations", desc: "Maintaining facilities and supporting staff and programs." },
               ].map((item, i) => (
                 <motion.div key={i} variants={fadeUp}>
                   <div
@@ -223,7 +223,6 @@ export default function Give() {
                     >
                       <item.icon className="w-5 h-5" style={{ color: C.GOLD }} />
                     </div>
-                    <p className="font-['Playfair_Display'] text-2xl font-bold mb-1" style={{ color: C.GOLD }}>{item.pct}</p>
                     <h3 className="text-white font-['Open_Sans'] text-[13px] font-bold mb-1">{item.title}</h3>
                     <p className="font-['Open_Sans'] text-[11px] leading-relaxed" style={{ color: C.MUTED }}>{item.desc}</p>
                   </div>

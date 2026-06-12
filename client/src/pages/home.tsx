@@ -188,15 +188,14 @@ export default function Home() {
 
             <motion.div variants={fadeUp} className="grid grid-cols-2 gap-4">
               {[
-                { icon: Heart, label: "Spirit-Filled\nWorship", count: "20+" , sub: "Years of Ministry" },
-                { icon: Users, label: "Growing\nCommunity", count: "500+", sub: "Members Strong" },
-                { icon: HandHeart, label: "Outreach\nPrograms", count: "12", sub: "Active Ministries" },
-                { icon: BookOpen, label: "Biblical\nTeaching", count: "100+", sub: "Weekly Attendees" },
+                { icon: Heart, label: "Spirit-Filled Worship" },
+                { icon: Users, label: "Welcoming Community" },
+                { icon: HandHeart, label: "Outreach & Service" },
+                { icon: BookOpen, label: "Biblical Teaching" },
               ].map((item, i) => (
                 <Card key={i} className="p-6 bg-white/10 backdrop-blur-sm border-white/10 text-white text-center">
                   <item.icon className="w-8 h-8 text-gold mx-auto mb-3" />
-                  <p className="text-2xl font-bold text-gold mb-1 font-body">{item.count}</p>
-                  <p className="text-sm text-white/70 font-body">{item.sub}</p>
+                  <p className="text-sm text-white/80 font-body font-semibold">{item.label}</p>
                 </Card>
               ))}
             </motion.div>
@@ -220,10 +219,10 @@ export default function Home() {
                 <span className="text-gold">Pastor Pacholek</span>
               </h2>
               <blockquote className="text-lg font-body text-muted-foreground leading-relaxed italic mb-6 border-l-4 border-gold pl-6">
-                "Our mission is simple: to love God with all our hearts, to love
-                our neighbors as ourselves, and to share the good news of Jesus
-                Christ with everyone we meet. At First Pentecostal Church, you'll
-                find a family ready to welcome you home."
+                "We are committed to preaching the uncompromising Word of God and
+                the Apostolic message of repentance, baptism in Jesus' name, and
+                the gift of the Holy Spirit. Come as you are — there is a place
+                for you at First Pentecostal Church."
               </blockquote>
               <p className="font-bold text-lg">Pastor James Pacholek</p>
               <p className="text-muted-foreground font-body text-sm">Senior Pastor</p>

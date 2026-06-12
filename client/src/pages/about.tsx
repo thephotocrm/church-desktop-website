@@ -58,20 +58,19 @@ export default function About() {
               </h2>
               <div className="space-y-4 font-body text-muted-foreground leading-relaxed">
                 <p>
-                  First Pentecostal Church of Dallas was founded over two decades ago
-                  with a simple yet powerful vision: to create a place where people
-                  from all walks of life could encounter the living God and be
-                  transformed by His Spirit.
+                  First Pentecostal Church of Dallas was established with a simple
+                  yet powerful vision: to create a place where people from all walks
+                  of life could encounter the living God and be transformed by His Spirit.
                 </p>
                 <p>
-                  What began as a small prayer meeting in a living room has grown
-                  into a vibrant congregation of hundreds of believers who are
-                  passionate about worshipping God, serving our community, and
-                  sharing the gospel with the world.
+                  We are a congregation passionate about worshipping God, serving our
+                  community, and sharing the Apostolic gospel with the world. Our
+                  doors are open to anyone seeking truth, healing, and a genuine move
+                  of the Holy Spirit.
                 </p>
                 <p>
-                  Today, our church stands as a beacon of hope in the Dallas
-                  community, committed to preaching the full gospel of Jesus Christ
+                  Today, our church stands as a beacon of hope in the Wylie and greater
+                  Dallas area, committed to preaching the full gospel of Jesus Christ
                   with signs and wonders following. We are a church that believes in
                   the power of prayer, the authority of Scripture, and the
                   life-changing baptism of the Holy Spirit.
