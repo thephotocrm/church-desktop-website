@@ -23,50 +23,50 @@ const beliefs = [
   },
   {
     icon: Crown,
-    title: "One God",
-    description: "We believe in one God, eternally existing in three persons: Father, Son, and Holy Spirit. These three are one God, co-equal and co-eternal. God is the Creator of all things, infinitely perfect and eternally existing.",
-    verse: "Deuteronomy 6:4; Matthew 28:19",
+    title: "One God — Absolute Monotheism",
+    description: "We believe there is one God — absolutely and indivisibly one. God is not a trinity of three separate persons, but one Lord whose name is Jesus. He revealed Himself as Father in creation, as the Son in redemption, and as the Holy Spirit in regeneration. The fullness of the Godhead dwells bodily in Jesus Christ.",
+    verse: "Deuteronomy 6:4; Isaiah 43:10-11; Colossians 2:9",
   },
   {
     icon: Cross,
-    title: "Jesus Christ",
-    description: "We believe in the deity of Jesus Christ, His virgin birth, His sinless life, His miracles, His atoning death on the cross, His bodily resurrection, His ascension to the right hand of the Father, and His imminent return in power and glory.",
-    verse: "John 1:1-14; Philippians 2:5-11",
+    title: "Jesus Christ — The Fullness of the Godhead",
+    description: "We believe Jesus Christ is the one God of the Old Testament manifest in the flesh. He is not merely one member of a trinity, but the Father, Son, and Holy Spirit all fully embodied in one person. He was born of a virgin, lived a sinless life, died for our sins, rose bodily from the dead, and is coming again in power and glory.",
+    verse: "John 1:1,14; Colossians 2:9; 1 Timothy 3:16",
   },
   {
     icon: Flame,
     title: "The Holy Spirit",
-    description: "We believe in the baptism of the Holy Spirit with the initial evidence of speaking in other tongues as the Spirit gives utterance. We believe the gifts of the Spirit are active today and available to every believer.",
-    verse: "Acts 2:4; 1 Corinthians 12:1-11",
+    description: "We believe in the baptism of the Holy Spirit with the initial evidence of speaking in other tongues as the Spirit gives utterance — the same experience recorded on the Day of Pentecost. The gifts of the Spirit are active today and available to every believer.",
+    verse: "Acts 2:4; Joel 2:28-29; 1 Corinthians 12:1-11",
   },
   {
     icon: Heart,
     title: "Salvation",
-    description: "We believe salvation is a gift of God's grace received through faith in Jesus Christ. It includes repentance from sin, faith toward God, water baptism by immersion in the name of Jesus Christ, and the receiving of the Holy Spirit.",
-    verse: "Acts 2:38; Ephesians 2:8-9",
+    description: "We believe in the New Birth as commanded by Jesus in John 3:5 — repentance from sin, water baptism by immersion in the name of Jesus Christ for the remission of sins, and receiving the gift of the Holy Spirit. This is the Apostolic pattern of salvation as preached on the Day of Pentecost.",
+    verse: "Acts 2:38; John 3:5; Acts 4:12",
   },
   {
     icon: Droplets,
-    title: "Water Baptism",
-    description: "We believe in water baptism by immersion in the name of the Lord Jesus Christ for the remission of sins. Baptism is an outward expression of an inward transformation and an act of obedience to God's Word.",
-    verse: "Acts 2:38; Romans 6:3-4",
+    title: "Water Baptism in Jesus' Name",
+    description: "We believe in water baptism by immersion in the name of the Lord Jesus Christ for the remission of sins. The Apostles consistently baptized in Jesus' name throughout the book of Acts, fulfilling the command to baptize in the one name of the Father, Son, and Holy Spirit — which is Jesus.",
+    verse: "Acts 2:38; Acts 8:16; Acts 10:48; Acts 19:5",
   },
   {
     icon: Shield,
     title: "Holy Living",
     description: "We believe God calls every believer to live a holy and separated life. Through the power of the Holy Spirit, we can overcome sin and live in a way that honors God in every area of our lives.",
-    verse: "1 Peter 1:15-16; Hebrews 12:14",
+    verse: "1 Peter 1:15-16; Hebrews 12:14; Romans 12:1-2",
   },
   {
     icon: Users,
     title: "The Church",
-    description: "We believe the Church is the body of Christ, made up of born-again believers from every nation, tribe, and tongue. The local church is ordained by God for worship, fellowship, discipleship, and evangelism.",
-    verse: "Ephesians 1:22-23; Acts 2:42-47",
+    description: "We believe the Church is the body of Christ, made up of born-again believers from every nation, tribe, and tongue. The local church is ordained by God for worship, fellowship, discipleship, and evangelism, continuing the Apostolic faith once delivered to the saints.",
+    verse: "Ephesians 1:22-23; Jude 1:3; Acts 2:42-47",
   },
 ];
 
 export default function Beliefs() {
-  useSEO({ title: "Our Beliefs", description: "Discover the foundational truths and statement of faith that guide First Pentecostal Church of Dallas." });
+  useSEO({ title: "Our Beliefs", description: "Discover the Oneness Apostolic Pentecostal statement of faith that guides First Pentecostal Church of Dallas — one God, one name, one baptism." });
 
   return (
     <div className="min-h-screen">
