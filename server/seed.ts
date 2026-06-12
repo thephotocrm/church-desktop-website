@@ -139,21 +139,6 @@ export async function seedDatabase() {
   if (existingMinistries.length === 0) {
   await db.insert(ministries).values([
     {
-      name: "Worship & Music Ministry",
-      description: "Our worship team leads the congregation into the presence of God through Spirit-filled praise and worship. Whether you sing, play an instrument, or run sound, there's a place for you.",
-      imageUrl: "/images/church-worship.jpg",
-    },
-    {
-      name: "Youth Ministry",
-      description: "Empowering the next generation with the gospel of Jesus Christ through dynamic teaching, mentorship, and community. For ages 13-25 with weekly meetings and special events.",
-      imageUrl: "/images/church-children.jpg",
-    },
-    {
-      name: "Women of Virtue",
-      description: "A ministry dedicated to building up women in faith, purpose, and community. Monthly meetings, Bible studies, retreats, and outreach opportunities for women of all ages.",
-      imageUrl: "/images/church-ceremony.jpg",
-    },
-    {
       name: "Community Outreach",
       description: "Serving the Dallas community through food drives, clothing distributions, neighborhood clean-ups, and partnerships with local organizations to meet real needs.",
       imageUrl: "/images/church-group.jpg",
@@ -164,9 +149,9 @@ export async function seedDatabase() {
       imageUrl: "/images/church-children.jpg",
     },
     {
-      name: "Prayer Warriors",
-      description: "A dedicated team of intercessors who pray for the church, community, and world. Weekly prayer meetings and 24-hour prayer chains for urgent needs. Open to all who have a heart for prayer.",
-      imageUrl: "/images/church-pulpit.jpg",
+      name: "Youth Ministry",
+      description: "Empowering the next generation with the gospel of Jesus Christ through dynamic teaching, mentorship, and community. For ages 13-25 with weekly meetings and special events.",
+      imageUrl: "/images/church-children.jpg",
     },
   ]);
   }
