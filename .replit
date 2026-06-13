@@ -43,3 +43,6 @@ waitForPort = 5000
 
 [userenv.shared]
 JWT_SECRET = "ebf0873a87ec04fdb0aac497ab67b10d9b0eafa5cbf9fd6cea659266c0aefad8831b5470a719b7198c308231d534fc70"
+
+[agent]
+integrations = ["google-mail:1.0.0"]

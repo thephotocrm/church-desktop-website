@@ -12,6 +12,7 @@ import { vpsRestreamRouter } from "./routes/platformRoutes";
 import youtubeRoutes from "./routes/youtubeRoutes";
 import eventRoutes from "./routes/eventRoutes";
 import { startRestreaming, stopRestreaming } from "./restreamManager";
+import { sendContactNotification } from "./gmail";
 import recordingRoutes from "./routes/recordingRoutes";
 import victoryRoutes from "./routes/victoryRoutes";
 import prayerLogRoutes from "./routes/prayerLogRoutes";
@@ -92,6 +93,11 @@ export async function registerRoutes(
     }
     const contact = await storage.createContact(parsed.data);
     res.status(201).json(contact);
+
+    // Fire-and-forget email notification — don't block the response
+    sendContactNotification(parsed.data).catch((err) => {
+      console.error("[contact] Gmail notification failed:", err);
+    });
   });
 
   // GET /api/stream/status - public endpoint with auto-detection
