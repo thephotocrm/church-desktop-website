@@ -122,9 +122,9 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { day: "Sunday Morning", subtitle: "Church Service", time: "10:00 AM", desc: "A full worship and preaching service with anointed praise, prayer, and a powerful Word from the pulpit.", icon: Sparkles },
-                { day: "Sunday Evening", subtitle: "Study & Fellowship", time: "6:00 PM", desc: "Connect Night — a time for Bible study, fellowship, and building lasting relationships in the body of Christ.", icon: Flame },
-                { day: "Wednesday", subtitle: "Prayer & Bible Study", time: "7:00 PM", desc: "Midweek recharge with prayer, worship, and Bible study to carry you through the rest of the week.", icon: BookOpen },
+                { day: "Sunday Morning", subtitle: "Church Service", time: "11:00 AM", desc: "A full worship and preaching service with anointed praise, prayer, and a powerful Word from the pulpit.", icon: Sparkles },
+                { day: "Sunday Evening", subtitle: "Worship Service", time: "6:30 PM", desc: "An evening service filled with worship, prayer, and Spirit-filled preaching to close out the Lord's Day.", icon: Flame },
+                { day: "Thursday", subtitle: "Prayer & Bible Study", time: "7:30 PM", desc: "Midweek recharge with prayer, worship, and Bible study to carry you through the rest of the week.", icon: BookOpen },
               ].map((service, i) => (
                 <motion.div key={i} variants={fadeUp}>
                   <Card className="p-8 text-center hover-elevate">
@@ -300,9 +300,9 @@ export default function Home() {
                     <div>
                       <h3 className="font-bold mb-1">Service Times</h3>
                       <p className="text-muted-foreground font-body text-sm">
-                        Sun Morning: 10:00 AM<br />
-                        Sun Evening: 6:00 PM<br />
-                        Wednesday: 7:00 PM
+                        Sun Morning: 11:00 AM<br />
+                        Sun Evening: 6:30 PM<br />
+                        Thursday: 7:30 PM
                       </p>
                     </div>
                   </div>

@@ -146,9 +146,9 @@ export default function LiveStream() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
               {[
-                { day: "Sunday Morning", time: "10:00 AM CST", desc: "Worship Service", live: true },
-                { day: "Sunday Evening", time: "6:00 PM CST", desc: "Evening Service", live: true },
-                { day: "Wednesday", time: "7:00 PM CST", desc: "Bible Study", live: false },
+                { day: "Sunday Morning", time: "11:00 AM CST", desc: "Worship Service", live: true },
+                { day: "Sunday Evening", time: "6:30 PM CST", desc: "Evening Service", live: true },
+                { day: "Thursday", time: "7:30 PM CST", desc: "Bible Study", live: false },
               ].map((item, i) => (
                 <motion.div key={i} variants={fadeUp}>
                   <Card className={`p-6 text-center ${item.live ? "border-gold/30" : ""}`}>
