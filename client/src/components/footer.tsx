@@ -79,14 +79,14 @@ export function Footer() {
                 <Clock className="w-4 h-4 text-gold mt-0.5 shrink-0" />
                 <div>
                   <p className="text-white font-semibold">Sunday Evening</p>
-                  <p className="text-white/60">6:30 PM - Worship Service</p>
+                  <p className="text-white/60">6:30 PM - FPC Connect</p>
                 </div>
               </li>
               <li className="flex gap-3">
                 <Clock className="w-4 h-4 text-gold mt-0.5 shrink-0" />
                 <div>
                   <p className="text-white font-semibold">Thursday</p>
-                  <p className="text-white/60">7:30 PM - Bible Study</p>
+                  <p className="text-white/60">7:30 PM - Worship Service</p>
                 </div>
               </li>
             </ul>

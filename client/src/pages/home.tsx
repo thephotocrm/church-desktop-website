@@ -123,8 +123,8 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                 { day: "Sunday Morning", subtitle: "Church Service", time: "11:00 AM", desc: "A full worship and preaching service with anointed praise, prayer, and a powerful Word from the pulpit.", icon: Sparkles },
-                { day: "Sunday Evening", subtitle: "Worship Service", time: "6:30 PM", desc: "An evening service filled with worship, prayer, and Spirit-filled preaching to close out the Lord's Day.", icon: Flame },
-                { day: "Thursday", subtitle: "Prayer & Bible Study", time: "7:30 PM", desc: "Midweek recharge with prayer, worship, and Bible study to carry you through the rest of the week.", icon: BookOpen },
+                { day: "Sunday Evening", subtitle: "FPC Connect", time: "6:30 PM", desc: "FPC Connect — our Sunday evening Bible study and fellowship time to grow deeper in the Word together.", icon: Flame },
+                { day: "Thursday", subtitle: "Worship Service", time: "7:30 PM", desc: "A midweek worship service with anointed praise, prayer, and a Word from the pulpit.", icon: BookOpen },
               ].map((service, i) => (
                 <motion.div key={i} variants={fadeUp}>
                   <Card className="p-8 text-center hover-elevate">
