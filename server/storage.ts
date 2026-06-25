@@ -21,11 +21,12 @@ import {
   type VictoryReport, type InsertVictoryReport,
   type PrayerLog,
   type YoutubeOauthToken,
+  type YoutubeScheduledBroadcast,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
   members, groups, groupMembers, messages, prayerRequests, fundCategories, donations,
   platformConfig, youtubeStreamCache, restreamStatus,
   eventGroups, eventRsvps, authCodes, recordings, styleReferences,
-  victoryReports, prayerLogs, youtubeOauthTokens,
+  victoryReports, prayerLogs, youtubeOauthTokens, youtubeScheduledBroadcasts,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, and, gte, lte, lt, desc, sql, inArray, ilike } from "drizzle-orm";
@@ -176,6 +177,14 @@ export interface IStorage {
   getYoutubeOauthToken(): Promise<YoutubeOauthToken | null>;
   setYoutubeOauthToken(data: { accessToken?: string; refreshToken: string; expiresAt?: Date }): Promise<void>;
   deleteYoutubeOauthToken(): Promise<void>;
+
+  // YouTube Scheduled Broadcasts
+  getScheduledBroadcasts(): Promise<YoutubeScheduledBroadcast[]>;
+  saveScheduledBroadcast(data: {
+    broadcastId: string; serviceType: string; serviceDate: string;
+    scheduledStart: Date; title: string; thumbnailSet: boolean;
+  }): Promise<YoutubeScheduledBroadcast>;
+  deleteScheduledBroadcast(broadcastId: string): Promise<void>;
 
   // Auth Codes
   createAuthCode(memberId: string, code: string, expiresAt: Date): Promise<AuthCode>;
@@ -1080,6 +1089,24 @@ export class DatabaseStorage implements IStorage {
 
   async deleteYoutubeOauthToken(): Promise<void> {
     await db.delete(youtubeOauthTokens);
+  }
+
+  async getScheduledBroadcasts(): Promise<YoutubeScheduledBroadcast[]> {
+    return db.select().from(youtubeScheduledBroadcasts)
+      .orderBy(asc(youtubeScheduledBroadcasts.scheduledStart));
+  }
+
+  async saveScheduledBroadcast(data: {
+    broadcastId: string; serviceType: string; serviceDate: string;
+    scheduledStart: Date; title: string; thumbnailSet: boolean;
+  }): Promise<YoutubeScheduledBroadcast> {
+    const [row] = await db.insert(youtubeScheduledBroadcasts).values(data).returning();
+    return row;
+  }
+
+  async deleteScheduledBroadcast(broadcastId: string): Promise<void> {
+    await db.delete(youtubeScheduledBroadcasts)
+      .where(eq(youtubeScheduledBroadcasts.broadcastId, broadcastId));
   }
 }
 

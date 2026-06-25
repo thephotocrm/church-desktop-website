@@ -1703,13 +1703,43 @@ function RestreamAdmin() {
   );
 }
 
+interface ScheduledBroadcast {
+  id: string;
+  broadcastId: string;
+  serviceType: string;
+  serviceDate: string;
+  scheduledStart: string;
+  title: string;
+  thumbnailSet: boolean;
+}
+
+interface ScheduleResult {
+  scheduled: number;
+  skipped: number;
+  errors: number;
+}
+
+function serviceLabel(type: string) {
+  if (type === "sunday-morning") return "Sunday Morning";
+  if (type === "thursday") return "Thursday Night";
+  return type;
+}
+
 function YouTubeAuthCard() {
   const { toast } = useToast();
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  const { data: status, refetch } = useQuery<{ connected: boolean }>({
+  const { data: status, refetch: refetchStatus } = useQuery<{ connected: boolean }>({
     queryKey: ["/api/admin/youtube-auth/status"],
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: broadcasts, refetch: refetchBroadcasts } = useQuery<ScheduledBroadcast[]>({
+    queryKey: ["/api/admin/youtube-auth/scheduled-broadcasts"],
+    enabled: status?.connected === true,
     refetchOnWindowFocus: true,
   });
 
@@ -1719,8 +1749,8 @@ function YouTubeAuthCard() {
     const params = new URLSearchParams(window.location.search);
     const ytauth = params.get("ytauth");
     if (ytauth === "success") {
-      toast({ title: "YouTube connected", description: "Thumbnails will now upload automatically when you go live." });
-      refetch();
+      toast({ title: "YouTube connected", description: "Broadcasts can now be scheduled automatically." });
+      refetchStatus();
       window.history.replaceState({}, "", window.location.pathname + "?tab=stream");
     } else if (ytauth === "error") {
       toast({ title: "Connection failed", description: "Check that GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set.", variant: "destructive" });
@@ -1734,7 +1764,7 @@ function YouTubeAuthCard() {
       const res = await fetch("/api/admin/youtube-auth/authorize", { credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed" }));
-        toast({ title: "Error", description: err.error || "Could not generate auth URL. Make sure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are configured.", variant: "destructive" });
+        toast({ title: "Error", description: err.error || "Could not generate auth URL.", variant: "destructive" });
         return;
       }
       const { url } = await res.json();
@@ -1749,53 +1779,114 @@ function YouTubeAuthCard() {
     try {
       await fetch("/api/admin/youtube-auth", { method: "DELETE", credentials: "include" });
       toast({ title: "Disconnected", description: "YouTube account unlinked." });
-      refetch();
+      refetchStatus();
     } finally {
       setDisconnecting(false);
     }
   };
 
+  const scheduleAll = async () => {
+    setScheduling(true);
+    try {
+      const res = await fetch("/api/admin/youtube-auth/schedule", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ months: 3 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        toast({ title: "Scheduling failed", description: err.error, variant: "destructive" });
+        return;
+      }
+      const result: ScheduleResult = await res.json();
+      toast({
+        title: `${result.scheduled} broadcasts scheduled`,
+        description: result.skipped > 0
+          ? `${result.skipped} already existed and were skipped.`
+          : "All upcoming services have branded thumbnails ready on YouTube.",
+      });
+      refetchBroadcasts();
+    } finally {
+      setScheduling(false);
+    }
+  };
+
+  const cancelOne = async (broadcastId: string) => {
+    setCancellingId(broadcastId);
+    try {
+      await fetch(`/api/admin/youtube-auth/scheduled-broadcasts/${broadcastId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      refetchBroadcasts();
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   const connected = status?.connected ?? false;
+  const upcomingBroadcasts = (broadcasts ?? []).filter(
+    (b) => new Date(b.scheduledStart) > new Date()
+  );
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Video className="w-4 h-4 text-red-500" />
-          Auto-Thumbnail Upload
+          YouTube Broadcast Scheduler
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Connect your YouTube account so thumbnails upload automatically the moment you go live — no manual steps needed.
+          Automatically create scheduled YouTube broadcasts with branded thumbnails for the next 3 months — thumbnails are set before you ever open OBS.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+
+        {/* Connection status */}
         <div className={`flex items-center gap-2 text-sm font-medium rounded-md px-3 py-2 ${connected ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-muted text-muted-foreground"}`}>
           <div className={`w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-gray-400"}`} />
           {connected ? "YouTube account connected" : "Not connected"}
         </div>
 
-        {connected ? (
-          <div className="space-y-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-3">
-            <p className="font-medium text-foreground text-sm">How it works</p>
-            <p>When your stream goes live, the server detects the service type (Sunday morning, FPC Connect, or Thursday) and automatically generates and uploads a branded 1280×720 thumbnail to your active YouTube broadcast.</p>
-          </div>
-        ) : (
+        {!connected && (
           <div className="space-y-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-3">
             <p className="font-medium text-foreground text-sm">Setup required</p>
             <ol className="list-decimal list-inside space-y-1">
               <li>Set <code className="bg-muted px-1 rounded">GOOGLE_CLIENT_ID</code> and <code className="bg-muted px-1 rounded">GOOGLE_CLIENT_SECRET</code> secrets</li>
-              <li>Add <code className="bg-muted px-1 rounded">/api/admin/youtube-auth/callback</code> to your Google OAuth client's redirect URIs</li>
-              <li>Click Connect below and authorize with your YouTube account</li>
+              <li>Add <code className="bg-muted px-1 rounded">/api/admin/youtube-auth/callback</code> to your Google OAuth redirect URIs</li>
+              <li>Click Connect and authorize with your YouTube account</li>
             </ol>
           </div>
         )}
 
-        <div className="flex gap-2">
+        {connected && (
+          <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+            <p className="font-medium text-foreground text-sm">How it works</p>
+            <p>Click <strong>Schedule Next 3 Months</strong> to create a YouTube broadcast for every Sunday morning (11 AM) and Thursday night (7:30 PM) service over the next 3 months. Each gets a branded thumbnail instantly. When you press Start in OBS, YouTube routes the stream to the nearest upcoming broadcast — the thumbnail is already there from the start.</p>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-2">
           {connected ? (
-            <Button variant="outline" size="sm" onClick={disconnect} disabled={disconnecting} data-testid="button-youtube-disconnect">
-              {disconnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <X className="w-4 h-4 mr-2" />}
-              Disconnect
-            </Button>
+            <>
+              <Button
+                size="sm"
+                onClick={scheduleAll}
+                disabled={scheduling}
+                data-testid="button-schedule-broadcasts"
+              >
+                {scheduling
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Scheduling…</>
+                  : <><Calendar className="w-4 h-4 mr-2" />Schedule Next 3 Months</>
+                }
+              </Button>
+              <Button variant="outline" size="sm" onClick={disconnect} disabled={disconnecting} data-testid="button-youtube-disconnect">
+                {disconnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <X className="w-4 h-4 mr-2" />}
+                Disconnect
+              </Button>
+            </>
           ) : (
             <Button size="sm" onClick={connect} disabled={connecting} data-testid="button-youtube-connect">
               {connecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Video className="w-4 h-4 mr-2" />}
@@ -1803,6 +1894,61 @@ function YouTubeAuthCard() {
             </Button>
           )}
         </div>
+
+        {/* Scheduled broadcasts list */}
+        {connected && upcomingBroadcasts.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Scheduled ({upcomingBroadcasts.length})
+            </p>
+            <div className="max-h-60 overflow-y-auto space-y-1 rounded-md border border-border/50">
+              {upcomingBroadcasts.map((b) => {
+                const start = new Date(b.scheduledStart);
+                const label = serviceLabel(b.serviceType);
+                const dateStr = start.toLocaleDateString("en-US", {
+                  weekday: "short", month: "short", day: "numeric",
+                  hour: "numeric", minute: "2-digit", timeZone: "America/Chicago",
+                });
+                return (
+                  <div
+                    key={b.id}
+                    data-testid={`row-broadcast-${b.broadcastId}`}
+                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-muted/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${b.thumbnailSet ? "bg-green-500" : "bg-yellow-500"}`} />
+                      <span className="font-medium truncate">{label}</span>
+                      <span className="text-muted-foreground text-xs truncate">{dateStr}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive flex-shrink-0"
+                      onClick={() => cancelOne(b.broadcastId)}
+                      disabled={cancellingId === b.broadcastId}
+                      data-testid={`button-cancel-${b.broadcastId}`}
+                    >
+                      {cancellingId === b.broadcastId
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <X className="w-3 h-3" />
+                      }
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-1" />thumbnail set
+              <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 mx-1 ml-3" />thumbnail pending
+            </p>
+          </div>
+        )}
+
+        {connected && upcomingBroadcasts.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-2">
+            No upcoming broadcasts scheduled yet — click <strong>Schedule Next 3 Months</strong> above.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

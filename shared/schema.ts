@@ -464,3 +464,18 @@ export const youtubeOauthTokens = pgTable("youtube_oauth_tokens", {
 });
 
 export type YoutubeOauthToken = typeof youtubeOauthTokens.$inferSelect;
+
+// ===================== YouTube Scheduled Broadcasts =====================
+
+export const youtubeScheduledBroadcasts = pgTable("youtube_scheduled_broadcasts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  broadcastId: text("broadcast_id").notNull().unique(),
+  serviceType: text("service_type").notNull(), // sunday-morning | sunday-evening | thursday
+  serviceDate: text("service_date").notNull(), // YYYY-MM-DD
+  scheduledStart: timestamp("scheduled_start").notNull(),
+  title: text("title").notNull(),
+  thumbnailSet: boolean("thumbnail_set").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type YoutubeScheduledBroadcast = typeof youtubeScheduledBroadcasts.$inferSelect;

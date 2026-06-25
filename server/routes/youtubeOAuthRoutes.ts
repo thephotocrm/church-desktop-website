@@ -4,6 +4,7 @@ import { requireAuth } from "../auth";
 import { storage } from "../storage";
 import { encrypt, decrypt } from "../encryption";
 import { getOAuthUrl, exchangeCode, revokeToken } from "../youtubeOauth";
+import { scheduleNextMonths, cancelBroadcast, getUpcomingServiceDates } from "../youtubeScheduler";
 
 const router = Router();
 
@@ -67,6 +68,52 @@ router.get("/callback", async (req, res) => {
   } catch (err) {
     console.error("[YouTubeOAuth] Token exchange error:", err);
     return res.redirect(`${base}/admin?tab=stream&ytauth=error`);
+  }
+});
+
+// GET /api/admin/youtube-auth/scheduled-broadcasts
+router.get("/scheduled-broadcasts", requireAuth, async (_req, res) => {
+  try {
+    const broadcasts = await storage.getScheduledBroadcasts();
+    res.json(broadcasts);
+  } catch (err) {
+    console.error("[YouTubeOAuth] list broadcasts error:", err);
+    res.status(500).json({ error: "Failed to list broadcasts" });
+  }
+});
+
+// POST /api/admin/youtube-auth/schedule — create next N months of broadcasts
+router.post("/schedule", requireAuth, async (req, res) => {
+  const months = Math.min(parseInt(req.body?.months) || 3, 6);
+  try {
+    const result = await scheduleNextMonths(months);
+    res.json(result);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to schedule broadcasts";
+    console.error("[YouTubeOAuth] schedule error:", err);
+    res.status(500).json({ error: message });
+  }
+});
+
+// DELETE /api/admin/youtube-auth/scheduled-broadcasts/:broadcastId — cancel one
+router.delete("/scheduled-broadcasts/:broadcastId", requireAuth, async (req, res) => {
+  try {
+    await cancelBroadcast(req.params.broadcastId);
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to cancel broadcast";
+    console.error("[YouTubeOAuth] cancel error:", err);
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /api/admin/youtube-auth/preview-schedule — see what would be scheduled (no API calls)
+router.get("/preview-schedule", requireAuth, (_req, res) => {
+  try {
+    const services = getUpcomingServiceDates(3);
+    res.json(services.map((s) => ({ ...s, scheduledStart: s.scheduledStart.toISOString() })));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to preview schedule" });
   }
 });
 
