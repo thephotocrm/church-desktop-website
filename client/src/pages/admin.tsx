@@ -1695,7 +1695,101 @@ function RestreamAdmin() {
           />
         </>
       )}
+
+      <PreStreamThumbnailCard />
     </div>
+  );
+}
+
+function PreStreamThumbnailCard() {
+  const [serviceType, setServiceType] = useState("sunday-morning");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const serviceOptions = [
+    { value: "sunday-morning", label: "Sunday Morning Worship" },
+    { value: "sunday-evening", label: "FPC Connect (Sunday Evening)" },
+    { value: "thursday",       label: "Thursday Worship Service" },
+  ];
+
+  const generate = async (download = false) => {
+    setLoading(true);
+    try {
+      const url = `/api/admin/thumbnail/pre-stream?type=${serviceType}&date=${date}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to generate");
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      if (download) {
+        const a = document.createElement("a");
+        a.href = objectUrl;
+        a.download = `fpcd-${serviceType}-${date}.png`;
+        a.click();
+      }
+      setPreviewUrl(objectUrl);
+    } catch {
+      // silently fail — server logs will catch it
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Image className="w-4 h-4 text-gold" />
+          Pre-Stream Thumbnail
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Generate a branded 1280×720 thumbnail to upload to YouTube before going live.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label>Service</Label>
+            <Select value={serviceType} onValueChange={setServiceType}>
+              <SelectTrigger data-testid="select-service-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {serviceOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Date</Label>
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              data-testid="input-thumbnail-date"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => generate(false)} disabled={loading} data-testid="button-preview-thumbnail">
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Camera className="w-4 h-4 mr-2" />}
+            Preview
+          </Button>
+          <Button onClick={() => generate(true)} disabled={loading} data-testid="button-download-thumbnail">
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+            Download PNG
+          </Button>
+        </div>
+
+        {previewUrl && (
+          <div className="rounded-lg overflow-hidden border border-border/50">
+            <img src={previewUrl} alt="Thumbnail preview" className="w-full" />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
