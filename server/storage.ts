@@ -20,11 +20,12 @@ import {
   type StyleReference, type InsertStyleReference,
   type VictoryReport, type InsertVictoryReport,
   type PrayerLog,
+  type YoutubeOauthToken,
   users, contactSubmissions, events, leaders, ministries, streamConfig,
   members, groups, groupMembers, messages, prayerRequests, fundCategories, donations,
   platformConfig, youtubeStreamCache, restreamStatus,
   eventGroups, eventRsvps, authCodes, recordings, styleReferences,
-  victoryReports, prayerLogs,
+  victoryReports, prayerLogs, youtubeOauthTokens,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, and, gte, lte, lt, desc, sql, inArray, ilike } from "drizzle-orm";
@@ -170,6 +171,11 @@ export interface IStorage {
   getRestreamStatuses(): Promise<RestreamStatus[]>;
   getRestreamStatus(platform: string): Promise<RestreamStatus | undefined>;
   upsertRestreamStatus(platform: string, data: Partial<InsertRestreamStatus>): Promise<RestreamStatus>;
+
+  // YouTube OAuth
+  getYoutubeOauthToken(): Promise<YoutubeOauthToken | null>;
+  setYoutubeOauthToken(data: { accessToken?: string; refreshToken: string; expiresAt?: Date }): Promise<void>;
+  deleteYoutubeOauthToken(): Promise<void>;
 
   // Auth Codes
   createAuthCode(memberId: string, code: string, expiresAt: Date): Promise<AuthCode>;
@@ -1050,6 +1056,30 @@ export class DatabaseStorage implements IStorage {
   async createPrayerLog(memberId: string): Promise<PrayerLog> {
     const [result] = await db.insert(prayerLogs).values({ memberId }).returning();
     return result;
+  }
+
+  async getYoutubeOauthToken(): Promise<YoutubeOauthToken | null> {
+    const [row] = await db.select().from(youtubeOauthTokens).limit(1);
+    return row ?? null;
+  }
+
+  async setYoutubeOauthToken(data: {
+    accessToken?: string;
+    refreshToken: string;
+    expiresAt?: Date;
+  }): Promise<void> {
+    const existing = await this.getYoutubeOauthToken();
+    if (existing) {
+      await db.update(youtubeOauthTokens)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(youtubeOauthTokens.id, existing.id));
+    } else {
+      await db.insert(youtubeOauthTokens).values({ ...data });
+    }
+  }
+
+  async deleteYoutubeOauthToken(): Promise<void> {
+    await db.delete(youtubeOauthTokens);
   }
 }
 

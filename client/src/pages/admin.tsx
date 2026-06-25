@@ -1672,6 +1672,8 @@ function RestreamAdmin() {
           <div><span className="text-muted-foreground">Stream Key:</span> live</div>
         </div>
       </div>
+      <YouTubeAuthCard />
+
       {configsLoading ? (
         <div className="space-y-4">
           {[1, 2].map((i) => (
@@ -1698,6 +1700,111 @@ function RestreamAdmin() {
 
       <PreStreamThumbnailCard />
     </div>
+  );
+}
+
+function YouTubeAuthCard() {
+  const { toast } = useToast();
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const { data: status, refetch } = useQuery<{ connected: boolean }>({
+    queryKey: ["/api/admin/youtube-auth/status"],
+    refetchOnWindowFocus: true,
+  });
+
+  // Handle ytauth query param after OAuth redirect
+  const [location] = useLocation();
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ytauth = params.get("ytauth");
+    if (ytauth === "success") {
+      toast({ title: "YouTube connected", description: "Thumbnails will now upload automatically when you go live." });
+      refetch();
+      window.history.replaceState({}, "", window.location.pathname + "?tab=stream");
+    } else if (ytauth === "error") {
+      toast({ title: "Connection failed", description: "Check that GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set.", variant: "destructive" });
+      window.history.replaceState({}, "", window.location.pathname + "?tab=stream");
+    }
+  }, [location]);
+
+  const connect = async () => {
+    setConnecting(true);
+    try {
+      const res = await fetch("/api/admin/youtube-auth/authorize", { credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed" }));
+        toast({ title: "Error", description: err.error || "Could not generate auth URL. Make sure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are configured.", variant: "destructive" });
+        return;
+      }
+      const { url } = await res.json();
+      window.location.href = url;
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const disconnect = async () => {
+    setDisconnecting(true);
+    try {
+      await fetch("/api/admin/youtube-auth", { method: "DELETE", credentials: "include" });
+      toast({ title: "Disconnected", description: "YouTube account unlinked." });
+      refetch();
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const connected = status?.connected ?? false;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Video className="w-4 h-4 text-red-500" />
+          Auto-Thumbnail Upload
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Connect your YouTube account so thumbnails upload automatically the moment you go live — no manual steps needed.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className={`flex items-center gap-2 text-sm font-medium rounded-md px-3 py-2 ${connected ? "bg-green-500/10 text-green-600 dark:text-green-400" : "bg-muted text-muted-foreground"}`}>
+          <div className={`w-2 h-2 rounded-full ${connected ? "bg-green-500" : "bg-gray-400"}`} />
+          {connected ? "YouTube account connected" : "Not connected"}
+        </div>
+
+        {connected ? (
+          <div className="space-y-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-3">
+            <p className="font-medium text-foreground text-sm">How it works</p>
+            <p>When your stream goes live, the server detects the service type (Sunday morning, FPC Connect, or Thursday) and automatically generates and uploads a branded 1280×720 thumbnail to your active YouTube broadcast.</p>
+          </div>
+        ) : (
+          <div className="space-y-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-3">
+            <p className="font-medium text-foreground text-sm">Setup required</p>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>Set <code className="bg-muted px-1 rounded">GOOGLE_CLIENT_ID</code> and <code className="bg-muted px-1 rounded">GOOGLE_CLIENT_SECRET</code> secrets</li>
+              <li>Add <code className="bg-muted px-1 rounded">/api/admin/youtube-auth/callback</code> to your Google OAuth client's redirect URIs</li>
+              <li>Click Connect below and authorize with your YouTube account</li>
+            </ol>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          {connected ? (
+            <Button variant="outline" size="sm" onClick={disconnect} disabled={disconnecting} data-testid="button-youtube-disconnect">
+              {disconnecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <X className="w-4 h-4 mr-2" />}
+              Disconnect
+            </Button>
+          ) : (
+            <Button size="sm" onClick={connect} disabled={connecting} data-testid="button-youtube-connect">
+              {connecting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Video className="w-4 h-4 mr-2" />}
+              Connect YouTube Account
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

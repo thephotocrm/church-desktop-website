@@ -452,3 +452,15 @@ export const prayerLogs = pgTable("prayer_logs", {
 });
 
 export type PrayerLog = typeof prayerLogs.$inferSelect;
+
+// ===================== YouTube OAuth Tokens =====================
+
+export const youtubeOauthTokens = pgTable("youtube_oauth_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  accessToken: text("access_token"),  // encrypted, short-lived
+  refreshToken: text("refresh_token").notNull(), // encrypted, long-lived
+  expiresAt: timestamp("expires_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type YoutubeOauthToken = typeof youtubeOauthTokens.$inferSelect;
