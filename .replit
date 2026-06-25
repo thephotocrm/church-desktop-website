@@ -46,3 +46,7 @@ JWT_SECRET = "ebf0873a87ec04fdb0aac497ab67b10d9b0eafa5cbf9fd6cea659266c0aefad883
 
 [agent]
 integrations = ["google-mail:1.0.0"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
