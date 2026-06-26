@@ -1,0 +1,57 @@
+Yes — this now does exactly what you wanted
+
+  The code that got pushed implements the full hands-off flow. End to end:
+
+  1. Connect once — Admin → Stream tab → Connect YouTube Account runs OAuth with the write scope .../auth/youtube
+  and stores a refresh token (youtubeOauth.ts).
+  2. Schedule — Schedule Next 3 Months creates a YouTube broadcast for every Sunday (11 AM) and Thursday (7:30
+  PM) service, each created with enableAutoStart: true and enableAutoStop: true, bound to your channel's stream,
+  with a branded thumbnail (youtubeScheduler.ts:133-165).
+  3. OBS Start — you push to the VPS exactly like always (rtmp://vps:1935/live, key live). The VPS relays to
+  YouTube's RTMP with your stream key. Because the broadcast has auto-start on, YouTube moves it ready → live by
+  itself the moment the bytes arrive. As a backup, when the backend sees the HLS feed go live it also calls
+  transition?live on the nearest scheduled broadcast (routes.ts:69, youtubeScheduler.ts:275).
+  4. OBS Stop — auto-stop ends the broadcast (and the backend calls transition?complete as backup).
+
+  So you no longer touch YouTube Studio at all — schedule once, then just hit Start in OBS. That's the thing that
+  was missing before.
+
+  The one gotcha that will re-break it if it's wrong
+
+  This is the same failure you hit originally, and the new code does not fully guard against it:
+
+  - Broadcasts get bound to getDefaultStreamId(), which is literally liveStreams?mine=true → items[0] — the first
+  reusable stream on your channel (youtubeScheduler.ts:123-131).
+  - The VPS pushes to the stream key saved separately in the admin platform config.
+
+  These two are set in different places and nothing checks that they match. If the key in your platform config
+  isn't the ingestion key of that same items[0] stream, the video lands on one stream while the broadcast is
+  bound to another → the broadcast never reaches "ready" → never goes live. Silent failure, exactly like before.
+
+  Action: make sure the YouTube stream key in the admin platform config is your channel's Default stream / 
+  persistent key — and that your channel has only that one reusable stream (so items[0] is unambiguous). If you
+  have multiple reusable streams, items[0] is a coin flip and should be fixed in code.
+
+  Setup prerequisites to check (on Replit/prod)
+
+  - Env vars set: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and BASE_URL=https://fpcd.life (the redirect URI is
+  derived from it — youtubeOauth.ts:22).
+  - In Google Cloud Console: YouTube Data API v3 enabled, and https://fpcd.life/api/admin/youtube-auth/callback
+  added to the OAuth client's Authorized redirect URIs.
+  - Consent must be done with the church's YouTube channel account.
+  - Thumbnails require a verified channel (non-fatal if not — it just skips the thumbnail).
+  - Service times are hardcoded to Sun 11:00 CT / Thu 7:30 PM CT (youtubeScheduler.ts:8-11). Confirm those match
+  your actual service times.
+
+  My recommendation
+
+  Two things would make this bulletproof, and I can do them:
+
+  1. Harden the stream binding so the scheduler binds broadcasts to the stream whose key matches the platform
+  config (or auto-fills the config key from the chosen default stream) — eliminating the items[0] coin-flip and
+  the manual-key-match gotcha entirely.
+  2. The broadcasts you scheduled by hand earlier (the ones that failed) are separate from these — want me to
+  check whether they're cluttering things up / should be cleaned out?
+
+  Want me to make fix #1? That's the difference between "works if the key happens to match" and "works every
+  time."

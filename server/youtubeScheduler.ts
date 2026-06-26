@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import { getValidAccessToken } from "./youtubeOauth";
 import { storage } from "./storage";
+import { decrypt } from "./encryption";
 
 // ── Service definitions ───────────────────────────────────────────────────────
 // dayOfWeek: 0 = Sunday, 4 = Thursday (UTC day)
@@ -121,13 +122,46 @@ function serviceTitle(type: string, dateStr: string): string {
 }
 
 async function getDefaultStreamId(accessToken: string): Promise<string | null> {
+  // Fetch all reusable streams with their ingestion keys so we can match against
+  // the stream key saved in the platform config (what the VPS actually pushes to).
   const res = await fetch(
-    "https://www.googleapis.com/youtube/v3/liveStreams?part=id,snippet&mine=true&maxResults=5",
+    "https://www.googleapis.com/youtube/v3/liveStreams?part=id,cdn,snippet&mine=true&maxResults=50",
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
-  if (!res.ok) return null;
-  const data = await res.json() as { items?: Array<{ id: string }> };
-  return data.items?.[0]?.id ?? null;
+  if (!res.ok) {
+    console.warn("[Scheduler] Failed to fetch live streams:", await res.text());
+    return null;
+  }
+  const data = await res.json() as {
+    items?: Array<{ id: string; cdn?: { ingestionInfo?: { streamName?: string } } }>;
+  };
+  const items = data.items ?? [];
+  if (items.length === 0) return null;
+
+  // Try to match against the platform config stream key (decrypted)
+  try {
+    const ytConfig = await storage.getPlatformConfig("youtube");
+    if (ytConfig?.streamKey) {
+      const configKey = decrypt(ytConfig.streamKey);
+      const matched = items.find(
+        (s) => s.cdn?.ingestionInfo?.streamName === configKey,
+      );
+      if (matched) {
+        console.log(`[Scheduler] Matched stream ${matched.id} to platform config key`);
+        return matched.id;
+      }
+      console.warn(
+        "[Scheduler] No stream matched platform config key — falling back to items[0].",
+        "Check that the YouTube stream key in Admin → Stream matches your channel's Default stream key.",
+      );
+    }
+  } catch (err) {
+    console.warn("[Scheduler] Could not compare platform config key:", err);
+  }
+
+  // Fallback: first stream (works if there is exactly one)
+  console.log(`[Scheduler] Using first available stream: ${items[0].id}`);
+  return items[0].id;
 }
 
 async function createBroadcast(accessToken: string, title: string, scheduledStart: Date): Promise<string | null> {
