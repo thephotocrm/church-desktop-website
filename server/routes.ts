@@ -20,6 +20,7 @@ import { setupWebSocket } from "./websocket";
 import { startEventReminders } from "./eventReminders";
 import youtubeOAuthRoutes from "./routes/youtubeOAuthRoutes";
 import { autoUploadThumbnail } from "./youtubeThumbnailUploader";
+import { transitionNearestBroadcast } from "./youtubeScheduler";
 
 // MediaMTX base URL (protocol + host + port)
 const MEDIA_SERVER_BASE = process.env.STREAM_HLS_URL
@@ -61,13 +62,19 @@ async function checkStreamLive(): Promise<boolean> {
   if (isLive && !wasLive) {
     // Transitioning from offline -> live
     await storage.updateStreamConfig({ isLive: true, startedAt: new Date() });
-    // Fire-and-forget: auto-generate + upload thumbnail to YouTube
+    // Fire-and-forget: upload thumbnail + auto-transition YouTube broadcast to live
     autoUploadThumbnail().catch((err) =>
       console.error("[ThumbUpload] Auto-upload error:", err)
+    );
+    transitionNearestBroadcast("live").catch((err) =>
+      console.error("[YouTubeLive] Auto-transition error:", err)
     );
   } else if (!isLive && wasLive) {
     // Transitioning from live -> offline
     await storage.updateStreamConfig({ isLive: false, startedAt: null });
+    transitionNearestBroadcast("complete").catch((err) =>
+      console.error("[YouTubeLive] Auto-complete error:", err)
+    );
   }
 
   wasLive = isLive;

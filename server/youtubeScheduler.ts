@@ -245,6 +245,111 @@ export async function scheduleNextMonths(months = 3): Promise<ScheduleResult> {
   return result;
 }
 
+// ── Auto-transition: called by routes.ts when HLS goes live / offline ─────────
+// When OBS starts sending RTMP to YouTube, the YouTube stream enters "active"
+// state and the bound broadcast enters "ready". We then call `transition?live`
+// to move it from ready → live.  On stream end we call `transition?complete`.
+
+async function getBroadcastStatus(accessToken: string, broadcastId: string): Promise<string | null> {
+  const res = await fetch(
+    `https://www.googleapis.com/youtube/v3/liveBroadcasts?id=${broadcastId}&part=status`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) return null;
+  const data = await res.json() as { items?: Array<{ status: { lifeCycleStatus: string } }> };
+  return data.items?.[0]?.status?.lifeCycleStatus ?? null;
+}
+
+async function transitionBroadcast(accessToken: string, broadcastId: string, status: "live" | "complete"): Promise<boolean> {
+  const res = await fetch(
+    `https://www.googleapis.com/youtube/v3/liveBroadcasts/transition?broadcastStatus=${status}&id=${broadcastId}&part=status`,
+    { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    console.warn(`[Scheduler] Transition to ${status} failed:`, text);
+  }
+  return res.ok;
+}
+
+export async function transitionNearestBroadcast(to: "live" | "complete"): Promise<void> {
+  try {
+    const accessToken = await getValidAccessToken();
+    if (!accessToken) return; // YouTube not connected — silently skip
+
+    const broadcasts = await storage.getScheduledBroadcasts();
+    if (broadcasts.length === 0) return;
+
+    const now = new Date();
+
+    // Find a broadcast whose scheduled window overlaps now (±2 hours)
+    const candidates = broadcasts.filter((b) => {
+      const start = new Date(b.scheduledStart);
+      const diffMs = now.getTime() - start.getTime();
+      // Accept window: started up to 2h ago or up to 30min in the future
+      return diffMs >= -30 * 60 * 1000 && diffMs <= 2 * 60 * 60 * 1000;
+    });
+
+    if (candidates.length === 0) {
+      console.log("[Scheduler] No broadcast in window for auto-transition");
+      return;
+    }
+
+    // Pick closest to now
+    candidates.sort(
+      (a, b) =>
+        Math.abs(new Date(a.scheduledStart).getTime() - now.getTime()) -
+        Math.abs(new Date(b.scheduledStart).getTime() - now.getTime()),
+    );
+    const broadcast = candidates[0];
+
+    if (to === "live") {
+      // YouTube stream needs time to become "active" and broadcast to reach "ready"
+      // Retry up to 6 times with 10s gaps (= up to ~1 min after HLS goes live)
+      let succeeded = false;
+      for (let attempt = 0; attempt < 6; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 10_000));
+
+        const currentStatus = await getBroadcastStatus(accessToken, broadcast.broadcastId);
+        console.log(`[Scheduler] Broadcast ${broadcast.broadcastId} status: ${currentStatus} (attempt ${attempt + 1})`);
+
+        if (currentStatus === "live") {
+          console.log("[Scheduler] Broadcast already live");
+          succeeded = true;
+          break;
+        }
+
+        if (currentStatus === "ready") {
+          succeeded = await transitionBroadcast(accessToken, broadcast.broadcastId, "live");
+          if (succeeded) {
+            console.log(`[Scheduler] ✓ Broadcast ${broadcast.broadcastId} transitioned to live`);
+            break;
+          }
+        }
+        // If still "created" or "testing", keep retrying
+      }
+
+      if (!succeeded) {
+        console.warn("[Scheduler] Could not auto-transition broadcast to live after retries");
+      }
+    } else {
+      // Transition to complete
+      const currentStatus = await getBroadcastStatus(accessToken, broadcast.broadcastId);
+      if (currentStatus === "live" || currentStatus === "ready") {
+        const ok = await transitionBroadcast(accessToken, broadcast.broadcastId, "complete");
+        if (ok) {
+          console.log(`[Scheduler] ✓ Broadcast ${broadcast.broadcastId} transitioned to complete`);
+          await storage.deleteScheduledBroadcast(broadcast.broadcastId);
+        }
+      } else {
+        console.log(`[Scheduler] Broadcast ${broadcast.broadcastId} not live (status: ${currentStatus}) — skipping complete transition`);
+      }
+    }
+  } catch (err) {
+    console.error("[Scheduler] transitionNearestBroadcast error:", err);
+  }
+}
+
 export async function cancelBroadcast(broadcastId: string): Promise<void> {
   const accessToken = await getValidAccessToken();
   if (!accessToken) throw new Error("YouTube account not connected");
