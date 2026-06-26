@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { requireAuth } from "../auth";
 import { encrypt, decrypt, mask, isEncrypted } from "../encryption";
 import sharp from "sharp";
+import { transitionNearestBroadcast } from "../youtubeScheduler";
 
 const router = Router();
 
@@ -163,6 +164,23 @@ vpsRestreamRouter.post("/vps-status", async (req, res) => {
 
     const result = await storage.upsertRestreamStatus(platform, data);
     res.json(result);
+
+    // When the VPS confirms YouTube restream started/stopped, auto-transition
+    // the scheduled broadcast — this is the primary trigger in production since
+    // the HLS-based detector only fires when someone visits the live page.
+    if (platform === "youtube") {
+      if (status === "active") {
+        console.log("[YouTubeLive] VPS reported YouTube active — triggering broadcast transition to live");
+        transitionNearestBroadcast("live").catch((err) =>
+          console.error("[YouTubeLive] Auto-transition (vps-status) error:", err)
+        );
+      } else if (status === "idle") {
+        console.log("[YouTubeLive] VPS reported YouTube idle — triggering broadcast complete");
+        transitionNearestBroadcast("complete").catch((err) =>
+          console.error("[YouTubeLive] Auto-complete (vps-status) error:", err)
+        );
+      }
+    }
   } catch (err) {
     console.error("Error updating VPS restream status:", err);
     res.status(500).json({ error: "Failed to update restream status" });

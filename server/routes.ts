@@ -82,12 +82,25 @@ async function checkStreamLive(): Promise<boolean> {
   return isLive;
 }
 
+// Background HLS poller — runs every 20s regardless of web traffic.
+// Primary trigger is the VPS status report; this is a safety net for production.
+function startStreamPoller() {
+  setInterval(async () => {
+    try {
+      await checkStreamLive();
+    } catch {
+      // silently ignore — checkStreamLive already handles errors
+    }
+  }, 20_000);
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   setupWebSocket(httpServer);
   startEventReminders();
+  startStreamPoller();
 
   app.get("/api/leaders", async (_req, res) => {
     const leaders = await storage.getLeaders();
