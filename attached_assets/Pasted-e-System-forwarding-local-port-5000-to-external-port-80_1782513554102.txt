@@ -1,0 +1,139 @@
+e
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+
+
+2026-06-26 17:27:04.73
+a497c11e
+System
+healthcheck failed error=healthcheck /: Get "http://127.0.0.1:1104/": dial tcp 127.0.0.1:1104: connect: connection refused
+
+2026-06-26 17:27:04.74
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:04.76
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:05.26
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:05.30
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:05.37
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:05.48
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:05.61
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:06.17
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:07.09
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:08.42
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:08.56
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:08.58
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:08.78
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:08.92
+72e5cbf9
+System
+system: received signal terminated
+
+2026-06-26 17:27:08.99
+72e5cbf9
+System
+command finished with error [node ./dist/index.cjs]: signal: terminated
+
+2026-06-26 17:27:09.03
+72e5cbf9
+System
+main done, exiting
+
+2026-06-26 17:27:09.05
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:10.35
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:10.49
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:12.35
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:13.03
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:14.54
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:16.08
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:16.65
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:17.35
+a497c11e
+System
+healthcheck failed error=healthcheck / returned status 500
+
+2026-06-26 17:27:17.54
+a497c11e
+User
+WARNING: CORS_ORIGIN not set. CORS will reject cross-
