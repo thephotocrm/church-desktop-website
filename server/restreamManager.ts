@@ -17,6 +17,17 @@ const DEFAULT_RTMP_URLS: Record<string, string> = {
 };
 
 export async function startRestreaming(): Promise<void> {
+  // The authoritative relay is the VPS restream.sh. This backend ffmpeg path pushes to the
+  // SAME platform stream keys, so running it alongside restream.sh double-pushes to one
+  // ingestion key (YouTube/Facebook reject the second connection). Disabled unless explicitly
+  // opted in, so a stray /api/stream/webhook call can't corrupt a live service.
+  if (process.env.ENABLE_BACKEND_RESTREAM !== "true") {
+    console.log(
+      "[RestreamManager] Backend restream disabled (set ENABLE_BACKEND_RESTREAM=true to enable). " +
+        "VPS restream.sh is authoritative — skipping to avoid double-push.",
+    );
+    return;
+  }
   console.log("[RestreamManager] Starting restreaming...");
   const configs = await storage.getPlatformConfigs();
 

@@ -120,7 +120,22 @@ export async function getValidAccessToken(): Promise<string | null> {
     });
     return accessToken;
   } catch (err) {
-    console.error("[YouTubeOAuth] Token refresh failed:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("invalid_grant")) {
+      // Permanent failure: the refresh token was revoked or expired (e.g. password reset,
+      // ~6mo inactivity, or 7-day expiry while the Google OAuth app is in "Testing").
+      // Clear it so /status reports connected:false and the admin is prompted to reconnect,
+      // instead of every service silently failing while the UI still shows "connected".
+      console.error("[YouTubeOAuth] Refresh token invalid (invalid_grant) — clearing stored token; re-auth required.");
+      try {
+        await storage.deleteYoutubeOauthToken();
+      } catch (e) {
+        console.error("[YouTubeOAuth] Failed to clear invalid token:", e);
+      }
+    } else {
+      // Transient (network / Google 5xx): keep the token so the next call can retry.
+      console.error("[YouTubeOAuth] Token refresh failed (transient, will retry):", msg);
+    }
     return null;
   }
 }

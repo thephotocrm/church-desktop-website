@@ -10,6 +10,16 @@ const app = express();
 app.set("trust proxy", 1);
 const httpServer = createServer(app);
 
+// Last-resort safety net: a transient DB blip, a rejected fetch in a fire-and-forget
+// path, or an EventEmitter-level error must not take the whole streaming/ingest
+// service down. Log and keep serving so Sunday/Thursday services stay live.
+process.on("unhandledRejection", (reason) => {
+  console.error("[process] unhandledRejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[process] uncaughtException:", err);
+});
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;

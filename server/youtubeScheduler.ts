@@ -6,6 +6,9 @@ import { decrypt } from "./encryption";
 // ── Service definitions ───────────────────────────────────────────────────────
 // dayOfWeek: 0 = Sunday, 4 = Thursday (UTC day)
 // Broadcast opens 15 min before service to give viewers time to join
+// NOTE: the Sunday-evening "FPC Connect" Bible study is intentionally NOT streamed, so it
+// is deliberately absent here. The "sunday-evening" label elsewhere (thumbnail/label maps)
+// is only used if an operator manually creates such a broadcast.
 const SERVICES = [
   { type: "sunday-morning", dayOfWeek: 0, hourCT: 10, minuteCT: 45 }, // 15 min before 11 AM
   { type: "thursday",       dayOfWeek: 4, hourCT: 19, minuteCT: 15 }, // 15 min before 7:30 PM
@@ -14,7 +17,7 @@ const SERVICES = [
 // ── DST helper (US Central Time) ──────────────────────────────────────────────
 // CDT = UTC-5 (second Sun of March → first Sun of November)
 // CST = UTC-6 (otherwise)
-function ctToUtcOffset(date: Date): number {
+export function ctToUtcOffset(date: Date): number {
   const y = date.getUTCFullYear();
   // Second Sunday of March
   const marchFirst = new Date(Date.UTC(y, 2, 1));
@@ -138,30 +141,41 @@ async function getDefaultStreamId(accessToken: string): Promise<string | null> {
   const items = data.items ?? [];
   if (items.length === 0) return null;
 
-  // Try to match against the platform config stream key (decrypted)
+  // Match against the platform config stream key (what the VPS actually pushes to).
+  let ytConfig;
   try {
-    const ytConfig = await storage.getPlatformConfig("youtube");
-    if (ytConfig?.streamKey) {
-      const configKey = decrypt(ytConfig.streamKey);
-      const matched = items.find(
-        (s) => s.cdn?.ingestionInfo?.streamName === configKey,
-      );
-      if (matched) {
-        console.log(`[Scheduler] Matched stream ${matched.id} to platform config key`);
-        return matched.id;
-      }
-      console.warn(
-        "[Scheduler] No stream matched platform config key — falling back to items[0].",
-        "Check that the YouTube stream key in Admin → Stream matches your channel's Default stream key.",
-      );
-    }
+    ytConfig = await storage.getPlatformConfig("youtube");
   } catch (err) {
-    console.warn("[Scheduler] Could not compare platform config key:", err);
+    console.warn("[Scheduler] Could not read platform config:", err);
   }
 
-  // Fallback: first stream (works if there is exactly one)
-  console.log(`[Scheduler] Using first available stream: ${items[0].id}`);
-  return items[0].id;
+  if (ytConfig?.streamKey) {
+    const configKey = decrypt(ytConfig.streamKey);
+    const matched = items.find((s) => s.cdn?.ingestionInfo?.streamName === configKey);
+    if (matched) {
+      console.log(`[Scheduler] Matched stream ${matched.id} to platform config key`);
+      return matched.id;
+    }
+    // No stream's ingestion key equals the configured key. Binding to items[0] would
+    // create a broadcast the VPS never feeds (silently never goes live). Hard-fail so
+    // the admin fixes the mismatch instead of getting a broadcast that can't work.
+    console.error(
+      "[Scheduler] No channel stream matches the YouTube stream key in Admin → Stream. " +
+        "Refusing to bind to an arbitrary stream. Fix the stream key to match your channel.",
+    );
+    return null;
+  }
+
+  // No stream key configured. Only safe when the channel has exactly one stream.
+  if (items.length === 1) {
+    console.log(`[Scheduler] No config key set; using the channel's only stream: ${items[0].id}`);
+    return items[0].id;
+  }
+  console.error(
+    `[Scheduler] No stream key configured and channel has ${items.length} streams — cannot pick safely. ` +
+      "Set the YouTube stream key in Admin → Stream.",
+  );
+  return null;
 }
 
 async function createBroadcast(accessToken: string, title: string, scheduledStart: Date): Promise<string | null> {
@@ -233,6 +247,13 @@ export async function scheduleNextMonths(months = 3): Promise<ScheduleResult> {
   if (!accessToken) throw new Error("YouTube account not connected");
 
   const streamId = await getDefaultStreamId(accessToken);
+  if (!streamId) {
+    // Don't create broadcasts that can never go live. Surface a fixable error to the admin.
+    throw new Error(
+      "No YouTube stream matched. Ensure your channel has a stream and that the stream key " +
+        "in Admin → Stream exactly matches your channel's ingestion key, then schedule again.",
+    );
+  }
   const services = getUpcomingServiceDates(months);
   const result: ScheduleResult = { scheduled: 0, skipped: 0, errors: 0, broadcasts: [] };
 
@@ -252,7 +273,7 @@ export async function scheduleNextMonths(months = 3): Promise<ScheduleResult> {
       const broadcastId = await createBroadcast(accessToken, title, svc.scheduledStart);
       if (!broadcastId) { result.errors++; continue; }
 
-      if (streamId) await bindBroadcast(accessToken, broadcastId, streamId);
+      await bindBroadcast(accessToken, broadcastId, streamId);
 
       const thumbnailSet = await uploadThumbnail(accessToken, broadcastId, svc.type, svc.dateStr);
 
@@ -262,6 +283,7 @@ export async function scheduleNextMonths(months = 3): Promise<ScheduleResult> {
         serviceDate: svc.dateStr,
         scheduledStart: svc.scheduledStart,
         title,
+        streamId,
         thumbnailSet,
       });
 
@@ -315,13 +337,17 @@ export async function transitionNearestBroadcast(to: "live" | "complete"): Promi
     if (broadcasts.length === 0) return;
 
     const now = new Date();
+    const MIN = 60 * 1000;
 
-    // Find a broadcast whose scheduled window overlaps now (±2 hours)
+    // Direction-aware window (diffMs = now - scheduledStart):
+    //  - "live": tolerate early OBS starts (up to 2h before) and long pre-rolls (up to 4h after),
+    //    so an early start that later enters the service window still gets a backstop transition.
+    //  - "complete": stay generous so a long service (>2h) still gets completed and its row cleaned up.
+    const lowerMs = to === "live" ? -120 * MIN : -120 * MIN;
+    const upperMs = to === "live" ? 240 * MIN : 720 * MIN;
     const candidates = broadcasts.filter((b) => {
-      const start = new Date(b.scheduledStart);
-      const diffMs = now.getTime() - start.getTime();
-      // Accept window: started up to 2h ago or up to 30min in the future
-      return diffMs >= -30 * 60 * 1000 && diffMs <= 2 * 60 * 60 * 1000;
+      const diffMs = now.getTime() - new Date(b.scheduledStart).getTime();
+      return diffMs >= lowerMs && diffMs <= upperMs;
     });
 
     if (candidates.length === 0) {
@@ -338,6 +364,20 @@ export async function transitionNearestBroadcast(to: "live" | "complete"): Promi
     const broadcast = candidates[0];
 
     if (to === "live") {
+      // Self-heal the binding: if the admin fixed/changed the stream key after this
+      // broadcast was scheduled, re-bind to the stream the VPS is actually feeding now,
+      // before it goes live (binding is only possible while not yet live).
+      try {
+        const liveStreamId = await getDefaultStreamId(accessToken);
+        if (liveStreamId && liveStreamId !== broadcast.streamId) {
+          console.log(`[Scheduler] Re-binding ${broadcast.broadcastId} to current stream ${liveStreamId}`);
+          await bindBroadcast(accessToken, broadcast.broadcastId, liveStreamId);
+          await storage.updateScheduledBroadcastStream(broadcast.broadcastId, liveStreamId);
+        }
+      } catch (err) {
+        console.warn("[Scheduler] Pre-live re-bind check failed (continuing):", err);
+      }
+
       // YouTube stream needs time to become "active" and broadcast to reach "ready"
       // Retry up to 6 times with 10s gaps (= up to ~1 min after HLS goes live)
       let succeeded = false;
@@ -367,16 +407,22 @@ export async function transitionNearestBroadcast(to: "live" | "complete"): Promi
         console.warn("[Scheduler] Could not auto-transition broadcast to live after retries");
       }
     } else {
-      // Transition to complete
+      // Transition to complete. enableAutoStop usually moves the broadcast to "complete"
+      // before we observe the offline edge, so also clean up the row when it is already
+      // terminal — otherwise youtube_scheduled_broadcasts rows leak forever.
       const currentStatus = await getBroadcastStatus(accessToken, broadcast.broadcastId);
-      if (currentStatus === "live" || currentStatus === "ready") {
+      if (currentStatus === "live" || currentStatus === "ready" || currentStatus === "testing") {
         const ok = await transitionBroadcast(accessToken, broadcast.broadcastId, "complete");
         if (ok) {
           console.log(`[Scheduler] ✓ Broadcast ${broadcast.broadcastId} transitioned to complete`);
           await storage.deleteScheduledBroadcast(broadcast.broadcastId);
         }
+      } else if (currentStatus === "complete" || currentStatus === "revoked") {
+        console.log(`[Scheduler] Broadcast ${broadcast.broadcastId} already ${currentStatus} — cleaning up row`);
+        await storage.deleteScheduledBroadcast(broadcast.broadcastId);
       } else {
-        console.log(`[Scheduler] Broadcast ${broadcast.broadcastId} not live (status: ${currentStatus}) — skipping complete transition`);
+        // null (transient API error) or "created" — leave the row for a later attempt.
+        console.log(`[Scheduler] Broadcast ${broadcast.broadcastId} status ${currentStatus} — skipping complete transition`);
       }
     }
   } catch (err) {

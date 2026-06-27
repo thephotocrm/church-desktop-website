@@ -65,3 +65,16 @@ export function isEncrypted(value: string): boolean {
   const parts = value.split(":");
   return parts.length === 3;
 }
+
+/**
+ * Constant-time shared-secret comparison for request headers. Fail-closed when the
+ * expected secret is unset or the provided value isn't a string. Avoids the
+ * byte-by-byte short-circuit timing side channel of `===`.
+ */
+export function secretsMatch(provided: unknown, expected: string | undefined): boolean {
+  if (!expected || typeof provided !== "string") return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}

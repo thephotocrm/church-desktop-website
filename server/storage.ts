@@ -182,8 +182,9 @@ export interface IStorage {
   getScheduledBroadcasts(): Promise<YoutubeScheduledBroadcast[]>;
   saveScheduledBroadcast(data: {
     broadcastId: string; serviceType: string; serviceDate: string;
-    scheduledStart: Date; title: string; thumbnailSet: boolean;
+    scheduledStart: Date; title: string; streamId?: string | null; thumbnailSet: boolean;
   }): Promise<YoutubeScheduledBroadcast>;
+  updateScheduledBroadcastStream(broadcastId: string, streamId: string): Promise<void>;
   deleteScheduledBroadcast(broadcastId: string): Promise<void>;
 
   // Auth Codes
@@ -935,8 +936,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createRecording(data: InsertRecording): Promise<Recording> {
-    const [result] = await db.insert(recordings).values(data as any).returning();
-    return result;
+    // Idempotent on r2_key: a re-POSTed ingest (lost ACK / cron retry) returns the
+    // already-stored recording instead of creating a duplicate row.
+    const [result] = await db
+      .insert(recordings)
+      .values(data as any)
+      .onConflictDoNothing({ target: recordings.r2Key })
+      .returning();
+    if (result) return result;
+    const [existing] = await db
+      .select()
+      .from(recordings)
+      .where(eq(recordings.r2Key, data.r2Key));
+    return existing;
   }
 
   async updateRecording(id: string, data: Partial<InsertRecording>): Promise<Recording> {
@@ -1098,10 +1110,16 @@ export class DatabaseStorage implements IStorage {
 
   async saveScheduledBroadcast(data: {
     broadcastId: string; serviceType: string; serviceDate: string;
-    scheduledStart: Date; title: string; thumbnailSet: boolean;
+    scheduledStart: Date; title: string; streamId?: string | null; thumbnailSet: boolean;
   }): Promise<YoutubeScheduledBroadcast> {
     const [row] = await db.insert(youtubeScheduledBroadcasts).values(data).returning();
     return row;
+  }
+
+  async updateScheduledBroadcastStream(broadcastId: string, streamId: string): Promise<void> {
+    await db.update(youtubeScheduledBroadcasts)
+      .set({ streamId })
+      .where(eq(youtubeScheduledBroadcasts.broadcastId, broadcastId));
   }
 
   async deleteScheduledBroadcast(broadcastId: string): Promise<void> {

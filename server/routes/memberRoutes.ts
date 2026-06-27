@@ -103,7 +103,7 @@ router.post("/refresh", authLimiter, async (req, res) => {
   }
 
   try {
-    const payload = verifyToken(refreshToken);
+    const payload = verifyToken(refreshToken, "refresh");
     const member = await storage.getMember(payload.memberId);
     if (!member) {
       return res.status(401).json({ message: "Member not found" });

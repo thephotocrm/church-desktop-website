@@ -1,19 +1,46 @@
 import sharp from "sharp";
 import { getValidAccessToken } from "./youtubeOauth";
+import { ctToUtcOffset } from "./youtubeScheduler";
+import { storage } from "./storage";
 
 function guessServiceType(): string {
   const now = new Date();
-  const utcDay = now.getUTCDay();
-  const utcHour = now.getUTCHours();
-  // Dallas is UTC-5 (CDT) or UTC-6 (CST). Use UTC-5 as a safe approximation.
-  const localHour = (utcHour - 5 + 24) % 24;
+  // Use the real Central-Time offset (5 CDT / 6 CST) and branch on the CT calendar
+  // day/hour, so an evening service that lands on the next UTC day isn't mislabeled.
+  const offset = ctToUtcOffset(now);
+  const ct = new Date(now.getTime() - offset * 60 * 60 * 1000); // shift so UTC fields read as CT
+  const ctDay = ct.getUTCDay();
+  const ctHour = ct.getUTCHours();
 
-  if (utcDay === 0) {
-    return localHour < 15 ? "sunday-morning" : "sunday-evening";
-  } else if (utcDay === 4) {
+  if (ctDay === 0) {
+    return ctHour < 15 ? "sunday-morning" : "sunday-evening";
+  } else if (ctDay === 4) {
     return "thursday";
   }
   return "sunday-morning";
+}
+
+// The scheduled broadcast nearest to now (matches transitionNearestBroadcast's window).
+// Lets us target the correct broadcast + service type even before YouTube marks it "active".
+async function findNearestScheduledBroadcast() {
+  try {
+    const broadcasts = await storage.getScheduledBroadcasts();
+    const now = Date.now();
+    const inWindow = broadcasts.filter((b) => {
+      const diff = now - new Date(b.scheduledStart).getTime();
+      return diff >= -2 * 60 * 60 * 1000 && diff <= 4 * 60 * 60 * 1000;
+    });
+    if (inWindow.length === 0) return null;
+    inWindow.sort(
+      (a, b) =>
+        Math.abs(new Date(a.scheduledStart).getTime() - now) -
+        Math.abs(new Date(b.scheduledStart).getTime() - now),
+    );
+    return inWindow[0];
+  } catch (err) {
+    console.error("[ThumbUpload] Failed to read scheduled broadcasts:", err);
+    return null;
+  }
 }
 
 function buildThumbnailSvg(type: string, dateStr: string): string {
@@ -101,18 +128,32 @@ export async function autoUploadThumbnail(): Promise<void> {
     return;
   }
 
-  const serviceType = guessServiceType();
-  const dateStr = new Date().toISOString().slice(0, 10);
-  console.log(`[ThumbUpload] Generating ${serviceType} thumbnail for ${dateStr}`);
+  // Prefer the nearest scheduled broadcast: it gives the correct service type/date and a
+  // broadcastId that exists at the offline->live edge (when the broadcast is still "ready"/
+  // "testing", so the broadcastStatus=active lookup would return nothing). Fall back to the
+  // active-broadcast lookup + guessed type for manually-created/unscheduled broadcasts.
+  const nearest = await findNearestScheduledBroadcast();
+  let broadcastId: string | null;
+  let serviceType: string;
+  let dateStr: string;
+  if (nearest) {
+    broadcastId = nearest.broadcastId;
+    serviceType = nearest.serviceType;
+    dateStr = nearest.serviceDate;
+  } else {
+    serviceType = guessServiceType();
+    dateStr = new Date().toISOString().slice(0, 10);
+    broadcastId = await getActiveBroadcastId(accessToken);
+  }
 
-  const svg = buildThumbnailSvg(serviceType, dateStr);
-  const pngBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
-
-  const broadcastId = await getActiveBroadcastId(accessToken);
   if (!broadcastId) {
-    console.log("[ThumbUpload] No active YouTube broadcast found — skipping upload");
+    console.log("[ThumbUpload] No broadcast found (scheduled or active) — skipping upload");
     return;
   }
+
+  console.log(`[ThumbUpload] Generating ${serviceType} thumbnail for ${dateStr}`);
+  const svg = buildThumbnailSvg(serviceType, dateStr);
+  const pngBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
 
   console.log(`[ThumbUpload] Uploading to broadcast ${broadcastId}`);
 

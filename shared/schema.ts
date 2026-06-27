@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, uniqueIndex, json } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, bigint, boolean, uniqueIndex, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -369,12 +369,14 @@ export const recordings = pgTable("recordings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   description: text("description"),
-  r2Key: text("r2_key").notNull(),
+  // Unique so a re-POSTed ingest (lost ACK / cron retry) cannot create a duplicate row.
+  r2Key: text("r2_key").notNull().unique(),
   r2Url: text("r2_url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
   thumbnailCandidates: json("thumbnail_candidates").$type<string[]>().default([]),
   duration: integer("duration_seconds"),
-  fileSize: integer("file_size_bytes"),
+  // bigint: a full-length service recording is multiple GB and overflows int4 (max ~2.1 GB).
+  fileSize: bigint("file_size_bytes", { mode: "number" }),
   status: text("status").notNull().default("processing"), // processing | ready | error
   published: boolean("published").notNull().default(false),
   streamStartedAt: timestamp("stream_started_at"),
@@ -474,6 +476,8 @@ export const youtubeScheduledBroadcasts = pgTable("youtube_scheduled_broadcasts"
   serviceDate: text("service_date").notNull(), // YYYY-MM-DD
   scheduledStart: timestamp("scheduled_start").notNull(),
   title: text("title").notNull(),
+  // YouTube stream this broadcast was bound to; used to re-bind at go-live if config changes.
+  streamId: text("stream_id"),
   thumbnailSet: boolean("thumbnail_set").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });

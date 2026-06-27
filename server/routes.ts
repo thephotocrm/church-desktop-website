@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { type Server } from "http";
 import { storage } from "./storage";
 import { requireAuth } from "./auth";
+import { secretsMatch } from "./encryption";
 import { insertContactSchema, updateStreamConfigSchema } from "@shared/schema";
 import memberRoutes from "./routes/memberRoutes";
 import groupRoutes from "./routes/groupRoutes";
@@ -88,6 +89,23 @@ export async function registerRoutes(
 ): Promise<Server> {
   setupWebSocket(httpServer);
   startEventReminders();
+
+  // Seed the in-memory live-edge tracker from persisted state so a process restart or
+  // Replit sleep mid-service doesn't misfire a fresh offline->live edge (resetting startedAt
+  // / re-transitioning) or miss the live->offline edge.
+  try {
+    const cfg = await storage.getStreamConfig();
+    wasLive = cfg?.isLive ?? false;
+  } catch (err) {
+    console.error("[StreamPoller] Failed to seed wasLive from DB:", err);
+  }
+
+  // Background poller: drive offline<->live detection (and the YouTube auto-transition +
+  // thumbnail) even when no one is hitting /api/stream/status. checkStreamLive is cached 5s,
+  // so a 30s tick only does real work on a state change.
+  setInterval(() => {
+    checkStreamLive().catch((err) => console.error("[StreamPoller] check failed:", err));
+  }, 30_000);
 
   app.get("/api/leaders", async (_req, res) => {
     const leaders = await storage.getLeaders();
@@ -225,7 +243,7 @@ export async function registerRoutes(
       return res.status(500).json({ error: "Webhook not configured" });
     }
 
-    if (secret !== expectedSecret) {
+    if (!secretsMatch(secret, expectedSecret)) {
       return res.status(403).json({ error: "Invalid webhook secret" });
     }
 

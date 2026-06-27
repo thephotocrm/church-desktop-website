@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { requireAuth } from "../auth";
-import { encrypt, decrypt, mask, isEncrypted } from "../encryption";
+import { encrypt, decrypt, mask, isEncrypted, secretsMatch } from "../encryption";
 import sharp from "sharp";
 
 const router = Router();
@@ -86,10 +86,10 @@ router.get("/restream-status", requireAuth, async (_req, res) => {
 export const vpsRestreamRouter = Router();
 
 vpsRestreamRouter.get("/vps-config", async (req, res) => {
-  const secret = req.headers["x-vps-secret"] as string | undefined;
+  const secret = req.headers["x-vps-secret"];
   const expectedSecret = process.env.RESTREAM_VPS_SECRET;
 
-  if (!expectedSecret || secret !== expectedSecret) {
+  if (!secretsMatch(secret, expectedSecret)) {
     return res.status(403).json({ error: "Invalid VPS secret" });
   }
 
@@ -126,10 +126,10 @@ vpsRestreamRouter.get("/vps-config", async (req, res) => {
 
 // POST /api/restream/vps-status — VPS reports restream status changes
 vpsRestreamRouter.post("/vps-status", async (req, res) => {
-  const secret = req.headers["x-vps-secret"] as string | undefined;
+  const secret = req.headers["x-vps-secret"];
   const expectedSecret = process.env.RESTREAM_VPS_SECRET;
 
-  if (!expectedSecret || secret !== expectedSecret) {
+  if (!secretsMatch(secret, expectedSecret)) {
     return res.status(403).json({ error: "Invalid VPS secret" });
   }
 
